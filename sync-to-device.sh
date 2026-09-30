@@ -19,7 +19,13 @@ while [ $# -gt 0 ]; do
     --device) DEVICE="$2"; shift 2 ;;
     --device=*) DEVICE="${1#--device=}"; shift ;;
     -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
-    *) ITEMS+=("$1"); shift ;;
+    *)
+      if [ ! -e "$1" ]; then
+        echo "⚠️  跳过（不存在）：$1"
+      else
+        ITEMS+=("$1")
+      fi
+      shift ;;
   esac
 done
 
@@ -50,37 +56,42 @@ if [ -z "$DEVICE" ]; then
 fi
 echo "📱 目标设备：$DEVICE"
 
-# ---------- 校验本地文件 ----------
-SRC_ARGS=()
-for item in "${ITEMS[@]}"; do
-  if [ ! -e "$item" ]; then
-    echo "⚠️  跳过（不存在）：$item"
-    continue
-  fi
-  SRC_ARGS+=(--source "$item")
-done
-if [ "${#SRC_ARGS[@]}" -eq 0 ]; then
-  echo "❌ 没有可传输的有效路径。"
-  exit 1
-fi
-
 # ---------- 传输 ----------
-echo "🚀 开始传输（devicectl 会跳过未修改的文件，重复执行=增量同步）..."
-if ! xcrun devicectl device copy to \
-    --device "$DEVICE" \
-    --domain-type appDataContainer \
-    --domain-identifier "$BUNDLE_ID" \
-    "${SRC_ARGS[@]}" \
-    --destination /Documents; then
-  echo ""
-  echo "❌ 传输失败。常见原因："
-  echo "   1. iPhone 处于锁定状态 —— 解锁手机后重试"
-  echo "   2. 未信任本机 —— 手机上弹窗点「信任」"
-  echo "   3. App 未安装 —— 先在 Xcode 里运行一次 Sonux"
+# 注意：devicectl 的 --destination 是「目标路径」而不是「目标目录」：
+#   - 单个文件 + --destination /Documents 会把 Documents 整个目录覆盖成该文件！
+#   - 正确写法：目标写全路径；文件夹末尾加 / 表示复制进该目录。
+# 因此这里逐条传输，每个条目都指定完整目标路径。
+TOTAL=${#ITEMS[@]}
+INDEX=0
+IMPORTED=0
+for item in "${ITEMS[@]}"; do
+  INDEX=$((INDEX + 1))
+  name="$(basename "$item")"
+  if [ -d "$item" ]; then
+    dest="/Documents/$name/"   # 末尾斜杠：把文件夹整个复制进 Documents
+  else
+    dest="/Documents/$name"    # 目标写全文件名：文件落在 Documents 内
+  fi
+  echo " [$INDEX/$TOTAL] $name"
+  if xcrun devicectl device copy to \
+      --device "$DEVICE" \
+      --domain-type appDataContainer \
+      --domain-identifier "$BUNDLE_ID" \
+      --source "$item" \
+      --destination "$dest" >/dev/null 2>&1; then
+    IMPORTED=$((IMPORTED + 1))
+  else
+    echo "   ⚠️  传输失败，已跳过：$item"
+    echo "      常见原因：iPhone 锁定 / 未信任本机 / App 未安装（先在 Xcode 运行一次）"
+  fi
+done
+
+if [ "$IMPORTED" -eq 0 ]; then
+  echo "❌ 全部传输失败。"
   exit 1
 fi
 
 echo ""
-echo "✅ 完成，共传输 ${#ITEMS[@]} 个条目。"
+echo "✅ 完成，成功传输 $IMPORTED/$TOTAL 个条目（devicectl 会跳过未修改的文件，重复执行=增量同步）。"
 echo "   打开 iPhone 上的 Sonux，点「刷新/重新扫描」即可看到新书。"
 echo "   目标位置：$BUNDLE_ID 沙盒 Documents"

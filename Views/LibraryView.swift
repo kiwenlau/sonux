@@ -16,7 +16,7 @@ struct LibraryView: View {
                     Section {
                         HStack {
                             Image(systemName: "arrow.triangle.2.circlepath")
-                            Text("从电脑同步：Finder / iTunes → 文件共享 → Sonux，拖入音频文件即可")
+                            Text("从电脑同步：Finder / iTunes → 文件共享 → Sonux，拖入音频文件或文件夹（文件夹 = 一本多章节书）即可")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -142,7 +142,7 @@ private struct EmptyLibraryView: View {
     var body: some View {
         ContentUnavailableWrapper(
             title: "书库是空的",
-            message: "从电脑同步：用数据线连接 Mac 或 PC，在 Finder（或 Apple 设备 / iTunes）的「文件共享 → Sonux」里拖入音频文件。\n也可以直接点击下方「导入」从「文件」App 选择。",
+            message: "从电脑同步：用数据线连接 Mac 或 PC，在 Finder（或 Apple 设备 / iTunes）的「文件共享 → Sonux」里拖入音频文件或文件夹（文件夹 = 一本多章节书）。\n也可以直接点击下方「导入」从「文件」App 选择。",
             action: {
                 Button {
                     onImport()
