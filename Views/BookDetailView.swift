@@ -11,17 +11,21 @@ struct BookDetailView: View {
                 ChapterRow(
                     chapter: chapter,
                     isCurrent: player.currentChapter?.id == chapter.id,
-                    position: library.position(forBook: book.id)
+                    position: library.position(forChapter: chapter.id)
                 )
                 .swipeActions {
                     Button("重置进度") {
-                        library.recordPosition(PlayPosition(chapterId: chapter.id, time: 0), bookId: book.id)
+                        library.resetChapterProgress(chapterId: chapter.id)
                     }
                     .tint(.orange)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    player.play(chapter: chapter, book: book)
+                    // 默认从该音频的历史播放位置续播
+                    let resume = library.position(forChapter: chapter.id)
+                        .map { ProgressPolicy.resumeTime(time: $0.time, duration: chapter.duration) }
+                        ?? 0
+                    player.play(chapter: chapter, book: book, fromTime: resume)
                     player.showPlayer = true
                 }
             }
@@ -46,7 +50,7 @@ private struct ChapterRow: View {
             return "已听完"
         }
         if ProgressPolicy.isStarted(chapterTime) {
-            return "听到 \(TimeFormat.time(chapterTime)) / \(TimeFormat.time(chapter.duration))"
+            return "\(TimeFormat.time(chapterTime)) / \(TimeFormat.time(chapter.duration))"
         }
         return TimeFormat.time(chapter.duration)
     }

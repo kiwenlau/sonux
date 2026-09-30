@@ -38,5 +38,9 @@ struct SonuxApp: App {
             guard let library, let bookId = player?.currentBook?.id else { return }
             library.recordPosition(position, bookId: bookId)
         }
+        // 自动续播下一章时，查询该章节自己的历史播放位置
+        player.chapterHistory = { [weak library] chapterId in
+            library?.position(forChapter: chapterId)
+        }
     }
 }

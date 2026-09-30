@@ -16,8 +16,10 @@ enum LibraryError: LocalizedError {
 @MainActor
 final class LibraryService: ObservableObject {
     @Published private(set) var books: [Book] = []
-    /// key: bookId，value: 该书最后播放位置
+    /// key: bookId，value: 该书最后播放位置（用于「继续收听」和书库列表进度）
     @Published private(set) var positions: [String: PlayPosition] = [:]
+    /// key: chapterId，value: 该音频自己的历史播放位置（重新播放时从此处续播）
+    @Published private(set) var chapterPositions: [String: PlayPosition] = [:]
 
     static let supportedExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "wav", "wave"]
 
@@ -75,6 +77,8 @@ final class LibraryService: ObservableObject {
         // 清理已消失文件的进度
         let aliveBookIds = Set(books.map(\.id))
         positions = positions.filter { aliveBookIds.contains($0.key) }
+        let aliveChapterIds = Set(books.flatMap { $0.chapters.map(\.id) })
+        chapterPositions = chapterPositions.filter { aliveChapterIds.contains($0.key) }
         saveProgress()
     }
 
@@ -96,8 +100,23 @@ final class LibraryService: ObservableObject {
         positions[id]
     }
 
-    func recordPosition(_ position: PlayPosition, bookId: String) {
+    /// 某个音频的历史播放位置
+    func position(forChapter id: String) -> PlayPosition? {
+        chapterPositions[id]
+    }
+
+    func recordPosition(_ position: PlayPosition, bookId: String, alsoForChapter: Bool = false) {
         positions[bookId] = position
+        // 章节进度单独记一份，保证每章都有独立的历史位置
+        if !alsoForChapter {
+            chapterPositions[position.chapterId] = position
+        }
+        saveProgress()
+    }
+
+    /// 重置某个音频的历史播放位置（下次从头播放）
+    func resetChapterProgress(chapterId: String) {
+        chapterPositions[chapterId] = nil
         saveProgress()
     }
 
@@ -123,6 +142,7 @@ final class LibraryService: ObservableObject {
         }
 
         positions[book.id] = nil
+        for chapter in book.chapters { chapterPositions[chapter.id] = nil }
         rescan()
         saveProgress()
     }
@@ -275,16 +295,42 @@ final class LibraryService: ObservableObject {
         return seconds.isFinite && seconds > 0 ? seconds : 0
     }
 
+    /// 持久化结构：书本进度 + 章节进度
+    private struct ProgressStore: Codable {
+        var books: [String: PlayPosition]
+        var chapters: [String: PlayPosition]
+    }
+
     private func saveProgress() {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        guard let data = try? encoder.encode(positions) else { return }
-        try? data.write(to: progressURL, options: .atomic)
+        let store = ProgressStore(books: positions, chapters: chapterPositions)
+        guard let data = try? encoder.encode(store) else { return }
+        do {
+            // Data.write 不会创建中间目录，而 iOS 不预建 Application Support，先确保父目录存在
+            try FileManager.default.createDirectory(
+                at: progressURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try data.write(to: progressURL, options: .atomic)
+        } catch {
+            NSLog("[sonux] saveProgress: 写入失败 %@", error.localizedDescription)
+        }
     }
 
     private func loadProgress() {
         guard let data = try? Data(contentsOf: progressURL) else { return }
-        positions = (try? JSONDecoder().decode([String: PlayPosition].self, from: data)) ?? [:]
+        if let store = try? JSONDecoder().decode(ProgressStore.self, from: data) {
+            positions = store.books
+            chapterPositions = store.chapters
+        } else if let old = try? JSONDecoder().decode([String: PlayPosition].self, from: data) {
+            // 兼容旧格式：只有按书记录的进度，从中派生出章节历史位置
+            positions = old
+            chapterPositions = [:]
+            for pos in old.values {
+                chapterPositions[pos.chapterId] = pos
+            }
+        }
     }
 
     /// 启动时先读进度再扫描（在 rescan 前调用）

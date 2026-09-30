@@ -49,6 +49,8 @@ final class PlayerService: NSObject, ObservableObject {
     var onChapterFinished: ((Chapter, Book) -> Void)?
     /// 周期性进度上报（播完一章时也会调用一次结尾位置）
     var onPositionChange: ((PlayPosition) -> Void)?
+    /// 查询某章节的历史播放位置（自动续播到下一章时使用）
+    var chapterHistory: ((String) -> PlayPosition?)?
 
     private var player: AVAudioPlayer?
     private var displayLinkTimer: Timer?
@@ -149,7 +151,9 @@ final class PlayerService: NSObject, ObservableObject {
             if offset > 0 { stop() }
             return
         }
-        play(chapter: book.chapters[target], book: book)
+        let next = book.chapters[target]
+        // 下一章若有未播完的历史位置，则从该位置续播
+        play(chapter: next, book: book, fromTime: resumeTime(for: next))
     }
 
     func cycleSpeed() {
@@ -245,6 +249,13 @@ final class PlayerService: NSObject, ObservableObject {
     private func positionTime(in book: Book, chapter: Chapter, position: PlayPosition?) -> TimeInterval {
         guard let position, position.chapterId == chapter.id else { return 0 }
         return ProgressPolicy.resumeTime(time: position.time, duration: chapter.duration)
+    }
+
+    /// 章节的历史播放位置（已播完或未记录则从头播放）
+    private func resumeTime(for chapter: Chapter) -> TimeInterval {
+        chapterHistory?(chapter.id).map {
+            ProgressPolicy.resumeTime(time: $0.time, duration: chapter.duration)
+        } ?? 0
     }
 
     func currentPosition() -> PlayPosition? {
@@ -401,7 +412,8 @@ extension PlayerService: AVAudioPlayerDelegate {
               let idx = book.chapters.firstIndex(where: { $0.id == chapter.id }) else { return }
         let next = idx + 1
         if book.chapters.indices.contains(next) {
-            play(chapter: book.chapters[next], book: book)
+            let chapter = book.chapters[next]
+            play(chapter: chapter, book: book, fromTime: resumeTime(for: chapter))
         } else {
             isPlaying = false
             updateNowPlaying()
