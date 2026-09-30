@@ -30,9 +30,29 @@ struct BookDetailView: View {
                 }
             }
         }
+        .padding(.top, -30)
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
+        .background(TransparentNavigationBar())
     }
+}
+
+/// 只让当前页的导航栏透明，去掉标题与列表之间的大段间距
+private struct TransparentNavigationBar: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+        let vc = UIViewController()
+        DispatchQueue.main.async {
+            guard let bar = vc.navigationController?.navigationBar else { return }
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithTransparentBackground()
+            bar.standardAppearance = appearance
+            bar.compactAppearance = appearance
+            bar.scrollEdgeAppearance = appearance
+        }
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
 private struct ChapterRow: View {
