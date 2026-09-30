@@ -3,34 +3,18 @@ import AVFoundation
 import MediaPlayer
 import Combine
 
-/// 睡眠定时器选项
-enum SleepTimerOption: Int, CaseIterable, Identifiable {
-    case off = 0
-    case fiveMin = 5
-    case tenMin = 10
-    case twentyMin = 20
-    case thirtyMin = 30
-    case fortyFiveMin = 45
-    case oneHour = 60
-    case endOfChapter = -1
+/// 定时关闭模式：分钟数可在滑动条范围内任意设置，也可在本章播完时关闭
+enum SleepTimerMode: Equatable {
+    case off
+    case minutes(Int)
+    case endOfChapter
 
-    var id: Int { rawValue }
-
-    var title: String {
-        switch self {
-        case .off: return "关闭"
-        case .endOfChapter: return "本章播完"
-        case .fiveMin: return "5 分钟"
-        case .tenMin: return "10 分钟"
-        case .twentyMin: return "20 分钟"
-        case .thirtyMin: return "30 分钟"
-        case .fortyFiveMin: return "45 分钟"
-        case .oneHour: return "1 小时"
-        }
-    }
+    /// 滑动条可设置的分钟范围与步进：0–90，每格 1 分钟
+    static let range: ClosedRange<Double> = 0...90
+    static let step: Double = 1
 }
 
-/// 播放服务：基于 AVAudioPlayer，负责播放、进度回调、锁屏控制与睡眠定时器
+/// 播放服务：基于 AVAudioPlayer，负责播放、进度回调、锁屏控制与定时关闭
 @MainActor
 final class PlayerService: NSObject, ObservableObject {
     // 当前播放状态
@@ -42,8 +26,8 @@ final class PlayerService: NSObject, ObservableObject {
     @Published private(set) var speed: Float = 1.0
     /// 是否展示全屏播放界面（点列表播放时直接打开）
     @Published var showPlayer = false
-    // 睡眠定时器
-    @Published private(set) var sleepOption: SleepTimerOption = .off
+    // 定时关闭
+    @Published private(set) var sleepMode: SleepTimerMode = .off
     @Published private(set) var sleepRemaining: TimeInterval = 0
 
     var onChapterFinished: ((Chapter, Book) -> Void)?
@@ -185,20 +169,20 @@ final class PlayerService: NSObject, ObservableObject {
         cancelSleepTimer()
     }
 
-    // MARK: - 睡眠定时器
+    // MARK: - 定时关闭
 
-    func setSleepTimer(_ option: SleepTimerOption) {
+    func setSleepTimer(_ mode: SleepTimerMode) {
         cancelSleepTimer()
-        sleepOption = option
+        sleepMode = mode
 
-        switch option {
+        switch mode {
         case .off:
             sleepRemaining = 0
         case .endOfChapter:
             // 由 didFinishPlaying 处理：本章结束后停止
             sleepRemaining = max(duration - currentTime, 0)
-        default:
-            let seconds = TimeInterval(option.rawValue * 60)
+        case .minutes(let minutes):
+            let seconds = TimeInterval(minutes * 60)
             sleepRemaining = seconds
             let timer = Timer(timeInterval: 1, repeats: true) { [weak self] timer in
                 Task { @MainActor in
@@ -230,7 +214,7 @@ final class PlayerService: NSObject, ObservableObject {
     private func cancelSleepTimer() {
         sleepTimer?.invalidate()
         sleepTimer = nil
-        sleepOption = .off
+        sleepMode = .off
         sleepRemaining = 0
     }
 
@@ -398,7 +382,7 @@ extension PlayerService: AVAudioPlayerDelegate {
             self.reportPosition()
             self.onChapterFinished?(chapter, book)
 
-            if self.sleepOption == .endOfChapter {
+            if self.sleepMode == .endOfChapter {
                 self.toggleOffIfPlaying()
                 return
             }

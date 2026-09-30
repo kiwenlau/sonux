@@ -146,14 +146,14 @@ struct PlayerView: View {
 
                     Button { showingSleepSheet = true } label: {
                         VStack(spacing: 2) {
-                            Image(systemName: player.sleepOption == .off ? "moon" : "moon.fill")
+                            Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
                                 .font(.body)
-                            if player.sleepOption != .off {
+                            if player.sleepMode != .off {
                                 Text(TimeFormat.time(player.sleepRemaining))
                                     .font(.caption2.monospacedDigit())
                             }
                         }
-                        .foregroundStyle(.white.opacity(player.sleepOption == .off ? 0.7 : 1.0))
+                        .foregroundStyle(.white.opacity(player.sleepMode == .off ? 0.7 : 1.0))
                     }
                     .buttonStyle(.plain)
                 }
@@ -262,36 +262,106 @@ struct SpeedSliderSheet: View {
     }
 }
 
+/// 定时关闭面板：参考微信读书，拖动滑杆在 0–90 分钟之间以 1 分钟为步进设置，滑到最左端为关闭
 struct SleepTimerSheet: View {
     @EnvironmentObject private var player: PlayerService
-    @Environment(\.dismiss) private var dismiss
+
+    /// 刻度尺上标数字的档位
+    private let majorValues: [Double] = [0, 30, 60, 90]
+
+    private var minutes: Double {
+        if case .minutes(let value) = player.sleepMode { return Double(value) }
+        return 0
+    }
 
     var body: some View {
-        NavigationStack {
-            List(SleepTimerOption.allCases) { option in
-                Button {
-                    player.setSleepTimer(option)
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(option.title)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if player.sleepOption == option {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.indigo)
-                        }
-                    }
+        VStack(alignment: .leading, spacing: 16) {
+            Text(minutes > 0 ? "播放 \(Int(minutes)) 分钟后关闭" : "定时关闭")
+                .font(.headline)
+                .foregroundStyle(minutes > 0 ? Color.indigo : Color.primary)
+
+            Slider(value: minutesBinding, in: SleepTimerMode.range, step: SleepTimerMode.step)
+                .tint(.indigo)
+
+            ruler
+
+            HStack(spacing: 12) {
+                modeButton("本章结束后关闭", active: player.sleepMode == .endOfChapter) {
+                    player.setSleepTimer(player.sleepMode == .endOfChapter ? .off : .endOfChapter)
+                }
+                modeButton("不设置", active: false) {
+                    player.setSleepTimer(.off)
                 }
             }
-            .navigationTitle("睡眠定时器")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") { dismiss() }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .presentationDetents([.height(220)])
+        .presentationDragIndicator(.visible)
+    }
+
+    /// 滑动即时生效：0 分钟即关闭定时
+    private var minutesBinding: Binding<Double> {
+        Binding(
+            get: { minutes },
+            set: { player.setSleepTimer($0 > 0 ? .minutes(Int($0)) : .off) }
+        )
+    }
+
+    /// 5 分钟一格的小刻度，整档高亮并标出分钟数（0 标作“关”）
+    private var ruler: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            ZStack(alignment: .topLeading) {
+                ForEach(tickValues, id: \.self) { value in
+                    let isMajor = majorValues.contains(value)
+                    Rectangle()
+                        .fill(Color.secondary.opacity(isMajor ? 0.6 : 0.25))
+                        .frame(width: 1, height: isMajor ? 9 : 5)
+                        .offset(x: xPosition(for: value, in: width))
+                }
+                ForEach(majorValues, id: \.self) { value in
+                    Text(value == 0 ? "关" : "\(Int(value))")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44)
+                        .offset(
+                            x: min(max(xPosition(for: value, in: width) - 22, 0), max(width - 44, 0)),
+                            y: 11
+                        )
                 }
             }
         }
-        .presentationDetents([.medium])
+        .frame(height: 32)
+    }
+
+    private var tickValues: [Double] {
+        stride(from: SleepTimerMode.range.lowerBound,
+               through: SleepTimerMode.range.upperBound,
+               by: 5)
+            .map { $0.rounded() }
+    }
+
+    private func xPosition(for value: Double, in width: CGFloat) -> CGFloat {
+        let span = SleepTimerMode.range.upperBound - SleepTimerMode.range.lowerBound
+        return CGFloat((value - SleepTimerMode.range.lowerBound) / span) * width
+    }
+
+    private func modeButton(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(active ? Color.indigo : Color.primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.secondary.opacity(active ? 0.22 : 0.12))
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
