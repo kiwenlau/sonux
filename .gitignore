@@ -5,6 +5,9 @@
 build/
 DerivedData/
 
+# swiftc 单次编译在仓库根目录生成的临时可执行文件
+/main
+
 # Xcode 用户个人状态（窗口布局、方案管理等）
 xcuserdata/
 *.xcuserstate

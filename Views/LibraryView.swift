@@ -6,6 +6,8 @@ struct LibraryView: View {
     @EnvironmentObject private var player: PlayerService
     @State private var showImporter = false
     @State private var importMessage: String?
+    @State private var bookToDelete: Book?
+    @State private var deleteErrorMessage: String?
 
     var body: some View {
         Group {
@@ -17,6 +19,23 @@ struct LibraryView: View {
                         NavigationLink(value: book.id) {
                             BookRow(book: book, position: library.position(forBook: book.id))
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                NSLog("[sonux] ui: 点击滑动删除按钮《%@》", book.title)
+                                bookToDelete = book
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                NSLog("[sonux] ui: 点击长按菜单删除《%@》", book.title)
+                                bookToDelete = book
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
+                        }
+                        .accessibilityIdentifier("book-row-\(book.id)")
                     }
                 }
                 .listStyle(.plain)
@@ -51,6 +70,37 @@ struct LibraryView: View {
             Button("好", role: .cancel) { importMessage = nil }
         } message: {
             Text(importMessage ?? "")
+        }
+        .alert("删除「\(bookToDelete?.title ?? "")」", isPresented: Binding(
+            get: { bookToDelete != nil },
+            set: { if !$0 { bookToDelete = nil } }
+        )) {
+            Button("取消", role: .cancel) { bookToDelete = nil }
+            Button("删除", role: .destructive) {
+                NSLog("[sonux] ui: 确认弹窗点了删除《%@》", bookToDelete?.title ?? "?")
+                if let book = bookToDelete {
+                    do {
+                        try library.delete(
+                            book: book,
+                            playingBookId: player.currentBook?.id
+                        ) { player.stop() }
+                    } catch {
+                        NSLog("[sonux] ui: 删除抛出错误 %@", error.localizedDescription)
+                        deleteErrorMessage = error.localizedDescription
+                    }
+                }
+                bookToDelete = nil
+            }
+        } message: {
+            Text("将从书库中移除该音频文件，此操作不可撤销。")
+        }
+        .alert("删除失败", isPresented: Binding(
+            get: { deleteErrorMessage != nil },
+            set: { if !$0 { deleteErrorMessage = nil } }
+        )) {
+            Button("好", role: .cancel) { deleteErrorMessage = nil }
+        } message: {
+            Text(deleteErrorMessage ?? "")
         }
     }
 

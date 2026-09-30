@@ -1,6 +1,17 @@
 import Foundation
 import AVFoundation
 
+enum LibraryError: LocalizedError {
+    case deleteFailed(String, underlying: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .deleteFailed(let name, let underlying):
+            return "删除「\(name)」失败：\(underlying.localizedDescription)"
+        }
+    }
+}
+
 /// 书库服务：扫描 File Sharing 目录，把音频文件组织成书，并持久化播放进度
 @MainActor
 final class LibraryService: ObservableObject {
@@ -23,6 +34,7 @@ final class LibraryService: ObservableObject {
     func rescan() {
         let fm = FileManager.default
         var books: [Book] = []
+        NSLog("[sonux] rescan: documentsDir=%@", documentsDir.path)
 
         // 顶层条目：文件夹 = 多章节书；音频文件 = 单本书
         let topItems: [URL]
@@ -34,7 +46,9 @@ final class LibraryService: ObservableObject {
             topItems = entries.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
         } else {
             topItems = []
+            NSLog("[sonux] rescan: 读取 Documents 失败")
         }
+        NSLog("[sonux] rescan: 顶层条目 %d 个", topItems.count)
 
         for entry in topItems {
             let isDir = (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
@@ -49,13 +63,15 @@ final class LibraryService: ObservableObject {
                         id: bookId,
                         title: entry.deletingPathExtension().lastPathComponent,
                         author: nil,
-                        chapters: [chapter]
+                        chapters: [chapter],
+                        storagePath: relativePath(entry)
                     ))
                 }
             }
         }
 
         self.books = books
+        NSLog("[sonux] rescan: 识别出 %d 本书", books.count)
         // 清理已消失文件的进度
         let aliveBookIds = Set(books.map(\.id))
         positions = positions.filter { aliveBookIds.contains($0.key) }
@@ -83,6 +99,53 @@ final class LibraryService: ObservableObject {
     func recordPosition(_ position: PlayPosition, bookId: String) {
         positions[bookId] = position
         saveProgress()
+    }
+
+    /// 删除一本书：移除 Documents 里对应的文件或文件夹，并清理播放进度
+    /// 整个目录删除失败时（真机上可能因沙盒扩展属性报 EPERM），退化为逐个删除文件再清空目录
+    func delete(book: Book, playingBookId: String? = nil, onStopPlaying: (() -> Void)? = nil) throws {
+        NSLog("[sonux] delete: 开始删除《%@》storagePath=%@", book.title, book.storagePath)
+        // 若删的正是当前播放的书，先停止播放，避免播放器持有已删除的文件
+        if let playingBookId, playingBookId == book.id { onStopPlaying?() }
+
+        let fm = FileManager.default
+        let target = documentsDir.appendingPathComponent(book.storagePath)
+        do {
+            try fm.removeItem(at: target)
+            NSLog("[sonux] delete: removeItem 整体删除成功")
+        } catch {
+            NSLog("[sonux] delete: 整体删除失败 %@，尝试逐个递归删除", String(describing: error))
+            guard removeRecursively(at: target) else {
+                NSLog("[sonux] delete: 递归删除也失败，抛出错误")
+                throw LibraryError.deleteFailed(book.title, underlying: error)
+            }
+            NSLog("[sonux] delete: 递归删除成功")
+        }
+
+        positions[book.id] = nil
+        rescan()
+        saveProgress()
+    }
+
+    /// 递归删除：先删尽目录内所有文件，再从最深层开始删空目录；全部成功返回 true
+    /// 注意：目标不存在时返回 false（路径错误应报错，不能当成删除成功）
+    private func removeRecursively(at url: URL) -> Bool {
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: url.path, isDirectory: &isDir) else { return false }
+
+        if isDir.boolValue {
+            let children = (try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+            for child in children {
+                guard removeRecursively(at: child) else { return false }
+            }
+        }
+        do {
+            try fm.removeItem(at: url)
+        } catch {
+            return false
+        }
+        return !fm.fileExists(atPath: url.path)
     }
 
     /// 从「文件」App 导入音频文件或文件夹：复制进 Documents 后重新扫描
@@ -157,7 +220,8 @@ final class LibraryService: ObservableObject {
             id: bookId,
             title: folder.lastPathComponent,
             author: nil,
-            chapters: chapters
+            chapters: chapters,
+            storagePath: relativePath(folder)
         )
     }
 
@@ -175,7 +239,23 @@ final class LibraryService: ObservableObject {
     }
 
     private func relativePath(_ url: URL) -> String {
-        url.path.replacingOccurrences(of: documentsDir.path + "/", with: "")
+        // 不能用字符串前缀裁剪：真机上 documentsDir.path 带 /private 前缀而目录遍历结果不带，
+        // 前缀替换会残留 “private”。先统一规范化，再按路径分量逐段比较裁剪
+        let base = Self.normalized(documentsDir).pathComponents
+        let parts = Self.normalized(url).pathComponents
+        guard parts.count > base.count, Array(parts.prefix(base.count)) == base else {
+            return url.path
+        }
+        return parts.dropFirst(base.count).joined(separator: "/")
+    }
+
+    /// 去掉 /var 路径的 /private 前缀，统一两种写法便于比较
+    private static func normalized(_ url: URL) -> URL {
+        var path = url.standardizedFileURL.path
+        if path.hasPrefix("/private/var") {
+            path.removeFirst("/private".count)
+        }
+        return URL(fileURLWithPath: path)
     }
 
     /// 从文件名提取章节标题：去掉前导序号，如 "01 - 引言.mp3" -> "引言"

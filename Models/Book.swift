@@ -6,6 +6,8 @@ struct Book: Identifiable, Codable, Equatable {
     var title: String
     var author: String?
     var chapters: [Chapter]
+    /// 对应 Documents 下的相对路径（文件夹或单个音频文件），用于删除等操作
+    var storagePath: String
 
     /// 全书总时长（秒）
     var totalDuration: TimeInterval {
