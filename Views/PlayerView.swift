@@ -3,6 +3,7 @@ import SwiftUI
 struct PlayerView: View {
     @EnvironmentObject private var player: PlayerService
     @State private var showingSleepSheet = false
+    @State private var showingSpeedSheet = false
     @State private var scrubTime: TimeInterval?
 
     /// QQ 音乐式沉浸背景：顶部深色收边、中段主色，与封面同色系渐变消除边界感
@@ -127,11 +128,13 @@ struct PlayerView: View {
 
                 // 次级控制
                 HStack {
+                    // 点开语速面板，拖动滑杆连续调节
                     Button {
-                        player.cycleSpeed()
+                        showingSpeedSheet = true
                     } label: {
-                        Text("\(formatSpeed(player.speed))x")
+                        Text("\(TimeFormat.speed(player.speed))x")
                             .font(.subheadline.weight(.semibold))
+                            .monospacedDigit()
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(Capsule().fill(.white.opacity(player.speed == 1.0 ? 0.15 : 0.28)))
@@ -173,12 +176,89 @@ struct PlayerView: View {
         .sheet(isPresented: $showingSleepSheet) {
             SleepTimerSheet()
         }
+        .sheet(isPresented: $showingSpeedSheet) {
+            SpeedSliderSheet()
+        }
+    }
+}
+
+/// 语速面板：参考微信读书，拖动滑杆在 0.5x–3x 之间以 0.1 为步进连续调节
+struct SpeedSliderSheet: View {
+    @EnvironmentObject private var player: PlayerService
+
+    /// 刻度尺上标数字的档位
+    private let majorValues: [Double] = [0.5, 1.0, 2.0, 3.0]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("语速设置")
+                    .font(.headline)
+                Spacer()
+                Text("\(TimeFormat.speed(player.speed))x")
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.indigo)
+            }
+
+            Slider(
+                value: Binding(
+                    get: { Double(player.speed) },
+                    set: { player.setSpeed(Float($0)) }
+                ),
+                in: PlayerService.speedRange,
+                step: PlayerService.speedStep
+            )
+            .tint(.indigo)
+
+            ruler
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .presentationDetents([.height(200)])
+        .presentationDragIndicator(.visible)
     }
 
-    private func formatSpeed(_ speed: Float) -> String {
-        speed == speed.rounded()
-            ? String(format: "%.0f", speed)
-            : String(format: "%g", speed)
+    /// 0.1 一格的小刻度，整档高亮并标出倍数
+    private var ruler: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            ZStack(alignment: .topLeading) {
+                ForEach(tickValues, id: \.self) { value in
+                    let isMajor = majorValues.contains(value)
+                    Rectangle()
+                        .fill(Color.secondary.opacity(isMajor ? 0.6 : 0.25))
+                        .frame(width: 1, height: isMajor ? 9 : 5)
+                        .offset(x: xPosition(for: value, in: width))
+                }
+                ForEach(majorValues, id: \.self) { value in
+                    Text("\(TimeFormat.speed(Float(value)))x")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44)
+                        .offset(
+                            x: min(max(xPosition(for: value, in: width) - 22, 0), max(width - 44, 0)),
+                            y: 11
+                        )
+                }
+            }
+        }
+        .frame(height: 32)
+    }
+
+    private var tickValues: [Double] {
+        stride(from: PlayerService.speedRange.lowerBound,
+               through: PlayerService.speedRange.upperBound,
+               by: PlayerService.speedStep)
+            .map { ($0 * 10).rounded() / 10 }
+    }
+
+    private func xPosition(for value: Double, in width: CGFloat) -> CGFloat {
+        let span = PlayerService.speedRange.upperBound - PlayerService.speedRange.lowerBound
+        return CGFloat((value - PlayerService.speedRange.lowerBound) / span) * width
     }
 }
 

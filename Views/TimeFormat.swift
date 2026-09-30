@@ -24,6 +24,14 @@ enum TimeFormat {
         return "不足 1 分钟"
     }
 
+    /// 1.0 -> "1"，1.2 -> "1.2"（语速以 0.1 为步进，最多一位小数）
+    static func speed(_ value: Float) -> String {
+        let rounded = (value * 10).rounded() / 10
+        return rounded == rounded.rounded()
+            ? String(format: "%.0f", rounded)
+            : String(format: "%.1f", rounded)
+    }
+
     /// 剩余时间短语
     static func remaining(_ seconds: TimeInterval) -> String {
         let total = Int(max(0, seconds).rounded())

@@ -58,7 +58,9 @@ final class PlayerService: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     /// 被打断前是否处于播放状态（用于中断结束后自动恢复）
     private var wasPlayingBeforeInterruption = false
-    private let availableSpeeds: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0]
+    /// 连续语速范围与步进：0.5x–3x，每格 0.1
+    static let speedRange: ClosedRange<Double> = 0.5...3.0
+    static let speedStep: Double = 0.1
 
     override init() {
         super.init()
@@ -112,6 +114,7 @@ final class PlayerService: NSObject, ObservableObject {
             isPlaying = false
         } else {
             player.play()
+            player.rate = speed // 暂停期间调整的倍速需重新应用
             isPlaying = true
         }
         updateNowPlaying()
@@ -156,18 +159,14 @@ final class PlayerService: NSObject, ObservableObject {
         play(chapter: next, book: book, fromTime: resumeTime(for: next))
     }
 
-    func cycleSpeed() {
-        let current = speedValue()
-        guard let idx = availableSpeeds.firstIndex(where: { abs($0 - current) < 0.01 }) else { return }
-        let next = availableSpeeds[(idx + 1) % availableSpeeds.count]
-        setSpeed(next)
-    }
-
     func setSpeed(_ value: Float) {
-        speed = value
-        player?.rate = value
+        // 限制在语速范围内并对齐到 0.1 步进，避免浮点误差累积
+        let clamped = min(max(value, Float(Self.speedRange.lowerBound)), Float(Self.speedRange.upperBound))
+        let rounded = (clamped * 10).rounded() / 10
+        speed = rounded
+        player?.rate = rounded
         if let player, player.isPlaying {
-            player.rate = value // 确保生效
+            player.rate = rounded // 确保生效
         }
         updateNowPlaying()
     }
