@@ -2,38 +2,68 @@ import SwiftUI
 
 struct PlayerView: View {
     @EnvironmentObject private var player: PlayerService
-    @Environment(\.dismiss) private var dismiss
     @State private var showingSleepSheet = false
     @State private var scrubTime: TimeInterval?
 
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 28) {
-                Spacer()
+    /// QQ 音乐式沉浸背景：顶部深色收边、中段主色，与封面同色系渐变消除边界感
+    private let backgroundGradient = LinearGradient(
+        stops: [
+            .init(color: Color(red: 0.05, green: 0.03, blue: 0.14), location: 0),
+            .init(color: Color(red: 0.30, green: 0.20, blue: 0.55), location: 0.42),
+            .init(color: Color(red: 0.48, green: 0.30, blue: 0.72), location: 0.62),
+            .init(color: Color(red: 0.10, green: 0.05, blue: 0.24), location: 1),
+        ],
+        startPoint: .top, endPoint: .bottom
+    )
 
-                // 封面占位
+    /// 收起全屏播放页（下滑手势/左上角按钮共用）
+    private func closePlayer() {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+            player.showPlayer = false
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            // 渐变铺满整页，包括状态栏后面，避免顶部出现突兀的边界
+            backgroundGradient
+                .ignoresSafeArea()
+
+            VStack(spacing: 28) {
+                // 顶部栏：左上角收起
+                HStack {
+                    Button { closePlayer() } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .contentShape(Rectangle())
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+
+                // 封面占位（与背景同色系，融入渐变）
                 ZStack {
-                    RoundedRectangle(cornerRadius: 20)
+                    RoundedRectangle(cornerRadius: 24)
                         .fill(
-                            LinearGradient(colors: [.indigo.opacity(0.5), .purple.opacity(0.4)],
+                            LinearGradient(colors: [.indigo.opacity(0.65), .purple.opacity(0.55)],
                                            startPoint: .topLeading, endPoint: .bottomTrailing)
                         )
-                        .frame(width: 240, height: 240)
-                        .shadow(color: .indigo.opacity(0.3), radius: 18, y: 10)
+                        .frame(maxWidth: 340)
+                        .aspectRatio(1, contentMode: .fit)
+                        .shadow(color: .black.opacity(0.35), radius: 22, y: 14)
                     Image(systemName: "headphones")
-                        .font(.system(size: 72))
+                        .font(.system(size: 84))
                         .foregroundStyle(.white.opacity(0.9))
                 }
+                .padding(.horizontal, 8)
 
-                VStack(spacing: 6) {
-                    Text(player.currentChapter?.title ?? "未在播放")
-                        .font(.title2.bold())
-                        .multilineTextAlignment(.center)
-                    Text(player.currentBook?.title ?? "")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal)
+                Text(player.currentChapter?.title ?? "未在播放")
+                    .font(.title2.bold())
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
 
                 Spacer()
 
@@ -52,13 +82,14 @@ struct PlayerView: View {
                             }
                         }
                     )
+                    .tint(.white)
                     HStack {
                         Text(TimeFormat.time(scrubTime ?? player.currentTime))
                         Spacer()
                         Text("-" + TimeFormat.time(max(player.duration - (scrubTime ?? player.currentTime), 0)))
                     }
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.7))
                 }
 
                 // 主控制
@@ -91,6 +122,7 @@ struct PlayerView: View {
                     Spacer()
                 }
                 .buttonStyle(.plain)
+                .foregroundStyle(.white)
                 .padding(.horizontal, 8)
 
                 // 次级控制
@@ -102,8 +134,8 @@ struct PlayerView: View {
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Capsule().fill(player.speed == 1.0 ? Color.secondary.opacity(0.12) : Color.indigo.opacity(0.15)))
-                            .foregroundStyle(player.speed == 1.0 ? Color.primary : Color.indigo)
+                            .background(Capsule().fill(.white.opacity(player.speed == 1.0 ? 0.15 : 0.28)))
+                            .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
 
@@ -118,16 +150,7 @@ struct PlayerView: View {
                                     .font(.caption2.monospacedDigit())
                             }
                         }
-                        .foregroundStyle(player.sleepOption == .off ? Color.secondary : Color.indigo)
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.down")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(player.sleepOption == .off ? 0.7 : 1.0))
                     }
                     .buttonStyle(.plain)
                 }
@@ -136,10 +159,19 @@ struct PlayerView: View {
                 Spacer(minLength: 8)
             }
             .padding(.horizontal, 24)
-            .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingSleepSheet) {
-                SleepTimerSheet()
-            }
+        }
+        // 下滑关闭（进度条等控件自己消费手势，不受影响）
+        .gesture(
+            DragGesture()
+                .onEnded { value in
+                    if value.translation.height > 100 || value.predictedEndTranslation.height > 250 {
+                        closePlayer()
+                    }
+                }
+        )
+        .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingSleepSheet) {
+            SleepTimerSheet()
         }
     }
 

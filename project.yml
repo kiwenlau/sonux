@@ -2,7 +2,7 @@ name: Sonux
 options:
   bundleIdPrefix: com.sonux
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "16.4"
   createIntermediateGroups: true
 settings:
   base:
