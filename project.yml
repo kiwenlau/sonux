@@ -1,0 +1,42 @@
+name: Sonux
+options:
+  bundleIdPrefix: com.sonux
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  Sonux:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Models
+      - Services
+      - Views
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: Sonux
+        UILaunchScreen: {}
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: false
+        UIBackgroundModes:
+          - audio
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Audio Files
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.audio
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kiwenlau.sonux
+        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic

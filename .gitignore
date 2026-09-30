@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Xcode 构建产物
+build/
+DerivedData/
+
+# Xcode 用户个人状态（窗口布局、方案管理等）
+xcuserdata/
+*.xcuserstate
