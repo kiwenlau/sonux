@@ -2,18 +2,17 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var player: PlayerService
-    @State private var showPlayer = false
 
     var body: some View {
         NavigationStack {
             LibraryView()
                 .safeAreaInset(edge: .bottom) {
                     if player.currentBook != nil {
-                        MiniPlayerView { showPlayer = true }
+                        MiniPlayerView { player.showPlayer = true }
                     }
                 }
         }
-        .sheet(isPresented: $showPlayer) {
+        .sheet(isPresented: $player.showPlayer) {
             if player.currentBook != nil {
                 PlayerView()
             }

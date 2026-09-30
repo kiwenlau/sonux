@@ -10,6 +10,7 @@ struct BookDetailView: View {
             Section {
                 Button {
                     player.play(book: book, at: library.position(forBook: book.id))
+                    player.showPlayer = true
                 } label: {
                     Label(resumeTitle, systemImage: "play.fill")
                         .font(.headline)
@@ -34,6 +35,7 @@ struct BookDetailView: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         player.play(chapter: chapter, book: book)
+                        player.showPlayer = true
                     }
                 }
             }

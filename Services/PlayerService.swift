@@ -40,6 +40,8 @@ final class PlayerService: NSObject, ObservableObject {
     @Published private(set) var currentTime: TimeInterval = 0
     @Published private(set) var duration: TimeInterval = 0
     @Published private(set) var speed: Float = 1.0
+    /// 是否展示全屏播放界面（点列表播放时直接打开）
+    @Published var showPlayer = false
     // 睡眠定时器
     @Published private(set) var sleepOption: SleepTimerOption = .off
     @Published private(set) var sleepRemaining: TimeInterval = 0
