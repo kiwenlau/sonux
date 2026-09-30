@@ -7,53 +7,27 @@ struct BookDetailView: View {
 
     var body: some View {
         List {
-            Section {
-                Button {
-                    player.play(book: book, at: library.position(forBook: book.id))
-                    player.showPlayer = true
-                } label: {
-                    Label(resumeTitle, systemImage: "play.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
+            ForEach(book.chapters) { chapter in
+                ChapterRow(
+                    chapter: chapter,
+                    isCurrent: player.currentChapter?.id == chapter.id,
+                    position: library.position(forBook: book.id)
+                )
+                .swipeActions {
+                    Button("重置进度") {
+                        library.recordPosition(PlayPosition(chapterId: chapter.id, time: 0), bookId: book.id)
+                    }
+                    .tint(.orange)
                 }
-                .listRowBackground(Color.indigo.opacity(0.12))
-            }
-
-            Section("章节 · \(book.chapters.count)") {
-                ForEach(book.chapters) { chapter in
-                    ChapterRow(
-                        chapter: chapter,
-                        isCurrent: player.currentChapter?.id == chapter.id,
-                        position: library.position(forBook: book.id)
-                    )
-                    .swipeActions {
-                        Button("重置进度") {
-                            library.recordPosition(PlayPosition(chapterId: chapter.id, time: 0), bookId: book.id)
-                        }
-                        .tint(.orange)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        player.play(chapter: chapter, book: book)
-                        player.showPlayer = true
-                    }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    player.play(chapter: chapter, book: book)
+                    player.showPlayer = true
                 }
             }
         }
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var resumeTitle: String {
-        guard let position = library.position(forBook: book.id),
-              let chapter = book.chapters.first(where: { $0.id == position.chapterId }) else {
-            return "播放"
-        }
-        if ProgressPolicy.isFinished(time: position.time, duration: chapter.duration)
-            && chapter.index == book.chapters.count - 1 {
-            return "从头播放"
-        }
-        return "继续收听 · 第 \(chapter.index + 1) 章"
     }
 }
 
