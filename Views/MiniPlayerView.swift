@@ -91,10 +91,10 @@ struct MiniPlayerView: View {
         .overlay(alignment: .top) {
             GeometryReader { geo in
                 let progress = player.duration > 0 ? player.currentTime / player.duration : 0
+                // 已播放部分（左侧）着色：从 0 开始，宽度随进度增长
                 Rectangle()
                     .fill(Color.indigo)
-                    .frame(height: 2)
-                    .offset(x: geo.size.width * CGFloat(min(max(progress, 0), 1)))
+                    .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)), height: 2)
             }
             .frame(height: 2)
             .clipShape(Rectangle())
