@@ -4,9 +4,16 @@ struct BookDetailView: View {
     let book: Book
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
+    @ObservedObject private var coverStore = CoverStore.shared
 
     var body: some View {
         List {
+            // MARK: - 顶部书籍信息区
+            BookInfoHeader(book: book, coverImage: coverStore.image(for: book))
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                .listRowSeparator(.hidden)
+
+            // MARK: - 章节列表
             ForEach(book.chapters) { chapter in
                 ChapterRow(
                     chapter: chapter,
@@ -22,7 +29,6 @@ struct BookDetailView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    // 默认从该音频的历史播放位置续播
                     let resume = library.position(forChapter: chapter.id)
                         .map { ProgressPolicy.resumeTime(time: $0.time, duration: chapter.duration) }
                         ?? 0
@@ -35,6 +41,57 @@ struct BookDetailView: View {
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
         .background(TransparentNavigationBar())
+        .task(id: book.id) {
+            await coverStore.load(for: book)
+        }
+    }
+}
+
+/// Apple Music 风格的书籍信息头部：大封面 + 书名 + 作者 + 章节数/总时长
+private struct BookInfoHeader: View {
+    let book: Book
+    let coverImage: UIImage?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // 封面
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.gray.opacity(0.1))
+                    .frame(width: 220, height: 220 * (4.0 / 3.0))
+
+                if let cover = coverImage {
+                    Image(uiImage: cover)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 220, maxHeight: 220 * (4.0 / 3.0))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Image(systemName: book.chapters.count > 1 ? "books.vertical.fill" : "music.note")
+                        .font(.system(size: 56))
+                        .foregroundStyle(.indigo)
+                }
+            }
+            .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+            .padding(.top, 20)
+
+            // 书名
+            Text(book.title)
+                .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+
+            // 作者
+            if let author = book.author, !author.isEmpty {
+                Text(author)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+            }
+
+
+            Spacer().frame(height: 8)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
