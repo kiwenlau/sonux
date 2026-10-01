@@ -135,8 +135,13 @@ struct BookCoverView: View {
 }
 
 /// 书库卡片视图（双列网格用）：大封面 + 标题 + 作者，封面中央一个从上次位置续播的播放按钮
+/// 该书正在播放时：封面加靛蓝描边 + 左上角「正在播放」音柱徽章，卡片底色和标题变靛蓝
 struct BookGridCard: View {
     let book: Book
+    /// 该书是否为当前播放的书（无论暂停与否）
+    let isNowPlaying: Bool
+    /// 当前是否处于播放中（控制音柱是否跳动）
+    let isPlaying: Bool
     let onOpen: () -> Void
     let onPlay: () -> Void
     @ObservedObject private var store = CoverStore.shared
@@ -161,6 +166,29 @@ struct BookGridCard: View {
             .aspectRatio(0.8, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay {
+                if isNowPlaying {
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.indigo, lineWidth: 2.5)
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if isNowPlaying {
+                    // 半透胶囊底保证任何封面上都能看清
+                    HStack(spacing: 5) {
+                        NowPlayingBars(height: 11, isPlaying: isPlaying)
+                        Text("正在播放")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.indigo)
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(.ultraThinMaterial))
+                    .overlay(Capsule().strokeBorder(Color.indigo.opacity(0.35), lineWidth: 0.5))
+                    .padding(7)
+                    .accessibilityLabel("正在播放《\(book.title)》")
+                }
+            }
+            .overlay {
                 // 播放按钮居中压在封面上：半透胶囊底保证任何封面都能看清图标
                 Button(action: onPlay) {
                     Image(systemName: "play.fill")
@@ -179,6 +207,7 @@ struct BookGridCard: View {
 
             Text(book.title)
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isNowPlaying ? Color.indigo : Color.primary)
                 .lineLimit(2)
 
             // 副标题：有作者显作者，否则退而显总时长
@@ -194,7 +223,7 @@ struct BookGridCard: View {
         .accessibilityAction(named: "打开《\(book.title)》详情") { onOpen() }
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(isNowPlaying ? Color.indigo.opacity(0.1) : Color(.secondarySystemGroupedBackground))
         )
         .task(id: book.id) {
             await store.load(for: book)

@@ -10,7 +10,8 @@ struct BookDetailView: View {
             ForEach(book.chapters) { chapter in
                 ChapterRow(
                     chapter: chapter,
-                    isCurrent: player.currentChapter?.id == chapter.id,
+                    isCurrent: player.currentBook?.id == book.id && player.currentChapter?.id == chapter.id,
+                    isPlaying: player.isPlaying,
                     position: library.position(forChapter: chapter.id)
                 )
                 .swipeActions {
@@ -57,7 +58,10 @@ private struct TransparentNavigationBar: UIViewControllerRepresentable {
 
 private struct ChapterRow: View {
     let chapter: Chapter
+    /// 本章是否为当前播放的章节（无论暂停与否）
     let isCurrent: Bool
+    /// 当前是否处于播放中（控制音柱是否跳动）
+    let isPlaying: Bool
     let position: PlayPosition?
 
     private var chapterTime: TimeInterval {
@@ -94,8 +98,9 @@ private struct ChapterRow: View {
             Spacer()
 
             if isCurrent {
-                Image(systemName: "speaker.wave.2.fill")
-                    .foregroundStyle(.indigo)
+                // 与书库卡片/列表行用同一套音柱标记，播放时跳动、暂停时静止
+                NowPlayingBars(height: 16, isPlaying: isPlaying)
+                    .accessibilityLabel("正在播放")
             }
         }
         .padding(.leading, 6)

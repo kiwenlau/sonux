@@ -34,6 +34,8 @@ struct LibraryView: View {
                         // 不用 NavigationLink（行根视图会带系统箭头），改成点行入栈
                         BookRow(
                             book: book,
+                            isNowPlaying: player.currentBook?.id == book.id,
+                            isPlaying: player.isPlaying,
                             onOpen: { path.append(book.id) },
                             onPlay: { playFromLastPosition(book) }
                         )
@@ -155,27 +157,45 @@ struct LibraryView: View {
 }
 
 /// 列表行：封面、书名、作者（点击进详情页），右侧一个从上次位置续播的播放按钮
+/// 该书正在播放时：封面加靛蓝描边、书名变靛蓝、右侧显示跳动音柱
 private struct BookRow: View {
     let book: Book
+    /// 该书是否为当前播放的书（无论暂停与否）
+    let isNowPlaying: Bool
+    /// 当前是否处于播放中（控制音柱是否跳动）
+    let isPlaying: Bool
     let onOpen: () -> Void
     let onPlay: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
             BookCoverView(book: book)
+                .overlay {
+                    if isNowPlaying {
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color.indigo, lineWidth: 2)
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(book.title)
                     .font(.headline)
+                    .foregroundStyle(isNowPlaying ? Color.indigo : Color.primary)
                     .lineLimit(2)
-                // 副标题：有作者显作者，否则退而显总时长
-                Text(book.author ?? TimeFormat.duration(book.totalDuration))
+                // 正在播放的书优先显示「正在播放」，其余有作者显作者，否则退而显总时长
+                Text(isNowPlaying ? "正在播放" : (book.author ?? TimeFormat.duration(book.totalDuration)))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(isNowPlaying ? Color.indigo.opacity(0.8) : Color.secondary)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
+
+            if isNowPlaying {
+                NowPlayingBars(height: 16, isPlaying: isPlaying)
+                    .padding(.trailing, 2)
+                    .accessibilityLabel("正在播放")
+            }
 
             Button(action: onPlay) {
                 Image(systemName: "play.fill")
@@ -205,6 +225,7 @@ private struct BookGridView: View {
     let playBook: (Book) -> Void
 
     @EnvironmentObject private var library: LibraryService
+    @EnvironmentObject private var player: PlayerService
 
     private let columns = [
         GridItem(.flexible(), spacing: 12),
@@ -218,6 +239,8 @@ private struct BookGridView: View {
                     // 不用 NavigationLink 包卡片，否则封面上的播放按钮抢不到点击
                     BookGridCard(
                         book: book,
+                        isNowPlaying: player.currentBook?.id == book.id,
+                        isPlaying: player.isPlaying,
                         onOpen: { path.append(book.id) },
                         onPlay: { playBook(book) }
                     )
