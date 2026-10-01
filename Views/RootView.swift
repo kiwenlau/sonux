@@ -72,6 +72,15 @@ struct RootView: View {
         Binding(get: { router.path }, set: { router.path = $0 })
     }
 
+    /// 「正在播放」收起条。放在每个 tab 内容的底部安全区里，因此它悬在 tab 栏上方、
+    /// 不会遮住 tab（参考微信听书：tab 在最下，播放条在其上）
+    @ViewBuilder
+    private var miniPlayerInset: some View {
+        if player.currentBook != nil {
+            MiniPlayerView { withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { player.showPlayer = true } }
+        }
+    }
+
     /// 书库 tab：整条书库导航栈（首页、详情页、作者页）
     private var libraryTab: some View {
         NavigationStack(path: pathBinding(for: routers.libraryRouter)) {
@@ -80,6 +89,7 @@ struct RootView: View {
                     destination(for: route)
                 }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { miniPlayerInset }
         .tabItem { Label("书库", systemImage: "books.vertical") }
         .accessibilityIdentifier("tab-library")
     }
@@ -92,6 +102,7 @@ struct RootView: View {
                     destination(for: route)
                 }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { miniPlayerInset }
         .tabItem { Label("历史", systemImage: "clock.arrow.circlepath") }
         .accessibilityIdentifier("tab-history")
     }
@@ -103,11 +114,6 @@ struct RootView: View {
                     .tag(AppTab.library)
                 historyTab
                     .tag(AppTab.history)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if player.currentBook != nil {
-                    MiniPlayerView { withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { player.showPlayer = true } }
-                }
             }
 
             // 全屏覆盖式播放页（不用 sheet，避免状态栏区域露出系统底色），从底部滑入
