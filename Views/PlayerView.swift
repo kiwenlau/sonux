@@ -2,20 +2,44 @@ import SwiftUI
 
 struct PlayerView: View {
     @EnvironmentObject private var player: PlayerService
+    // 单例共享封面缓存，播放页大图与主色都由它提供
+    @ObservedObject private var covers = CoverStore.shared
     @State private var showingSleepSheet = false
     @State private var showingSpeedSheet = false
     @State private var scrubTime: TimeInterval?
 
-    /// QQ 音乐式沉浸背景：顶部深色收边、中段主色，与封面同色系渐变消除边界感
-    private let backgroundGradient = LinearGradient(
-        stops: [
-            .init(color: Color(red: 0.05, green: 0.03, blue: 0.14), location: 0),
-            .init(color: Color(red: 0.30, green: 0.20, blue: 0.55), location: 0.42),
-            .init(color: Color(red: 0.48, green: 0.30, blue: 0.72), location: 0.62),
-            .init(color: Color(red: 0.10, green: 0.05, blue: 0.24), location: 1),
-        ],
-        startPoint: .top, endPoint: .bottom
+    /// 没提取到封面时的兜底背景：沿用原来的紫色系，明暗结构与主色色板一致
+    private static let fallbackPalette = CoverPalette(
+        top: Color(red: 0.24, green: 0.16, blue: 0.44),
+        middle: Color(red: 0.30, green: 0.20, blue: 0.55),
+        lower: Color(red: 0.20, green: 0.12, blue: 0.38),
+        bottom: Color(red: 0.10, green: 0.05, blue: 0.24)
     )
+
+    /// 竖版封面在没有真实封面时的占位比例
+    private static let placeholderRatio: CGFloat = 0.8
+
+    private var book: Book? { player.currentBook }
+
+    private var palette: CoverPalette {
+        guard let book, let palette = covers.palette(for: book) else { return Self.fallbackPalette }
+        return palette
+    }
+
+    /// 播放页用大图，未加载完退回列表缩略图，避免先糊后清的跳变
+    private var artworkImage: UIImage? {
+        guard let book else { return nil }
+        return covers.largeImage(for: book) ?? covers.image(for: book)
+    }
+
+    /// 封面框跟随封面自身比例，保证 scaledToFit 顶边贴合、不留内边距
+    private var artworkRatio: CGFloat {
+        guard let cover = artworkImage else { return Self.placeholderRatio }
+        let size = cover.size
+        guard size.height > 0 else { return Self.placeholderRatio }
+        let ratio = size.width / size.height
+        return min(max(ratio, 0.5), 1.6)
+    }
 
     /// 收起全屏播放页（下滑手势/左上角按钮共用）
     private func closePlayer() {
@@ -25,143 +49,41 @@ struct PlayerView: View {
     }
 
     var body: some View {
-        ZStack {
-            // 渐变铺满整页，包括状态栏后面，避免顶部出现突兀的边界
-            backgroundGradient
-                .ignoresSafeArea()
+        GeometryReader { geo in
+            // 先给文字与控件留出 380pt，剩下的都给封面；小屏时封面缩小而不是挤坏控件
+            let boxHeight = min(380, max(160, geo.size.height - 380))
 
-            VStack(spacing: 28) {
-                // 顶部栏：左上角收起
-                HStack {
-                    Button { closePlayer() } label: {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .contentShape(Rectangle())
-                    }
-                    Spacer()
+            ZStack {
+                // 主色渐变铺满整页，包括状态栏后面，避免顶部出现突兀的边界
+                palette.gradient
+                    .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    header
+
+                    Spacer(minLength: 8)
+
+                    artwork(boxHeight: boxHeight)
+
+                    Spacer(minLength: 12)
+
+                    metadata
+
+                    progress
+                        .padding(.top, 22)
+
+                    controls
+                        .padding(.top, 22)
+
+                    secondaryControls
+                        .padding(.top, 18)
+
+                    Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 12)
-
-                // 封面占位（与背景同色系，融入渐变）
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(
-                            LinearGradient(colors: [.indigo.opacity(0.65), .purple.opacity(0.55)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                        )
-                        .frame(maxWidth: 340)
-                        .aspectRatio(1, contentMode: .fit)
-                        .shadow(color: .black.opacity(0.35), radius: 22, y: 14)
-                    Image(systemName: "headphones")
-                        .font(.system(size: 84))
-                        .foregroundStyle(.white.opacity(0.9))
-                }
-                .padding(.horizontal, 8)
-
-                Text(player.currentChapter?.title ?? "未在播放")
-                    .font(.title2.bold())
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-
-                Spacer()
-
-                // 进度条
-                VStack(spacing: 6) {
-                    Slider(
-                        value: Binding(
-                            get: { scrubTime ?? player.currentTime },
-                            set: { scrubTime = $0 }
-                        ),
-                        in: 0...max(player.duration, 1),
-                        onEditingChanged: { editing in
-                            if !editing, let t = scrubTime {
-                                player.seek(to: t)
-                                scrubTime = nil
-                            }
-                        }
-                    )
-                    .tint(.white)
-                    HStack {
-                        Text(TimeFormat.time(scrubTime ?? player.currentTime))
-                        Spacer()
-                        Text("-" + TimeFormat.time(max(player.duration - (scrubTime ?? player.currentTime), 0)))
-                    }
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.7))
-                }
-
-                // 主控制
-                HStack {
-                    Spacer()
-                    Button { player.skip(by: -15) } label: {
-                        Image(systemName: "gobackward.15")
-                            .font(.system(size: 30))
-                    }
-                    Spacer()
-                    Button { player.previousChapter() } label: {
-                        Image(systemName: "backward.fill")
-                            .font(.system(size: 24))
-                    }
-                    Spacer()
-                    Button { player.togglePlayPause() } label: {
-                        Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 68))
-                    }
-                    Spacer()
-                    Button { player.nextChapter() } label: {
-                        Image(systemName: "forward.fill")
-                            .font(.system(size: 24))
-                    }
-                    Spacer()
-                    Button { player.skip(by: 30) } label: {
-                        Image(systemName: "goforward.30")
-                            .font(.system(size: 30))
-                    }
-                    Spacer()
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-
-                // 次级控制
-                HStack {
-                    // 点开语速面板，拖动滑杆连续调节
-                    Button {
-                        showingSpeedSheet = true
-                    } label: {
-                        Text("\(TimeFormat.speed(player.speed))x")
-                            .font(.subheadline.weight(.semibold))
-                            .monospacedDigit()
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(.white.opacity(player.speed == 1.0 ? 0.15 : 0.28)))
-                            .foregroundStyle(.white)
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-
-                    Button { showingSleepSheet = true } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
-                                .font(.body)
-                            if player.sleepMode != .off {
-                                Text(TimeFormat.time(player.sleepRemaining))
-                                    .font(.caption2.monospacedDigit())
-                            }
-                        }
-                        .foregroundStyle(.white.opacity(player.sleepMode == .off ? 0.7 : 1.0))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 8)
-
-                Spacer(minLength: 8)
+                .padding(.horizontal, 24)
             }
-            .padding(.horizontal, 24)
+            // 换书时背景主色平滑过渡，而不是整页颜色突变
+            .animation(.easeInOut(duration: 0.5), value: book?.id ?? "")
         }
         // 下滑关闭（进度条等控件自己消费手势，不受影响）
         .gesture(
@@ -173,12 +95,193 @@ struct PlayerView: View {
                 }
         )
         .preferredColorScheme(.dark)
+        .task(id: book?.id) {
+            guard let book else { return }
+            await covers.loadLarge(for: book)
+        }
         .sheet(isPresented: $showingSleepSheet) {
             SleepTimerSheet()
         }
         .sheet(isPresented: $showingSpeedSheet) {
             SpeedSliderSheet()
         }
+    }
+
+    // MARK: - 顶部栏
+
+    private var header: some View {
+        HStack {
+            Button { closePlayer() } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .contentShape(Rectangle())
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+    }
+
+    // MARK: - 封面
+
+    @ViewBuilder
+    private func artwork(boxHeight: CGFloat) -> some View {
+        let ratio = artworkRatio
+        let width = min(330, boxHeight * ratio)
+        ZStack {
+            if let cover = artworkImage {
+                Image(uiImage: cover)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                // 没提取到封面：占位底色取背景中段主色的同色系，融入渐变
+                LinearGradient(colors: [palette.middle.opacity(0.75), palette.lower.opacity(0.9)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                Image(systemName: "headphones")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+        }
+        .frame(width: width, height: width / ratio)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.35), radius: 22, y: 14)
+        .padding(.horizontal, 8)
+    }
+
+    // MARK: - 章节名 / 作者 / 书名（Apple Music 式左对齐）
+
+    private var metadata: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(player.currentChapter?.title ?? "未在播放")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                if let author = book?.author, !author.isEmpty {
+                    Text(author)
+                        .font(.title3)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // 书名胶囊：对应 Apple Music 音频书页封面下方的专辑名
+            if let book {
+                Text(book.title)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(.white.opacity(0.16)))
+            }
+        }
+        .padding(.horizontal, 12)
+    }
+
+    // MARK: - 进度
+
+    private var progress: some View {
+        VStack(spacing: 6) {
+            Slider(
+                value: Binding(
+                    get: { scrubTime ?? player.currentTime },
+                    set: { scrubTime = $0 }
+                ),
+                in: 0...max(player.duration, 1),
+                onEditingChanged: { editing in
+                    if !editing, let t = scrubTime {
+                        player.seek(to: t)
+                        scrubTime = nil
+                    }
+                }
+            )
+            .tint(.white)
+            HStack {
+                Text(TimeFormat.time(scrubTime ?? player.currentTime))
+                Spacer()
+                Text("-" + TimeFormat.time(max(player.duration - (scrubTime ?? player.currentTime), 0)))
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.white.opacity(0.7))
+        }
+    }
+
+    // MARK: - 主控制
+
+    private var controls: some View {
+        HStack {
+            Spacer()
+            Button { player.skip(by: -15) } label: {
+                Image(systemName: "gobackward.15")
+                    .font(.system(size: 30))
+            }
+            Spacer()
+            Button { player.previousChapter() } label: {
+                Image(systemName: "backward.fill")
+                    .font(.system(size: 24))
+            }
+            Spacer()
+            Button { player.togglePlayPause() } label: {
+                Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 68))
+            }
+            Spacer()
+            Button { player.nextChapter() } label: {
+                Image(systemName: "forward.fill")
+                    .font(.system(size: 24))
+            }
+            Spacer()
+            Button { player.skip(by: 30) } label: {
+                Image(systemName: "goforward.30")
+                    .font(.system(size: 30))
+            }
+            Spacer()
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+    }
+
+    // MARK: - 次级控制
+
+    private var secondaryControls: some View {
+        HStack {
+            // 点开语速面板，拖动滑杆连续调节
+            Button {
+                showingSpeedSheet = true
+            } label: {
+                Text("\(TimeFormat.speed(player.speed))x")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(.white.opacity(player.speed == 1.0 ? 0.15 : 0.28)))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Button { showingSleepSheet = true } label: {
+                VStack(spacing: 2) {
+                    Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
+                        .font(.body)
+                    if player.sleepMode != .off {
+                        Text(TimeFormat.time(player.sleepRemaining))
+                            .font(.caption2.monospacedDigit())
+                    }
+                }
+                .foregroundStyle(.white.opacity(player.sleepMode == .off ? 0.7 : 1.0))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
     }
 }
 

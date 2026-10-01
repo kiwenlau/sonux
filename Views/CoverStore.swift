@@ -2,6 +2,44 @@ import SwiftUI
 import AVFoundation
 import CryptoKit
 
+/// 播放页背景色板：由封面主色推导，整屏同一色相，自上而下缓慢沉下去
+struct CoverPalette {
+    let top: Color
+    let middle: Color
+    let lower: Color
+    let bottom: Color
+
+    /// 铺满全屏的沉浸渐变（含状态栏后面），色相全程一致，只明暗过渡
+    var gradient: LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: top, location: 0),
+                .init(color: middle, location: 0.30),
+                .init(color: lower, location: 0.66),
+                .init(color: bottom, location: 1),
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
+    }
+
+    /// 从封面提取主色：先缩到 32×32 取样，按色相分 36 箱累加权重（饱和度越高权重越大，
+    /// 接近纯黑纯白的像素权重压到很低，避免白底封面把背景洗成一片灰），取权重最高的箱求均值；
+    /// 再把饱和度压到 Apple Music 那种“莫兰迪”区间、亮度限定在中偏暗，保证白字可读
+    nonisolated static func make(from image: UIImage) -> CoverPalette? {
+        guard let sampled = SampledPixels(image: image) else { return nil }
+        guard let (hue, saturation, brightness) = sampled.dominantHSB() else { return nil }
+
+        let sat = min(max(saturation, 0.18), 0.45)
+        let bri = min(max(brightness, 0.30), 0.55)
+        return CoverPalette(
+            top: Color(hue: hue, saturation: sat * 0.9, brightness: min(bri * 1.15, 0.62)),
+            middle: Color(hue: hue, saturation: sat, brightness: bri),
+            lower: Color(hue: hue, saturation: sat * 1.05, brightness: bri * 0.70),
+            bottom: Color(hue: hue, saturation: sat * 1.15, brightness: bri * 0.38)
+        )
+    }
+}
+
 /// 音频封面服务：从音频元数据中提取内嵌封面，内存 + 磁盘双级缓存
 /// 提取在后台异步完成，避免 AVAsset 同步读取卡住列表；失败/无封面会记负面标记，不重复尝试
 @MainActor
@@ -9,11 +47,17 @@ final class CoverStore: ObservableObject {
     static let shared = CoverStore()
 
     @Published private var images: [String: UIImage] = [:]
+    /// 播放页大图：列表缩略图只有 400px，放大显示会糊，单独缓存一份更大的
+    @Published private var largeImages: [String: UIImage] = [:]
+    /// 封面主色板，播放页背景用
+    @Published private var palettes: [String: CoverPalette] = [:]
     /// 已尝试过提取但无封面（或提取失败）的书 id，避免每次上屏重试
     private var attempted: Set<String> = []
+    private var attemptedLarge: Set<String> = []
 
     private nonisolated static let memoryLimit = 60
     private nonisolated static let maxPixel: CGFloat = 400
+    private nonisolated static let largeMaxPixel: CGFloat = 900
 
     private lazy var cacheDir: URL = {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -26,36 +70,64 @@ final class CoverStore: ObservableObject {
         images[book.id]
     }
 
+    func largeImage(for book: Book) -> UIImage? {
+        largeImages[book.id]
+    }
+
+    func palette(for book: Book) -> CoverPalette? {
+        palettes[book.id]
+    }
+
     func load(for book: Book) async {
         guard images[book.id] == nil, !attempted.contains(book.id) else { return }
-
-        // 先查磁盘缓存（对已提取过的书是同步开销，无 IO 才落后台）
-        let cacheURL = diskURL(for: book.id)
-        if FileManager.default.fileExists(atPath: cacheURL.path) {
-            if let image = await Self.decode(from: cacheURL) {
-                remember(book.id, image: image)
-                return
-            }
-        }
-
-        guard let first = book.chapters.min(by: { $0.index < $1.index }) else {
+        guard let data = await rawData(for: book),
+              let image = await Self.downscale(data, maxPixel: Self.maxPixel) else {
             attempted.insert(book.id)
             return
         }
-        let data = await Self.extractArtwork(from: first.fileURL)
-        if let data, let image = await Self.downscale(data) {
-            try? data.write(to: cacheURL)   // 缓存原始封面，下次直接读盘
-            remember(book.id, image: image)
-        } else {
-            attempted.insert(book.id)
+        remember(book.id, image: image)
+        fillPalette(book.id, from: image)
+    }
+
+    /// 播放页大图（顺带保证主色板存在，直接从列表进播放页时也不用等缩略图）
+    func loadLarge(for book: Book) async {
+        await load(for: book)
+        guard largeImages[book.id] == nil, !attemptedLarge.contains(book.id) else { return }
+        guard let data = await rawData(for: book),
+              let image = await Self.downscale(data, maxPixel: Self.largeMaxPixel) else {
+            attemptedLarge.insert(book.id)
+            return
         }
+        if largeImages.count >= Self.memoryLimit {
+            for key in largeImages.keys.prefix(largeImages.count / 2) { largeImages[key] = nil }
+        }
+        largeImages[book.id] = image
+        fillPalette(book.id, from: image)
     }
 
     /// 书被删除时清理内存标记与磁盘缓存
     func remove(bookId: String) {
         images[bookId] = nil
+        largeImages[bookId] = nil
+        palettes[bookId] = nil
         attempted.remove(bookId)
+        attemptedLarge.remove(bookId)
         try? FileManager.default.removeItem(at: diskURL(for: bookId))
+    }
+
+    private func fillPalette(_ bookId: String, from image: UIImage) {
+        guard palettes[bookId] == nil else { return }
+        palettes[bookId] = Self.palette(from: image)
+    }
+
+    /// 原始封面数据：磁盘缓存优先，缺失时从第一章音频元数据提取后落盘
+    private func rawData(for book: Book) async -> Data? {
+        let cacheURL = diskURL(for: book.id)
+        if let cached = await Self.readDisk(cacheURL) { return cached }
+        guard let first = book.chapters.min(by: { $0.index < $1.index }) else { return nil }
+        guard let data = await Self.extractArtwork(from: first.fileURL), !data.isEmpty else { return nil }
+        await Self.writeDisk(data, to: cacheURL)   // 缓存原始封面，各级尺寸都直接读盘
+        return data
     }
 
     private func remember(_ bookId: String, image: UIImage) {
@@ -86,13 +158,17 @@ final class CoverStore: ObservableObject {
         return nil
     }
 
-    nonisolated private static func decode(from url: URL) async -> UIImage? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return await downscale(data)
+    nonisolated private static func readDisk(_ url: URL) async -> Data? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try? Data(contentsOf: url)
+    }
+
+    nonisolated private static func writeDisk(_ data: Data, to url: URL) async {
+        try? data.write(to: url)
     }
 
     /// 解码并缩到 maxPixel 以内，列表缩略图不需要全尺寸原图
-    nonisolated private static func downscale(_ data: Data) async -> UIImage? {
+    nonisolated private static func downscale(_ data: Data, maxPixel: CGFloat) async -> UIImage? {
         guard let image = UIImage(data: data) else { return nil }
         let largest = max(image.size.width, image.size.height)
         guard largest > maxPixel else { return image }
@@ -103,6 +179,83 @@ final class CoverStore: ObservableObject {
         return UIGraphicsImageRenderer(size: target, format: format).image { _ in
             image.draw(in: CGRect(origin: .zero, size: target))
         }
+    }
+
+    /// 主色板：取封面像素算 HSB，纯计算开销小，直接在调用线程做
+    nonisolated private static func palette(from image: UIImage) -> CoverPalette? {
+        CoverPalette.make(from: image)
+    }
+}
+
+/// 把封面缩成 32×32 像素缓冲，供提取主色用（非 MainActor，可在后台跑）
+private struct SampledPixels {
+    static let side = 32
+    let rgb: [Double]
+
+    init?(image: UIImage) {
+        guard let cg = image.cgImage else { return nil }
+        let count = Self.side * Self.side
+        var buffer = [UInt8](repeating: 0, count: count * 4)
+        guard let context = CGContext(
+            data: &buffer,
+            width: Self.side, height: Self.side,
+            bitsPerComponent: 8, bytesPerRow: Self.side * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.interpolationQuality = .medium
+        context.draw(cg, in: CGRect(x: 0, y: 0, width: Self.side, height: Self.side))
+        rgb = buffer.prefix(count * 4).map { Double($0) / 255 }
+    }
+
+    /// 按色相分箱累加权重，返回权重最高箱的平均色（HSB，hue 为 0...1）
+    func dominantHSB() -> (Double, Double, Double)? {
+        let binCount = 36
+        var weights = [Double](repeating: 0, count: binCount)
+        var sumR = [Double](repeating: 0, count: binCount)
+        var sumG = [Double](repeating: 0, count: binCount)
+        var sumB = [Double](repeating: 0, count: binCount)
+
+        for i in 0..<Self.side * Self.side {
+            let r = rgb[i * 4], g = rgb[i * 4 + 1], b = rgb[i * 4 + 2]
+            let maxC = max(r, g, b), minC = min(r, g, b)
+            let brightness = maxC
+            let delta = maxC - minC
+            let saturation = maxC == 0 ? 0 : delta / maxC
+            var hue = 0.0
+            if delta > 0 {
+                let segment: Double
+                if maxC == r { segment = (g - b) / delta } else if maxC == g { segment = 2 + (b - r) / delta } else { segment = 4 + (r - g) / delta }
+                hue = (segment / 6).truncatingRemainder(dividingBy: 1)
+                if hue < 0 { hue += 1 }
+            }
+            // 白底、黑底、灰底像素不带主色信息，只留极小权重兜底（应对纯灰封面）
+            let neutralPenalty = (brightness < 0.12 || brightness > 0.94) ? 0.05 : 1
+            let weight = (0.03 + saturation * saturation) * neutralPenalty
+            let bin = min(binCount - 1, Int(hue * Double(binCount)))
+            weights[bin] += weight
+            sumR[bin] += r * weight
+            sumG[bin] += g * weight
+            sumB[bin] += b * weight
+        }
+
+        guard let best = weights.indices.max(by: { weights[$0] < weights[$1] }), weights[best] > 0 else { return nil }
+        let w = weights[best]
+        return Self.hsb(red: sumR[best] / w, green: sumG[best] / w, blue: sumB[best] / w)
+    }
+
+    private static func hsb(red: Double, green: Double, blue: Double) -> (Double, Double, Double) {
+        let maxC = max(red, green, blue), minC = min(red, green, blue)
+        let delta = maxC - minC
+        var hue = 0.0
+        if delta > 0 {
+            let segment: Double
+            if maxC == red { segment = (green - blue) / delta } else if maxC == green { segment = 2 + (blue - red) / delta } else { segment = 4 + (red - green) / delta }
+            hue = (segment / 6).truncatingRemainder(dividingBy: 1)
+            if hue < 0 { hue += 1 }
+        }
+        let saturation = maxC == 0 ? 0 : delta / maxC
+        return (hue, saturation, maxC)
     }
 }
 
