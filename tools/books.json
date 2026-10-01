@@ -1,0 +1,713 @@
+{
+  "version": 1,
+  "books": {
+    "一路走来一路读": {
+      "title": "一路走来一路读",
+      "author": "林达",
+      "category": "杂谈",
+      "narrator": "阿柯",
+      "abridged": true,
+      "episodes": 36,
+      "sources": [
+        "杂谈-林达[一路走来一路读]节选-全36集-阿柯",
+        "一路走来一路读"
+      ],
+      "douban": {
+        "id": "25726145",
+        "url": "https://book.douban.com/subject/25726145/",
+        "doubanTitle": "一路走来一路读",
+        "doubanAuthor": "林达",
+        "score": 5.0
+      },
+      "cover": "covers/一路走来一路读.jpg",
+      "coverSource": "douban"
+    },
+    "与鬼为邻": {
+      "title": "与鬼为邻",
+      "author": "萨苏",
+      "category": "杂谈",
+      "narrator": "阿柯",
+      "abridged": true,
+      "episodes": 21,
+      "sources": [
+        "杂谈-萨苏[与鬼为邻]节选-全21集-阿柯",
+        "与鬼为邻"
+      ],
+      "douban": {
+        "id": "3651500",
+        "url": "https://book.douban.com/subject/3651500/",
+        "doubanTitle": "与鬼为邻",
+        "doubanAuthor": "萨苏",
+        "score": 5.0
+      },
+      "cover": "covers/与鬼为邻.jpg",
+      "coverSource": "douban"
+    },
+    "乱世华尔街": {
+      "title": "乱世华尔街",
+      "author": "渔阳",
+      "category": "财经",
+      "narrator": "有益",
+      "abridged": false,
+      "episodes": 29,
+      "sources": [
+        "财经-渔阳[乱世华尔街]全29集-有益",
+        "乱世华尔街"
+      ],
+      "douban": {
+        "id": "26693406",
+        "url": "https://book.douban.com/subject/26693406/",
+        "doubanTitle": "乱世华尔街",
+        "doubanAuthor": "渔阳",
+        "score": 5.0
+      },
+      "cover": "covers/乱世华尔街.jpg",
+      "coverSource": "douban"
+    },
+    "人类误判心理学": {
+      "title": "人类误判心理学",
+      "author": "查理·芒格",
+      "category": "心理",
+      "narrator": "晟焕",
+      "abridged": false,
+      "episodes": 23,
+      "sources": [
+        "心理-查理·芒格[人类误判心理学]全23集-晟焕",
+        "人类误判心理学"
+      ],
+      "douban": {
+        "queried": true,
+        "found": false
+      },
+      "cover": "covers/人类误判心理学.jpg",
+      "coverSource": "placeholder"
+    },
+    "卓有成效的管理者": {
+      "title": "卓有成效的管理者",
+      "author": "彼得·德鲁克",
+      "category": "商业",
+      "narrator": "晟焕",
+      "abridged": false,
+      "episodes": 38,
+      "sources": [
+        "商业-彼得·德鲁克[卓有成效的管理者]全38集-晟焕",
+        "卓有成效的管理者"
+      ],
+      "douban": {
+        "id": "36336321",
+        "url": "https://book.douban.com/subject/36336321/",
+        "doubanTitle": "卓有成效的管理者",
+        "doubanAuthor": "[美] 彼得·德鲁克",
+        "score": 5.0
+      },
+      "cover": "covers/卓有成效的管理者.jpg",
+      "coverSource": "douban"
+    },
+    "历史在你我身边": {
+      "title": "历史在你我身边",
+      "author": "林达",
+      "category": "杂谈",
+      "narrator": "小新",
+      "abridged": true,
+      "episodes": 41,
+      "sources": [
+        "杂谈-林达[历史在你我身边]节选-全41集-小新",
+        "历史在你我身边"
+      ],
+      "douban": {
+        "id": "25887839",
+        "url": "https://book.douban.com/subject/25887839/",
+        "doubanTitle": "历史在你我身边",
+        "doubanAuthor": "林达",
+        "score": 5.0
+      },
+      "cover": "covers/历史在你我身边.jpg",
+      "coverSource": "douban"
+    },
+    "历史深处的忧虑": {
+      "title": "历史深处的忧虑",
+      "author": "林达",
+      "category": "公民课",
+      "narrator": "阿柯",
+      "abridged": true,
+      "episodes": 33,
+      "sources": [
+        "公民课-林达[历史深处的忧虑]节选-全33集-阿柯",
+        "历史深处的忧虑"
+      ],
+      "douban": {
+        "id": "34451076",
+        "url": "https://book.douban.com/subject/34451076/",
+        "doubanTitle": "历史深处的忧虑",
+        "doubanAuthor": "林达",
+        "score": 5.0
+      },
+      "cover": "covers/历史深处的忧虑.jpg",
+      "coverSource": "douban"
+    },
+    "品人录": {
+      "title": "品人录",
+      "author": "易中天",
+      "category": "人物",
+      "narrator": "有益",
+      "abridged": false,
+      "episodes": 51,
+      "sources": [
+        "人物-易中天[品人录]全51集-有益",
+        "品人录"
+      ],
+      "douban": {
+        "id": "27593506",
+        "url": "https://book.douban.com/subject/27593506/",
+        "doubanTitle": "品人录",
+        "doubanAuthor": "易中天",
+        "score": 5.0
+      },
+      "cover": "covers/品人录.jpg",
+      "coverSource": "douban"
+    },
+    "大法官说了算": {
+      "title": "大法官说了算",
+      "author": "何帆",
+      "category": "法律",
+      "narrator": "晟焕",
+      "abridged": false,
+      "episodes": 70,
+      "sources": [
+        "法律-何帆[大法官说了算]全70集-晟焕",
+        "大法官说了算"
+      ],
+      "douban": {
+        "id": "26876481",
+        "url": "https://book.douban.com/subject/26876481/",
+        "doubanTitle": "大法官说了算",
+        "doubanAuthor": "何帆",
+        "score": 5.0
+      },
+      "cover": "covers/大法官说了算.jpg",
+      "coverSource": "douban"
+    },
+    "大败局": {
+      "title": "大败局",
+      "author": "吴晓波",
+      "category": "商业",
+      "narrator": "阿柯",
+      "abridged": false,
+      "episodes": 55,
+      "sources": [
+        "商业-吴晓波[大败局]全55集-阿柯",
+        "大败局"
+      ],
+      "douban": {
+        "id": "1072438",
+        "url": "https://book.douban.com/subject/1072438/",
+        "doubanTitle": "大败局",
+        "doubanAuthor": "吴晓波",
+        "score": 5.0
+      },
+      "cover": "covers/大败局.jpg",
+      "coverSource": "douban"
+    },
+    "如彗星划过夜空": {
+      "title": "如彗星划过夜空",
+      "author": "林达",
+      "category": "公民课",
+      "narrator": "阿柯",
+      "abridged": false,
+      "episodes": 71,
+      "sources": [
+        "公民课-林达[如彗星划过夜空]全71集-阿柯",
+        "如彗星划过夜空"
+      ],
+      "douban": {
+        "id": "34451078",
+        "url": "https://book.douban.com/subject/34451078/",
+        "doubanTitle": "如彗星划过夜空",
+        "doubanAuthor": "林达",
+        "score": 5.0
+      },
+      "cover": "covers/如彗星划过夜空.jpg",
+      "coverSource": "douban"
+    },
+    "帝国的惆怅": {
+      "title": "帝国的惆怅",
+      "author": "易中天",
+      "category": "中国史",
+      "narrator": "晨诵无声",
+      "abridged": false,
+      "episodes": 61,
+      "sources": [
+        "中国史-易中天[帝国的惆怅]全61集-晨诵无声",
+        "帝国的惆怅"
+      ],
+      "douban": {
+        "id": "1421029",
+        "url": "https://book.douban.com/subject/1421029/",
+        "doubanTitle": "帝国的惆怅",
+        "doubanAuthor": "易中天",
+        "score": 5.0
+      },
+      "cover": "covers/帝国的惆怅.jpg",
+      "coverSource": "douban"
+    },
+    "帝国的终结": {
+      "title": "帝国的终结",
+      "author": "易中天",
+      "category": "中国史",
+      "narrator": "有益",
+      "abridged": false,
+      "episodes": 37,
+      "sources": [
+        "中国史-易中天[帝国的终结]全37集-有益",
+        "帝国的终结"
+      ],
+      "douban": {
+        "id": "26249394",
+        "url": "https://book.douban.com/subject/26249394/",
+        "doubanTitle": "帝国的终结",
+        "doubanAuthor": "易中天",
+        "score": 5.0
+      },
+      "cover": "covers/帝国的终结.jpg",
+      "coverSource": "douban"
+    },
+    "幸福之路": {
+      "title": "幸福之路",
+      "author": "罗素",
+      "category": "思维",
+      "narrator": "晨诵无声",
+      "abridged": false,
+      "episodes": 32,
+      "sources": [
+        "思维-罗素[幸福之路]全32集-晨诵无声",
+        "幸福之路"
+      ],
+      "douban": {
+        "id": "35302634",
+        "url": "https://book.douban.com/subject/35302634/",
+        "doubanTitle": "幸福之路",
+        "doubanAuthor": "[英] 伯特兰·罗素",
+        "score": 5.0
+      },
+      "cover": "covers/幸福之路.jpg",
+      "coverSource": "douban"
+    },
+    "开国之惑": {
+      "title": "开国之惑",
+      "author": "张鸣",
+      "category": "中国史",
+      "narrator": "有益",
+      "abridged": false,
+      "episodes": 33,
+      "sources": [
+        "中国史-张鸣[开国之惑]全33集-有益",
+        "开国之惑"
+      ],
+      "douban": {
+        "id": "26785968",
+        "url": "https://book.douban.com/subject/26785968/",
+        "doubanTitle": "开国之惑",
+        "doubanAuthor": "张鸣",
+        "score": 5.0
+      },
+      "cover": "covers/开国之惑.jpg",
+      "coverSource": "douban"
+    },
+    "总统是靠不住的": {
+      "title": "总统是靠不住的",
+      "author": "林达",
+      "category": "公民课",
+      "narrator": "阿柯",
+      "abridged": true,
+      "episodes": 30,
+      "sources": [
+        "公民课-林达[总统是靠不住的]节选-全30集-阿柯",
+        "总统是靠不住的"
+      ],
+      "douban": {
+        "id": "1056315",
+        "url": "https://book.douban.com/subject/1056315/",
+        "doubanTitle": "总统是靠不住的",
+        "doubanAuthor": "林达",
+        "score": 5.0
+      },
+      "cover": "covers/总统是靠不住的.jpg",
+      "coverSource": "douban"
+    },
+    "我也有一个梦想": {
+      "title": "我也有一个梦想",
+      "author": "林达",
+      "category": "公民课",
+      "narrator": "晨诵无声",
+      "abridged": false,
+      "episodes": 89,
+      "sources": [
+        "公民课-林达[我也有一个梦想]全89集-晨诵无声",
+        "我也有一个梦想"
+      ],
+      "douban": {
+        "id": "1014825",
+        "url": "https://book.douban.com/subject/1014825/",
+        "doubanTitle": "我也有一个梦想",
+        "doubanAuthor": "林达",
+        "score": 5.0
+      },
+      "cover": "covers/我也有一个梦想.jpg",
+      "coverSource": "douban"
+    },
+    "扫起落叶好过冬": {
+      "title": "扫起落叶好过冬",
+      "author": "林达",
+      "category": "世界史",
+      "narrator": "阿柯",
+      "abridged": true,
+      "episodes": 22,
+      "sources": [
+        "世界史-林达[扫起落叶好过冬]节选-全22集-阿柯",
+        "扫起落叶好过冬"
+      ],
+      "douban": {
+        "id": "1907199",
+        "url": "https://book.douban.com/subject/1907199/",
+        "doubanTitle": "扫起落叶好过冬",
+        "doubanAuthor": "林达",
+        "score": 5.0
+      },
+      "cover": "covers/扫起落叶好过冬.jpg",
+      "coverSource": "douban"
+    },
+    "曾国藩的正面与侧面": {
+      "title": "曾国藩的正面与侧面",
+      "author": "张宏杰",
+      "category": "人物",
+      "narrator": "小胖",
+      "abridged": true,
+      "episodes": 23,
+      "sources": [
+        "人物-张宏杰[曾国藩的正面与侧面]节选-全23集-小胖",
+        "曾国藩的正面与侧面"
+      ],
+      "douban": {
+        "id": "25870991",
+        "url": "https://book.douban.com/subject/25870991/",
+        "doubanTitle": "曾国藩的正面与侧面",
+        "doubanAuthor": "张宏杰",
+        "score": 5.0
+      },
+      "cover": "covers/曾国藩的正面与侧面.jpg",
+      "coverSource": "douban"
+    },
+    "有一类战犯叫参谋": {
+      "title": "有一类战犯叫参谋",
+      "author": "俞天任",
+      "category": "世界史",
+      "narrator": "晟焕",
+      "abridged": false,
+      "episodes": 71,
+      "sources": [
+        "世界史-俞天任[有一类战犯叫参谋]全71集-晟焕",
+        "有一类战犯叫参谋"
+      ],
+      "douban": {
+        "id": "30432968",
+        "url": "https://book.douban.com/subject/30432968/",
+        "doubanTitle": "有一类战犯叫参谋",
+        "doubanAuthor": "俞天任",
+        "score": 5.0
+      },
+      "cover": "covers/有一类战犯叫参谋.jpg",
+      "coverSource": "douban"
+    },
+    "检证战争责任：从九一八事变到太平洋战争": {
+      "title": "检证战争责任：从九一八事变到太平洋战争",
+      "author": "日本读卖新闻",
+      "category": "纪实",
+      "narrator": "阿柯",
+      "abridged": false,
+      "episodes": 37,
+      "sources": [
+        "纪实-日本读卖新闻[检证战争责任：从九一八事变到太平洋战争]全37集-阿柯",
+        "检证战争责任：从九一八事变到太平洋战争"
+      ],
+      "douban": {
+        "id": "2148183",
+        "url": "https://book.douban.com/subject/2148183/",
+        "doubanTitle": "检证战争责任",
+        "doubanAuthor": "日本读卖新闻战争责任检证委员会",
+        "score": 2.0
+      },
+      "cover": "covers/检证战争责任：从九一八事变到太平洋战争.jpg",
+      "coverSource": "douban"
+    },
+    "民主的细节": {
+      "title": "民主的细节",
+      "author": "刘瑜",
+      "category": "公民课",
+      "narrator": "阿柯",
+      "abridged": false,
+      "episodes": 55,
+      "sources": [
+        "公民课-刘瑜[民主的细节]全55集-阿柯",
+        "民主的细节"
+      ],
+      "douban": {
+        "id": "3813669",
+        "url": "https://book.douban.com/subject/3813669/",
+        "doubanTitle": "民主的细节",
+        "doubanAuthor": "刘瑜",
+        "score": 5.0
+      },
+      "cover": "covers/民主的细节.jpg",
+      "coverSource": "douban"
+    },
+    "洋务自强": {
+      "title": "洋务自强",
+      "author": "张鸣",
+      "category": "中国史",
+      "narrator": "越泽",
+      "abridged": false,
+      "episodes": 30,
+      "sources": [
+        "中国史-张鸣[洋务自强]全30集-越泽",
+        "洋务自强"
+      ],
+      "douban": {
+        "id": "26785976",
+        "url": "https://book.douban.com/subject/26785976/",
+        "doubanTitle": "洋务自强",
+        "doubanAuthor": "张鸣",
+        "score": 5.0
+      },
+      "cover": "covers/洋务自强.jpg",
+      "coverSource": "douban"
+    },
+    "浩瀚大洋是赌场": {
+      "title": "浩瀚大洋是赌场",
+      "author": "俞天任",
+      "category": "军事",
+      "narrator": "明晨",
+      "abridged": false,
+      "episodes": 123,
+      "sources": [
+        "军事-俞天任[浩瀚大洋是赌场]全123集-明晨",
+        "浩瀚大洋是赌场"
+      ],
+      "douban": {
+        "id": "4827423",
+        "url": "https://book.douban.com/subject/4827423/",
+        "doubanTitle": "浩瀚大洋是赌场",
+        "doubanAuthor": "俞天任",
+        "score": 5.0
+      },
+      "cover": "covers/浩瀚大洋是赌场.jpg",
+      "coverSource": "douban"
+    },
+    "穿越百年中东": {
+      "title": "穿越百年中东",
+      "author": "郭建龙",
+      "category": "世界史",
+      "narrator": "秦笙",
+      "abridged": false,
+      "episodes": 59,
+      "sources": [
+        "世界史-郭建龙[穿越百年中东]全59集-秦笙",
+        "穿越百年中东"
+      ],
+      "douban": {
+        "id": "26700104",
+        "url": "https://book.douban.com/subject/26700104/",
+        "doubanTitle": "穿越百年中东",
+        "doubanAuthor": "郭建龙",
+        "score": 5.0
+      },
+      "cover": "covers/穿越百年中东.jpg",
+      "coverSource": "douban"
+    },
+    "美国宪政历程": {
+      "title": "美国宪政历程",
+      "author": "任东来",
+      "category": "法律",
+      "narrator": "晟焕",
+      "abridged": false,
+      "episodes": 92,
+      "sources": [
+        "法律-任东来[美国宪政历程]全92集-晟焕",
+        "美国宪政历程"
+      ],
+      "douban": {
+        "id": "1144185",
+        "url": "https://book.douban.com/subject/1144185/",
+        "doubanTitle": "美国宪政历程",
+        "doubanAuthor": "任东来",
+        "score": 5.0
+      },
+      "cover": "covers/美国宪政历程.jpg",
+      "coverSource": "douban"
+    },
+    "袁氏当国": {
+      "title": "袁氏当国",
+      "author": "唐德刚",
+      "category": "人物",
+      "narrator": "晨诵无声",
+      "abridged": false,
+      "episodes": 28,
+      "sources": [
+        "人物-唐德刚[袁氏当国]全28集-晨诵无声",
+        "袁氏当国"
+      ],
+      "douban": {
+        "id": "1000280",
+        "url": "https://book.douban.com/subject/1000280/",
+        "doubanTitle": "袁氏当国",
+        "doubanAuthor": "唐德刚",
+        "score": 5.0
+      },
+      "cover": "covers/袁氏当国.jpg",
+      "coverSource": "douban"
+    },
+    "西班牙旅行笔记": {
+      "title": "西班牙旅行笔记",
+      "author": "林达",
+      "category": "世界史",
+      "narrator": "悦笛",
+      "abridged": false,
+      "episodes": 43,
+      "sources": [
+        "世界史-林达[西班牙旅行笔记]全43集-悦笛",
+        "西班牙旅行笔记"
+      ],
+      "douban": {
+        "id": "1962923",
+        "url": "https://book.douban.com/subject/1962923/",
+        "doubanTitle": "西班牙旅行笔记",
+        "doubanAuthor": "林达",
+        "score": 5.0
+      },
+      "cover": "covers/西班牙旅行笔记.jpg",
+      "coverSource": "douban"
+    },
+    "观念的水位": {
+      "title": "观念的水位",
+      "author": "刘瑜",
+      "category": "杂谈",
+      "narrator": "晟焕",
+      "abridged": true,
+      "episodes": 32,
+      "sources": [
+        "杂谈-刘瑜[观念的水位]节选-全32集-晟焕",
+        "观念的水位"
+      ],
+      "douban": {
+        "id": "20463108",
+        "url": "https://book.douban.com/subject/20463108/",
+        "doubanTitle": "观念的水位",
+        "doubanAuthor": "刘瑜",
+        "score": 5.0
+      },
+      "cover": "covers/观念的水位.jpg",
+      "coverSource": "douban"
+    },
+    "谁在统治着日本": {
+      "title": "谁在统治着日本",
+      "author": "俞天任",
+      "category": "社会",
+      "narrator": "晟焕",
+      "abridged": false,
+      "episodes": 61,
+      "sources": [
+        "社会-俞天任[谁在统治着日本]全61集-晟焕",
+        "谁在统治着日本"
+      ],
+      "douban": {
+        "id": "11526307",
+        "url": "https://book.douban.com/subject/11526307/",
+        "doubanTitle": "谁在统治着日本",
+        "doubanAuthor": "俞天任",
+        "score": 5.0
+      },
+      "cover": "covers/谁在统治着日本.jpg",
+      "coverSource": "douban"
+    },
+    "费城风云": {
+      "title": "费城风云",
+      "author": "易中天",
+      "category": "公民课",
+      "narrator": "晟焕",
+      "abridged": false,
+      "episodes": 34,
+      "sources": [
+        "公民课-易中天[费城风云]全34集-晟焕",
+        "费城风云"
+      ],
+      "douban": {
+        "id": "30220178",
+        "url": "https://book.douban.com/subject/30220178/",
+        "doubanTitle": "费城风云",
+        "doubanAuthor": "易中天",
+        "score": 5.0
+      },
+      "cover": "covers/费城风云.jpg",
+      "coverSource": "douban"
+    },
+    "重说中国近代史": {
+      "title": "重说中国近代史",
+      "author": "张鸣",
+      "category": "中国史",
+      "narrator": "有益",
+      "abridged": false,
+      "episodes": 63,
+      "sources": [
+        "中国史-张鸣[重说中国近代史]全63集-有益",
+        "重说中国近代史"
+      ],
+      "douban": {
+        "id": "10472702",
+        "url": "https://book.douban.com/subject/10472702/",
+        "doubanTitle": "重说中国近代史",
+        "doubanAuthor": "张鸣",
+        "score": 5.0
+      },
+      "cover": "covers/重说中国近代史.jpg",
+      "coverSource": "douban"
+    },
+    "麦卡锡：一个焦虑的时代": {
+      "title": "麦卡锡：一个焦虑的时代",
+      "author": "林达",
+      "category": "世界史",
+      "narrator": "阿柯",
+      "abridged": false,
+      "episodes": 41,
+      "sources": [
+        "世界史-林达[麦卡锡：一个焦虑的时代]全41集-阿柯",
+        "麦卡锡：一个焦虑的时代"
+      ],
+      "douban": {
+        "queried": true,
+        "found": false
+      },
+      "cover": "covers/麦卡锡：一个焦虑的时代.jpg",
+      "coverSource": "placeholder"
+    },
+    "黑客与画家": {
+      "title": "黑客与画家",
+      "author": "保罗·格雷厄姆",
+      "category": "杂谈",
+      "narrator": "张成龙",
+      "abridged": true,
+      "episodes": 25,
+      "sources": [
+        "杂谈-保罗·格雷厄姆[黑客与画家]节选-全25集-张成龙",
+        "黑客与画家"
+      ],
+      "douban": {
+        "id": "35889905",
+        "url": "https://book.douban.com/subject/35889905/",
+        "doubanTitle": "黑客与画家",
+        "doubanAuthor": "[美国] 保罗·格雷厄姆",
+        "score": 5.0
+      },
+      "cover": "covers/黑客与画家.jpg",
+      "coverSource": "douban"
+    }
+  }
+}

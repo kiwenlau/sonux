@@ -11,6 +11,10 @@ DerivedData/
 # 界面验证时临时截图/脚本的输出目录
 .tmp-shots/
 
+# 测试用音频书库（体积大，不入库；元数据清单在 tools/books.json）
+TestBooks/*
+!TestBooks/.gitkeep
+
 # Xcode 用户个人状态（窗口布局、方案管理等）
 xcuserdata/
 *.xcuserstate
