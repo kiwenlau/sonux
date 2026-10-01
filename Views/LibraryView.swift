@@ -28,7 +28,7 @@ struct LibraryView: View {
                 List {
                     ForEach(library.books) { book in
                         NavigationLink(value: book.id) {
-                            BookRow(book: book, position: library.position(forBook: book.id))
+                            BookRow(book: book)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
@@ -140,31 +140,9 @@ struct LibraryView: View {
     }
 }
 
+/// 列表行：只展示封面、书名和作者
 private struct BookRow: View {
     let book: Book
-    let position: PlayPosition?
-
-    private var progressText: String {
-        guard let position,
-              let chapter = book.chapters.first(where: { $0.id == position.chapterId }) else {
-            return "未开始 · \(TimeFormat.duration(book.totalDuration))"
-        }
-        let finished = ProgressPolicy.isFinished(time: position.time, duration: chapter.duration)
-        let isLastChapter = chapter.index == book.chapters.count - 1
-        if finished && isLastChapter {
-            return "已听完"
-        }
-        let chapterProgress = position.time / max(chapter.duration, 1)
-        return "第 \(chapter.index + 1) 章 · 进度 \(Int(chapterProgress * 100))%"
-    }
-
-    private var progressValue: Double? {
-        guard let position,
-              let chapter = book.chapters.first(where: { $0.id == position.chapterId }) else {
-            return nil
-        }
-        return min(max(position.time / max(chapter.duration, 1), 0), 1)
-    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -174,13 +152,11 @@ private struct BookRow: View {
                 Text(book.title)
                     .font(.headline)
                     .lineLimit(2)
-                Text(progressText)
-                    .font(.caption)
+                // 副标题：有作者显作者，否则退而显总时长
+                Text(book.author ?? TimeFormat.duration(book.totalDuration))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
-                if let progressValue {
-                    ProgressView(value: progressValue)
-                        .progressViewStyle(.linear)
-                }
+                    .lineLimit(1)
             }
         }
         .padding(.vertical, 4)
@@ -204,10 +180,7 @@ private struct BookGridView: View {
             LazyVGrid(columns: columns, spacing: 14) {
                 ForEach(books) { book in
                     NavigationLink(value: book.id) {
-                        BookGridCard(
-                            book: book,
-                            isStarted: library.position(forBook: book.id) != nil
-                        )
+                        BookGridCard(book: book)
                     }
                     .buttonStyle(.plain)
                     .contextMenu {

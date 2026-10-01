@@ -137,7 +137,6 @@ struct BookCoverView: View {
 /// 书库卡片视图（双列网格用）：大封面 + 标题 + 作者，无封面时显示图标占位
 struct BookGridCard: View {
     let book: Book
-    var isStarted: Bool
     @ObservedObject private var store = CoverStore.shared
 
     var body: some View {
@@ -160,16 +159,9 @@ struct BookGridCard: View {
             .aspectRatio(0.8, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(book.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
-                if isStarted {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.red)
-                }
-            }
+            Text(book.title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
 
             // 副标题：有作者显作者，否则退而显总时长
             Text(book.author ?? TimeFormat.duration(book.totalDuration))
