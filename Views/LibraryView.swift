@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
+    @AppStorage("libraryGridView") private var gridView = true
     @State private var showImporter = false
     @State private var importMessage: String?
     @State private var bookToDelete: Book?
@@ -13,6 +14,11 @@ struct LibraryView: View {
         Group {
             if library.books.isEmpty {
                 EmptyLibraryView(onImport: { showImporter = true })
+            } else if gridView {
+                BookGridView(
+                    books: library.books,
+                    deleteBook: { bookToDelete = $0 }
+                )
             } else {
                 List {
                     ForEach(library.books) { book in
@@ -55,6 +61,15 @@ struct LibraryView: View {
                     Image(systemName: "plus")
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                // 列表 / 卡片视图切换
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { gridView.toggle() }
+                } label: {
+                    Image(systemName: gridView ? "list.bullet" : "square.grid.2x2")
+                }
+                .accessibilityIdentifier("toggle-view")
+            }
         }
         .fileImporter(
             isPresented: $showImporter,
@@ -84,6 +99,7 @@ struct LibraryView: View {
                             book: book,
                             playingBookId: player.currentBook?.id
                         ) { player.stop() }
+                        CoverStore.shared.remove(bookId: book.id)
                     } catch {
                         NSLog("[sonux] ui: 删除抛出错误 %@", error.localizedDescription)
                         deleteErrorMessage = error.localizedDescription
@@ -147,13 +163,7 @@ private struct BookRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.indigo.opacity(0.15))
-                .frame(width: 50, height: 50)
-                .overlay {
-                    Image(systemName: book.chapters.count > 1 ? "books.vertical.fill" : "music.note")
-                        .foregroundStyle(.indigo)
-                }
+            BookCoverView(book: book)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(book.title)
@@ -169,6 +179,51 @@ private struct BookRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+/// 书库卡片网格：双列，点击进入详情页，长按可删除
+private struct BookGridView: View {
+    let books: [Book]
+    let deleteBook: (Book) -> Void
+
+    @EnvironmentObject private var library: LibraryService
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
+    ]
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 14) {
+                ForEach(books) { book in
+                    NavigationLink(value: book.id) {
+                        BookGridCard(
+                            book: book,
+                            isStarted: library.position(forBook: book.id) != nil
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            NSLog("[sonux] ui: 卡片长按菜单删除《%@》", book.title)
+                            deleteBook(book)
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
+                    }
+                    .accessibilityIdentifier("book-card-\(book.id)")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .navigationDestination(for: String.self) { bookId in
+            if let book = library.book(id: bookId) {
+                BookDetailView(book: book)
+            }
+        }
     }
 }
 

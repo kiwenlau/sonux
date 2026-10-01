@@ -64,7 +64,7 @@ final class LibraryService: ObservableObject {
                     books.append(Book(
                         id: bookId,
                         title: entry.deletingPathExtension().lastPathComponent,
-                        author: nil,
+                        author: Self.audioAuthor(of: entry),
                         chapters: [chapter],
                         storagePath: relativePath(entry)
                     ))
@@ -239,7 +239,7 @@ final class LibraryService: ObservableObject {
         return Book(
             id: bookId,
             title: folder.lastPathComponent,
-            author: nil,
+            author: Self.audioAuthor(of: audioFiles[0]),
             chapters: chapters,
             storagePath: relativePath(folder)
         )
@@ -293,6 +293,23 @@ final class LibraryService: ObservableObject {
         let asset = AVURLAsset(url: url)
         let seconds = CMTimeGetSeconds(asset.duration)
         return seconds.isFinite && seconds > 0 ? seconds : 0
+    }
+
+    /// 从音频元数据提取作者（artist / album artist 字段，取第一个非空值）
+    nonisolated private static func audioAuthor(of url: URL) -> String? {
+        let asset = AVURLAsset(url: url)
+        let authorIDs: [AVMetadataIdentifier] = [
+            .iTunesMetadataArtist, .iTunesMetadataAlbumArtist, .iTunesMetadataOriginalArtist,
+            .quickTimeMetadataArtist, .quickTimeUserDataArtist,
+        ]
+        for item in asset.commonMetadata {
+            let isAuthor = item.commonKey == .commonKeyArtist || authorIDs.contains { $0 == item.identifier }
+            guard isAuthor else { continue }
+            if let value = item.value as? String, !value.trimmingCharacters(in: .whitespaces).isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 
     /// 持久化结构：书本进度 + 章节进度
