@@ -182,6 +182,81 @@ struct PlayerView: View {
     }
 }
 
+/// 支持拖动 + 点击跳转的步进滑杆：点击轨道任意位置吸附到最近刻度，拖动实时调节
+struct StepSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+
+    /// 滑块直径，同时作为轨道两端留给滑块中心的内缩距离（与刻度尺对齐）
+    static let knobSize: CGFloat = 24
+    static let knobInset: CGFloat = knobSize / 2
+
+    /// 累计位移阈值，用于区分轻点与拖动
+    @State private var isDragging = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let height = geo.size.height
+            let travel = max(width - Self.knobSize, 0)
+            let centerX = Self.knobInset + fraction * travel
+
+            ZStack(alignment: .topLeading) {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(width: width, height: 4)
+                    .offset(y: (height - 4) / 2)
+                Capsule()
+                    .fill(Color.indigo)
+                    .frame(width: max(centerX, 0), height: 4)
+                    .offset(y: (height - 4) / 2)
+                Circle()
+                    .fill(.white)
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                    .frame(width: Self.knobSize, height: Self.knobSize)
+                    .offset(x: centerX - Self.knobSize / 2, y: (height - Self.knobSize) / 2)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        if !isDragging &&
+                            abs(gesture.translation.width) + abs(gesture.translation.height) > 6 {
+                            isDragging = true
+                        }
+                        if isDragging {
+                            // 拖动实时生效，不做动画保证跟手
+                            value = snapped(atX: gesture.location.x, travel: travel)
+                        }
+                    }
+                    .onEnded { gesture in
+                        if !isDragging {
+                            // 轻点轨道：滑块弹跳到点击位置
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                value = snapped(atX: gesture.location.x, travel: travel)
+                            }
+                        }
+                        isDragging = false
+                    }
+            )
+        }
+        .frame(height: 36)
+    }
+
+    private var fraction: CGFloat {
+        let span = range.upperBound - range.lowerBound
+        return CGFloat((value - range.lowerBound) / span)
+    }
+
+    private func snapped(atX x: CGFloat, travel: CGFloat) -> Double {
+        let raw = Double(max(0, min(1, (x - Self.knobInset) / max(travel, 1))))
+            * (range.upperBound - range.lowerBound) + range.lowerBound
+        let stepped = (raw / step).rounded() * step
+        return min(max(stepped, range.lowerBound), range.upperBound)
+    }
+}
+
 /// 语速面板：参考微信读书，拖动滑杆在 0.5x–3x 之间以 0.1 为步进连续调节
 struct SpeedSliderSheet: View {
     @EnvironmentObject private var player: PlayerService
@@ -201,15 +276,14 @@ struct SpeedSliderSheet: View {
                     .foregroundStyle(.indigo)
             }
 
-            Slider(
+            StepSlider(
                 value: Binding(
                     get: { Double(player.speed) },
                     set: { player.setSpeed(Float($0)) }
                 ),
-                in: PlayerService.speedRange,
+                range: PlayerService.speedRange,
                 step: PlayerService.speedStep
             )
-            .tint(.indigo)
 
             ruler
 
@@ -256,9 +330,11 @@ struct SpeedSliderSheet: View {
             .map { ($0 * 10).rounded() / 10 }
     }
 
+    /// 滑块中心在两端各内缩半个滑块宽度，轨道中点对应 value 中点，因此换算需与 StepSlider 保持一致
     private func xPosition(for value: Double, in width: CGFloat) -> CGFloat {
         let span = PlayerService.speedRange.upperBound - PlayerService.speedRange.lowerBound
-        return CGFloat((value - PlayerService.speedRange.lowerBound) / span) * width
+        let travel = max(width - StepSlider.knobSize, 0)
+        return StepSlider.knobInset + CGFloat((value - PlayerService.speedRange.lowerBound) / span) * travel
     }
 }
 
@@ -280,8 +356,9 @@ struct SleepTimerSheet: View {
                 .font(.headline)
                 .foregroundStyle(minutes > 0 ? Color.indigo : Color.primary)
 
-            Slider(value: minutesBinding, in: SleepTimerMode.range, step: SleepTimerMode.step)
-                .tint(.indigo)
+            StepSlider(value: minutesBinding,
+                       range: SleepTimerMode.range,
+                       step: SleepTimerMode.step)
 
             ruler
 
@@ -347,7 +424,8 @@ struct SleepTimerSheet: View {
 
     private func xPosition(for value: Double, in width: CGFloat) -> CGFloat {
         let span = SleepTimerMode.range.upperBound - SleepTimerMode.range.lowerBound
-        return CGFloat((value - SleepTimerMode.range.lowerBound) / span) * width
+        let travel = max(width - StepSlider.knobSize, 0)
+        return StepSlider.knobInset + CGFloat((value - SleepTimerMode.range.lowerBound) / span) * travel
     }
 
     private func modeButton(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
