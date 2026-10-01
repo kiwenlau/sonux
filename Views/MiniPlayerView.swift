@@ -41,11 +41,14 @@ struct MiniPlayerView: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                Image(systemName: "music.note.list")
-                    .font(.title2)
-                    .foregroundStyle(.indigo)
-                    .frame(width: 40, height: 40)
-                    .background(Color.indigo.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                // 左侧书籍封面：与书库列表行共用同一缩略图，无封面时自动退回图标占位
+                if let book = player.currentBook {
+                    BookCoverView(book: book)
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.1))
+                        .frame(width: 50, height: 50)
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(player.currentBook?.title ?? "")
