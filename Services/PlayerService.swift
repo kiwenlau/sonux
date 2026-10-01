@@ -46,6 +46,44 @@ final class PlayerService: NSObject, ObservableObject {
     static let speedRange: ClosedRange<Double> = 0.5...3.0
     static let speedStep: Double = 0.1
 
+    // MARK: - 定时关闭记忆（参考微信读书：下次播放自动沿用上次设置）
+
+    private static let lastSleepModeKey = "sleepTimer.lastMode"
+    private static let lastSleepMinutesKey = "sleepTimer.lastMinutes"
+
+    /// 上次用户设置的定时关闭模式（定时自然到期不清除，供下次播放沿用）
+    private var rememberedSleepMode: SleepTimerMode? {
+        switch UserDefaults.standard.integer(forKey: Self.lastSleepModeKey) {
+        case 1:
+            let minutes = UserDefaults.standard.integer(forKey: Self.lastSleepMinutesKey)
+            return minutes > 0 ? .minutes(minutes) : nil
+        case 2:
+            return .endOfChapter
+        default:
+            return nil
+        }
+    }
+
+    /// 仅记录用户主动选择的模式（定时自然到期不清除记忆）
+    private func rememberSleepMode(_ mode: SleepTimerMode) {
+        switch mode {
+        case .off:
+            UserDefaults.standard.set(0, forKey: Self.lastSleepModeKey)
+        case .minutes(let minutes):
+            UserDefaults.standard.set(1, forKey: Self.lastSleepModeKey)
+            UserDefaults.standard.set(minutes, forKey: Self.lastSleepMinutesKey)
+        case .endOfChapter:
+            UserDefaults.standard.set(2, forKey: Self.lastSleepModeKey)
+        }
+    }
+
+    /// 播放被中断时未走完的定时（暂停/停止时保留剩余时间，恢复播放时接着走）
+    private var pendingSleepMode: SleepTimerMode?
+    private var pendingSleepRemaining: TimeInterval = 0
+    /// 上次定时是否已自然走完：只有此时，重新播放才用记忆的默认时长重新计时；
+    /// 否则只恢复剩余时间，避免暂停再播放就满额重计、永无止境
+    private var sleepTimerDidExpire = false
+
     override init() {
         super.init()
         configureAudioSession()
@@ -82,9 +120,28 @@ final class PlayerService: NSObject, ObservableObject {
             player.play()
 
             startProgressTimer()
+            applyRememberedSleepTimerIfNeeded()
             updateNowPlaying()
         } catch {
             self.isPlaying = false
+        }
+    }
+
+    /// 恢复播放时接续之前的定时：
+    /// - 定时未走完（如暂停后继续）→ 从剩余时间接着走，不重新满额计时
+    /// - 定时已完全走完后再重新播放（如半夜醒来）→ 沿用记忆的默认时长重新计时
+    private func applyRememberedSleepTimerIfNeeded() {
+        guard sleepMode == .off, player?.isPlaying == true else { return }
+        if let mode = pendingSleepMode {
+            pendingSleepMode = nil
+            if mode == .endOfChapter {
+                setSleepTimer(.endOfChapter)
+            } else if pendingSleepRemaining > 0 {
+                resumeSleepTimer(mode: mode, remaining: pendingSleepRemaining)
+            }
+            pendingSleepRemaining = 0
+        } else if sleepTimerDidExpire, let mode = rememberedSleepMode {
+            setSleepTimer(mode)
         }
     }
 
@@ -100,6 +157,7 @@ final class PlayerService: NSObject, ObservableObject {
             player.play()
             player.rate = speed // 暂停期间调整的倍速需重新应用
             isPlaying = true
+            applyRememberedSleepTimerIfNeeded()
         }
         updateNowPlaying()
     }
@@ -172,8 +230,13 @@ final class PlayerService: NSObject, ObservableObject {
     // MARK: - 定时关闭
 
     func setSleepTimer(_ mode: SleepTimerMode) {
-        cancelSleepTimer()
+        clearSleepTimer()
         sleepMode = mode
+        rememberSleepMode(mode)
+        // 用户主动设置即视为新一轮定时，清除待恢复状态
+        pendingSleepMode = nil
+        pendingSleepRemaining = 0
+        sleepTimerDidExpire = false
 
         switch mode {
         case .off:
@@ -207,15 +270,51 @@ final class PlayerService: NSObject, ObservableObject {
     private func toggleOffIfPlaying() {
         player?.pause()
         isPlaying = false
+        if case .minutes = sleepMode {
+            // 倒计时真正走完：下次播放时记忆的默认时长才会生效
+            sleepTimerDidExpire = true
+        }
         cancelSleepTimer()
         updateNowPlaying()
     }
 
+    /// 暂停/停止时调用：保留未走完的定时，恢复播放时从剩余时间接着走
     private func cancelSleepTimer() {
+        guard sleepMode != .off else { return }
+        if case .minutes = sleepMode, sleepRemaining > 0 {
+            pendingSleepMode = sleepMode
+            pendingSleepRemaining = sleepRemaining
+        } else if sleepMode == .endOfChapter {
+            pendingSleepMode = sleepMode
+        }
+        clearSleepTimer()
+    }
+
+    /// 只停表并清除状态，不记入待恢复（设置新定时或用户主动取消时用）
+    private func clearSleepTimer() {
         sleepTimer?.invalidate()
         sleepTimer = nil
         sleepMode = .off
         sleepRemaining = 0
+    }
+
+    /// 从剩余时间继续倒计时，不重置为满额
+    private func resumeSleepTimer(mode: SleepTimerMode, remaining: TimeInterval) {
+        clearSleepTimer()
+        sleepMode = mode
+        sleepRemaining = remaining
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] timer in
+            Task { @MainActor in
+                guard let self = self else { timer.invalidate(); return }
+                self.sleepRemaining -= 1
+                if self.sleepRemaining <= 0 {
+                    self.sleepElapsed()
+                    timer.invalidate()
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        sleepTimer = timer
     }
 
     // MARK: - Private
@@ -358,6 +457,7 @@ final class PlayerService: NSObject, ObservableObject {
             player.play()
             isPlaying = true
             startProgressTimer()
+            applyRememberedSleepTimerIfNeeded()
             updateNowPlaying()
         } else if let book = currentBook {
             play(book: book, at: currentPosition())
