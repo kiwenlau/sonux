@@ -30,7 +30,7 @@ struct BookDetailView: View {
                 }
             }
         }
-        .padding(.top, -30)
+        .listStyle(.plain)
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
         .background(TransparentNavigationBar())
@@ -98,5 +98,6 @@ private struct ChapterRow: View {
                     .foregroundStyle(.indigo)
             }
         }
+        .padding(.leading, 6)
     }
 }
