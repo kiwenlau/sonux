@@ -385,6 +385,9 @@ final class PlayerService: NSObject, ObservableObject {
         try? session.setActive(true)
     }
 
+    /// 已发起封面提取的书 id，避免同一本书重复调度
+    private var artworkLoadingBookId: String?
+
     private func updateNowPlaying() {
         let t0 = CACurrentMediaTime()
         guard let chapter = currentChapter, let book = currentBook else {
@@ -402,9 +405,28 @@ final class PlayerService: NSObject, ObservableObject {
         if let author = book.author {
             info[MPMediaItemPropertyArtist] = author
         }
+        // 锁屏封面：内嵌大图还没取到时先用现有封面或占位封面，取完再刷新一次
+        let cover = CoverStore.shared.lockScreenCover(for: book)
+        let coverSource = CoverStore.shared.hasEmbeddedCover(for: book) ? "内嵌" : "占位"
+        info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: cover.size) { _ in cover }
+        scheduleCoverLoad(for: book)
+        NSLog("[sonux] updateNowPlaying: 锁屏封面 %@ %.0fx%.0f", coverSource, cover.size.width, cover.size.height)
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         let ms = (CACurrentMediaTime() - t0) * 1000
         if ms > 30 { NSLog("[sonux] updateNowPlaying: 耗时 %.1f ms", ms) }
+    }
+
+    /// 后台提取当前书的大图封面，完成后回写锁屏展示；同一本书只调度一次
+    private func scheduleCoverLoad(for book: Book) {
+        guard !CoverStore.shared.largeCoverResolved(for: book), artworkLoadingBookId != book.id else { return }
+        artworkLoadingBookId = book.id
+        Task { [weak self] in
+            await CoverStore.shared.loadLarge(for: book)
+            guard let self else { return }
+            self.artworkLoadingBookId = nil
+            guard self.currentBook?.id == book.id else { return }
+            self.updateNowPlaying()
+        }
     }
 
     private func setupRemoteCommands() {

@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import CryptoKit
+import UIKit
 
 /// 播放页背景色板：由封面主色推导，整屏同一色相，自上而下缓慢沉下去
 struct CoverPalette {
@@ -51,6 +52,8 @@ final class CoverStore: ObservableObject {
     @Published private var largeImages: [String: UIImage] = [:]
     /// 封面主色板，播放页背景用
     @Published private var palettes: [String: CoverPalette] = [:]
+    /// 无内嵌封面时生成的书名占位图，避免每次上锁屏都重画
+    private var placeholders: [String: UIImage] = [:]
     /// 已尝试过提取但无封面（或提取失败）的书 id，避免每次上屏重试
     private var attempted: Set<String> = []
     private var attemptedLarge: Set<String> = []
@@ -76,6 +79,25 @@ final class CoverStore: ObservableObject {
 
     func palette(for book: Book) -> CoverPalette? {
         palettes[book.id]
+    }
+
+    /// 大图封面提取是否已有结论（取到了，或确认无封面/失败），用于避免反复调度提取
+    func largeCoverResolved(for book: Book) -> Bool {
+        largeImages[book.id] != nil || attemptedLarge.contains(book.id)
+    }
+
+    /// 是否已取到音频内嵌封面（大图优先）
+    func hasEmbeddedCover(for book: Book) -> Bool {
+        largeImages[book.id] != nil || images[book.id] != nil
+    }
+
+    /// 锁屏/控制中心封面：有内嵌封面用大图，没有则画一张书名占位封面，保证锁屏不留白
+    func lockScreenCover(for book: Book) -> UIImage {
+        if let cover = largeImages[book.id] ?? images[book.id] { return cover }
+        if let placeholder = placeholders[book.id] { return placeholder }
+        let placeholder = Self.placeholderCover(title: book.title, author: book.author)
+        placeholders[book.id] = placeholder
+        return placeholder
     }
 
     func load(for book: Book) async {
@@ -110,6 +132,7 @@ final class CoverStore: ObservableObject {
         images[bookId] = nil
         largeImages[bookId] = nil
         palettes[bookId] = nil
+        placeholders[bookId] = nil
         attempted.remove(bookId)
         attemptedLarge.remove(bookId)
         try? FileManager.default.removeItem(at: diskURL(for: bookId))
@@ -184,6 +207,68 @@ final class CoverStore: ObservableObject {
     /// 主色板：取封面像素算 HSB，纯计算开销小，直接在调用线程做
     nonisolated private static func palette(from image: UIImage) -> CoverPalette? {
         CoverPalette.make(from: image)
+    }
+
+    /// 无内嵌封面时的占位封面：按书库封面比例 0.8 画一张靛蓝底书名卡
+    nonisolated private static func placeholderCover(title: String, author: String?) -> UIImage {
+        let size = CGSize(width: 640, height: 800)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            let bounds = CGRect(origin: .zero, size: size)
+            let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [
+                    UIColor(red: 0.30, green: 0.30, blue: 0.62, alpha: 1).cgColor,
+                    UIColor(red: 0.16, green: 0.16, blue: 0.36, alpha: 1).cgColor,
+                ] as CFArray,
+                locations: [0, 1]
+            )
+            if let gradient {
+                ctx.cgContext.drawLinearGradient(
+                    gradient,
+                    start: bounds.origin,
+                    end: CGPoint(x: bounds.maxX, y: bounds.maxY),
+                    options: []
+                )
+            }
+
+            let textWidth = bounds.width - 96
+            let titleAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 44, weight: .bold),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.alignment = .center
+                    style.lineBreakMode = .byTruncatingTail
+                    return style
+                }(),
+            ]
+            let titleText = title as NSString
+            let titleRect = titleText.boundingRect(
+                with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin],
+                attributes: titleAttributes,
+                context: nil
+            )
+            let titleY = (bounds.height - titleRect.height) / 2
+            titleText.draw(
+                in: CGRect(x: 48, y: titleY, width: textWidth, height: titleRect.height),
+                withAttributes: titleAttributes
+            )
+
+            guard let author, !author.isEmpty else { return }
+            let authorStyle = NSMutableParagraphStyle()
+            authorStyle.alignment = .center
+            (author as NSString).draw(
+                in: CGRect(x: 48, y: titleY + titleRect.height + 36, width: textWidth, height: 60),
+                withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 28, weight: .medium),
+                    .foregroundColor: UIColor.white.withAlphaComponent(0.7),
+                    .paragraphStyle: authorStyle,
+                ]
+            )
+        }
     }
 }
 
