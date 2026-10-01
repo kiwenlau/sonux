@@ -113,26 +113,24 @@ struct BookCoverView: View {
     @ObservedObject private var store = CoverStore.shared
 
     var body: some View {
-        Group {
-            if let cover = store.image(for: book) {
-                Image(uiImage: cover)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 50, height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.indigo.opacity(0.15))
-                    .frame(width: 50, height: 50)
-                    .overlay {
-                        Image(systemName: book.chapters.count > 1 ? "books.vertical.fill" : "music.note")
-                            .foregroundStyle(.indigo)
-                    }
+        // 固定 50×50 封面框：背景色填充，封面 scaledToFit 完整显示不裁切、无内边距
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.gray.opacity(0.1))
+            .frame(width: 50, height: 50)
+            .overlay {
+                if let cover = store.image(for: book) {
+                    Image(uiImage: cover)
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                } else {
+                    Image(systemName: book.chapters.count > 1 ? "books.vertical.fill" : "music.note")
+                        .foregroundStyle(.indigo)
+                }
             }
-        }
-        .task(id: book.id) {
-            await store.load(for: book)
-        }
+            .task(id: book.id) {
+                await store.load(for: book)
+            }
     }
 }
 
@@ -144,20 +142,22 @@ struct BookGridCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // 固定比例的封面框：背景色填充，封面 scaledToFit 顶到贴合边、无内边距
             ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.gray.opacity(0.1))
                 if let cover = store.image(for: book) {
                     Image(uiImage: cover)
                         .resizable()
-                        .scaledToFill()
+                        .scaledToFit()
                 } else {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.indigo.opacity(0.12))
                     Image(systemName: book.chapters.count > 1 ? "books.vertical.fill" : "music.note")
                         .font(.system(size: 34))
                         .foregroundStyle(.indigo)
                 }
             }
-            .aspectRatio(1.45, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(0.8, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
