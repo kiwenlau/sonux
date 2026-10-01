@@ -24,7 +24,9 @@ struct LibraryView: View {
             } else if gridView {
                 BookGridView(
                     books: library.books,
-                    deleteBook: { bookToDelete = $0 }
+                    path: $path,
+                    deleteBook: { bookToDelete = $0 },
+                    playBook: { playFromLastPosition($0) }
                 )
             } else {
                 List {
@@ -189,16 +191,18 @@ private struct BookRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { onOpen() }
+        // 只给「打开详情」的命名操作，不占默认操作，否则行内播放按钮会被父层合并抢走
+        .accessibilityAction(named: "打开《\(book.title)》详情") { onOpen() }
         .padding(.vertical, 4)
     }
 }
 
-/// 书库卡片网格：双列，点击进入详情页，长按可删除
+/// 书库卡片网格：双列，点卡片进详情页，点封面中央按钮续播，长按可删除
 private struct BookGridView: View {
     let books: [Book]
+    @Binding var path: [String]
     let deleteBook: (Book) -> Void
+    let playBook: (Book) -> Void
 
     @EnvironmentObject private var library: LibraryService
 
@@ -211,10 +215,12 @@ private struct BookGridView: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 14) {
                 ForEach(books) { book in
-                    NavigationLink(value: book.id) {
-                        BookGridCard(book: book)
-                    }
-                    .buttonStyle(.plain)
+                    // 不用 NavigationLink 包卡片，否则封面上的播放按钮抢不到点击
+                    BookGridCard(
+                        book: book,
+                        onOpen: { path.append(book.id) },
+                        onPlay: { playBook(book) }
+                    )
                     .contextMenu {
                         Button(role: .destructive) {
                             NSLog("[sonux] ui: 卡片长按菜单删除《%@》", book.title)

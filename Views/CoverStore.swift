@@ -134,9 +134,11 @@ struct BookCoverView: View {
     }
 }
 
-/// 书库卡片视图（双列网格用）：大封面 + 标题 + 作者，无封面时显示图标占位
+/// 书库卡片视图（双列网格用）：大封面 + 标题 + 作者，封面中央一个从上次位置续播的播放按钮
 struct BookGridCard: View {
     let book: Book
+    let onOpen: () -> Void
+    let onPlay: () -> Void
     @ObservedObject private var store = CoverStore.shared
 
     var body: some View {
@@ -158,6 +160,22 @@ struct BookGridCard: View {
             .frame(maxWidth: .infinity)
             .aspectRatio(0.8, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                // 播放按钮居中压在封面上：半透胶囊底保证任何封面都能看清图标
+                Button(action: onPlay) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.indigo)
+                        .frame(width: 46, height: 46)
+                        .background(Circle().fill(.ultraThinMaterial))
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.25), radius: 4, y: 1)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("从上次位置播放《\(book.title)》")
+                .accessibilityIdentifier("book-card-play-\(book.id)")
+            }
 
             Text(book.title)
                 .font(.subheadline.weight(.semibold))
@@ -170,6 +188,10 @@ struct BookGridCard: View {
                 .lineLimit(1)
         }
         .padding(10)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
+        // 只给「打开详情」的命名操作，不占默认操作，否则封面中央的播放按钮会被父层合并抢走
+        .accessibilityAction(named: "打开《\(book.title)》详情") { onOpen() }
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color(.secondarySystemGroupedBackground))
