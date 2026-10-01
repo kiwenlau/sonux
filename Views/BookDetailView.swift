@@ -4,12 +4,17 @@ struct BookDetailView: View {
     let book: Book
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
+    @EnvironmentObject private var router: AppRouter
     @ObservedObject private var coverStore = CoverStore.shared
 
     var body: some View {
         List {
             // MARK: - 顶部书籍信息区
-            BookInfoHeader(book: book, coverImage: coverStore.image(for: book))
+            BookInfoHeader(
+                book: book,
+                coverImage: coverStore.image(for: book),
+                openAuthor: { if let author = book.author { router.openAuthor(author) } }
+            )
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                 .listRowSeparator(.hidden)
 
@@ -52,6 +57,8 @@ struct BookDetailView: View {
 private struct BookInfoHeader: View {
     let book: Book
     let coverImage: UIImage?
+    /// 点作者名跳作者页
+    let openAuthor: () -> Void
 
     var body: some View {
         VStack(spacing: 16) {
@@ -82,13 +89,19 @@ private struct BookInfoHeader: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
 
-            // 作者
+            // 作者：染成主题色提示可点，跳该作者的作品页
             if let author = book.author, !author.isEmpty {
-                Text(author)
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+                Button(action: openAuthor) {
+                    Text(author)
+                        .font(.headline)
+                        .foregroundStyle(.indigo)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("查看作者「\(author)」的全部书籍")
             }
-
 
             Spacer().frame(height: 8)
         }

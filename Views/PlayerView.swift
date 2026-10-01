@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlayerView: View {
     @EnvironmentObject private var player: PlayerService
+    @EnvironmentObject private var router: AppRouter
     // 单例共享封面缓存，播放页大图与主色都由它提供
     @ObservedObject private var covers = CoverStore.shared
     @State private var showingSleepSheet = false
@@ -49,6 +50,13 @@ struct PlayerView: View {
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             player.showPlayer = false
         }
+    }
+
+    /// 从播放页跳作者页：先收起全屏播放页，露出下面的书库栈再入栈（与书库行为一致）
+    private func openAuthor(_ author: String) {
+        NSLog("[sonux] ui: 播放页点击作者「%@」", author)
+        closePlayer()
+        router.openAuthor(author)
     }
 
     var body: some View {
@@ -187,11 +195,17 @@ struct PlayerView: View {
                     .minimumScaleFactor(0.7)
 
                 if let author = book?.author, !author.isEmpty {
-                    Text(author)
-                        .font(.title3)
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                    // 作者名可点：收起播放页并跳该作者的作品页
+                    Button { openAuthor(author) } label: {
+                        Text(author)
+                            .font(.title3)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("查看作者「\(author)」的全部书籍")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

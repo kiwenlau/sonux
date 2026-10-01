@@ -282,6 +282,23 @@ final class LibraryService: ObservableObject {
         books.first { $0.id == id }
     }
 
+    /// 作者名归一化键：去首尾空白并忽略大小写，避免「张三 」与「张三」被当成两个人
+    nonisolated static func authorKey(_ author: String) -> String {
+        author.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// 某位作者的全部书，顺序沿用书库本身的排序
+    func books(byAuthor author: String) -> [Book] {
+        let key = Self.authorKey(author)
+        guard !key.isEmpty else { return [] }
+        return books.filter { $0.author.map { Self.authorKey($0) == key } ?? false }
+    }
+
+    /// 作者名去空格后的展示形式，供作者页标题使用
+    static func displayAuthor(_ author: String) -> String {
+        author.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func position(forBook id: String) -> PlayPosition? {
         positions[id]
     }

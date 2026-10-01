@@ -4,9 +4,11 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
-    /// 书库 → 详情页的导航栈路径
-    @Binding var path: [String]
+    @EnvironmentObject private var router: AppRouter
     @AppStorage("libraryGridView") private var gridView = true
+    /// 限定只看某一位作者的作品（作者页）：整套界面与书库共用，
+    /// 差别只有顶部标题、隐藏「添加」入口与空态文案；nil 就是书库本身
+    var author: String? = nil
     /// 用于过滤的关键词：由搜索栏停顿后同步过来，不跟随每一下击键
     @State private var searchQuery = ""
     /// 自定义搜索框是否聚焦中
@@ -21,18 +23,36 @@ struct LibraryView: View {
         searchFocused || !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
+    /// 本页的书源：作者页只取该作者的作品，书库取全部
+    private var sourceBooks: [Book] {
+        guard let author else { return library.books }
+        return library.books(byAuthor: author)
+    }
+
+    /// 顶部标题：作者页显作者名，书库不出标题
+    private var pageTitle: String {
+        author.map(LibraryService.displayAuthor) ?? ""
+    }
+
     /// 按搜索关键词过滤后的书，空关键词时返回全部
     private var visibleBooks: [Book] {
-        library.books.filter { $0.matches(searchText: searchQuery) }
+        sourceBooks.filter { $0.matches(searchText: searchQuery) }
     }
 
     /// 书库主体：空态 / 无搜索结果 / 卡片网格 / 列表四种情况
     @ViewBuilder
     private var libraryContent: some View {
         Group {
-            if library.books.isEmpty {
-                // 区分「真没数据」和「首次扫描还没出结果」：后者只给轻量 loading，不闪空状态
-                if library.hasFinishedFirstScan {
+            if sourceBooks.isEmpty {
+                if author != nil {
+                    // 作者页只在书被删空时走到这里，不给导入入口
+                    ContentUnavailableWrapper(
+                        title: "「\(pageTitle)」的作品已不在书库",
+                        message: "对应的音频可能已被删除，回书库看看其他作品",
+                        systemImage: "person"
+                    ) { EmptyView() }
+                } else if library.hasFinishedFirstScan {
+                    // 区分「真没数据」和「首次扫描还没出结果」：后者只给轻量 loading，不闪空状态
                     EmptyLibraryView(onImport: { showImporter = true })
                 } else {
                     LoadingLibraryView()
@@ -42,7 +62,6 @@ struct LibraryView: View {
             } else if gridView {
                 BookGridView(
                     books: visibleBooks,
-                    path: $path,
                     deleteBook: { bookToDelete = $0 },
                     playBook: { playFromLastPosition($0) }
                 )
@@ -53,7 +72,7 @@ struct LibraryView: View {
                         BookRow(
                             book: book,
                             isNowPlaying: player.currentBook?.id == book.id,
-                            onOpen: { path.append(book.id) },
+                            onOpen: { router.openBook(id: book.id) },
                             onPlay: { playFromLastPosition(book) }
                         )
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -78,11 +97,6 @@ struct LibraryView: View {
                 }
                 .listStyle(.plain)
                 .scrollDismissesKeyboard(.interactively)
-                .navigationDestination(for: String.self) { bookId in
-                    if let book = library.book(id: bookId) {
-                        BookDetailView(book: book)
-                    }
-                }
             }
         }
     }
@@ -91,7 +105,7 @@ struct LibraryView: View {
         VStack(spacing: 0) {
             // 不用系统 .searchable：它聚焦时会把工具栏右侧按钮整个换成「取消」，
             // 做不到「隐藏添加、保留视图切换」，所以搜索栏自己画
-            if !library.books.isEmpty {
+            if !sourceBooks.isEmpty {
                 LibrarySearchBar(query: $searchQuery, focused: $searchFocused)
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
@@ -100,11 +114,13 @@ struct LibraryView: View {
             libraryContent
         }
         .background(Color(.systemBackground))
+        .navigationTitle(pageTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                // 搜索时收起「添加」入口（此时导入会打乱搜索结果），视图切换按钮保留
-                if !isSearching {
+                // 搜索时收起「添加」入口（此时导入会打乱搜索结果），视图切换按钮保留；
+                // 作者页也没有导入的语境，同样不显示
+                if author == nil, !isSearching {
                     Button {
                         showImporter = true
                     } label: {
@@ -249,12 +265,11 @@ private struct BookRow: View {
 /// 书库卡片网格：双列，点卡片进详情页，点封面中央按钮续播，长按可删除
 private struct BookGridView: View {
     let books: [Book]
-    @Binding var path: [String]
     let deleteBook: (Book) -> Void
     let playBook: (Book) -> Void
 
-    @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
+    @EnvironmentObject private var router: AppRouter
 
     private let columns = [
         GridItem(.flexible(), spacing: 12),
@@ -269,7 +284,7 @@ private struct BookGridView: View {
                     BookGridCard(
                         book: book,
                         isNowPlaying: player.currentBook?.id == book.id,
-                        onOpen: { path.append(book.id) },
+                        onOpen: { router.openBook(id: book.id) },
                         onPlay: { playBook(book) }
                     )
                     .contextMenu {
@@ -287,11 +302,6 @@ private struct BookGridView: View {
             .padding(.vertical, 10)
         }
         .scrollDismissesKeyboard(.interactively)
-        .navigationDestination(for: String.self) { bookId in
-            if let book = library.book(id: bookId) {
-                BookDetailView(book: book)
-            }
-        }
     }
 }
 
