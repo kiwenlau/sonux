@@ -19,6 +19,9 @@ struct PlayerView: View {
     /// 竖版封面在没有真实封面时的占位比例
     private static let placeholderRatio: CGFloat = 0.8
 
+    /// 左上返回按钮圆底直径，取自详情页导航栏返回按钮的实测尺寸
+    private static let backButtonDiameter: CGFloat = 45
+
     private var book: Book? { player.currentBook }
 
     private var palette: CoverPalette {
@@ -109,18 +112,41 @@ struct PlayerView: View {
 
     // MARK: - 顶部栏
 
+    /// 与书籍详情页导航栏返回按钮保持一致：同样的圆形底 + 左向尖号，同一尺寸与位置
     private var header: some View {
         HStack {
-            Button { closePlayer() } label: {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
-            }
+            backButton
             Spacer()
         }
-        .padding(.horizontal, 12)
+        // 详情页返回按钮圆底左边缘在屏幕算起 19.3pt 处，外层内容已带 24pt 横内边距，这里回退对齐
+        .padding(.leading, -4.7)
+        .padding(.trailing, 12)
+    }
+
+    /// iOS 26 用系统玻璃圆底（与导航栏返回按钮同材质），更早系统用超细材质圆底近似
+    @ViewBuilder
+    private var backButton: some View {
+        let glyph = Image(systemName: "chevron.left")
+            .font(.system(size: 21, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: Self.backButtonDiameter, height: Self.backButtonDiameter)
+            .contentShape(Circle())
+
+        if #available(iOS 26.0, *) {
+            Button(action: closePlayer) {
+                glyph.glassEffect(.regular.interactive(), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("返回")
+        } else {
+            Button(action: closePlayer) {
+                glyph
+                    .background(Circle().fill(.ultraThinMaterial))
+                    .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("返回")
+        }
     }
 
     // MARK: - 封面
