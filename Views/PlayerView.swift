@@ -195,17 +195,6 @@ struct PlayerView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            // 书名胶囊：对应 Apple Music 音频书页封面下方的专辑名
-            if let book {
-                Text(book.title)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(.white.opacity(0.16)))
-            }
         }
         .padding(.horizontal, 12)
     }
