@@ -28,6 +28,7 @@ struct BookDetailView: View {
                     .tint(.orange)
                 }
                 .contentShape(Rectangle())
+                .listRowSeparator(.hidden)
                 .onTapGesture {
                     let resume = library.position(forChapter: chapter.id)
                         .map { ProgressPolicy.resumeTime(time: $0.time, duration: chapter.duration) }
