@@ -4,8 +4,11 @@ struct BookDetailView: View {
     let book: Book
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
-    @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var routers: TabRouters
     @ObservedObject private var coverStore = CoverStore.shared
+
+    /// 点作者名压进当前 tab 的导航栈
+    private var router: AppRouter { routers.active }
 
     var body: some View {
         List {

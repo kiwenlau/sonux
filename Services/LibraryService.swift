@@ -21,6 +21,8 @@ final class LibraryService: ObservableObject {
     @Published private(set) var positions: [String: PlayPosition] = [:]
     /// key: chapterId，value: 该音频自己的历史播放位置（重新播放时从此处续播）
     @Published private(set) var chapterPositions: [String: PlayPosition] = [:]
+    /// key: bookId，value: 该书最后一次播放时间（播放历史页按它排序）
+    @Published private(set) var lastPlayedDates: [String: Date] = [:]
     /// 首次扫描是否已出结果：未出结果前界面显示 loading，而不是「书库是空的」
     @Published private(set) var hasFinishedFirstScan = false
 
@@ -93,6 +95,7 @@ final class LibraryService: ObservableObject {
         positions = positions.filter { aliveBookIds.contains($0.key) }
         let aliveChapterIds = Set(scanned.flatMap { $0.chapters.map(\.id) })
         chapterPositions = chapterPositions.filter { aliveChapterIds.contains($0.key) }
+        lastPlayedDates = lastPlayedDates.filter { aliveBookIds.contains($0.key) }
         saveProgress()
     }
 
@@ -308,12 +311,42 @@ final class LibraryService: ObservableObject {
         chapterPositions[id]
     }
 
+    /// 播放历史的一条：一本书 + 最后听到的章节与位置 + 最后播放时间
+    struct HistoryEntry: Identifiable {
+        let book: Book
+        /// 最后播放的章节（书被删或章节对不上时为 nil）
+        let chapter: Chapter?
+        let position: PlayPosition?
+        let lastPlayed: Date
+
+        var id: String { book.id }
+    }
+
+    /// 播放历史：按最后播放时间从新到旧排序，只收录仍在书库里的书
+    func historyEntries() -> [HistoryEntry] {
+        lastPlayedDates.compactMap { bookId, date -> HistoryEntry? in
+            guard let book = book(id: bookId) else { return nil }
+            let position = positions[bookId]
+            let chapter = position.flatMap { pos in book.chapters.first { $0.id == pos.chapterId } }
+            return HistoryEntry(book: book, chapter: chapter, position: position, lastPlayed: date)
+        }
+        .sorted { $0.lastPlayed > $1.lastPlayed }
+    }
+
+    /// 把一本书从播放历史里移除（不动音频文件与播放进度）
+    func removeFromHistory(bookId: String) {
+        lastPlayedDates[bookId] = nil
+        saveProgress()
+    }
+
     func recordPosition(_ position: PlayPosition, bookId: String, alsoForChapter: Bool = false) {
         positions[bookId] = position
         // 章节进度单独记一份，保证每章都有独立的历史位置
         if !alsoForChapter {
             chapterPositions[position.chapterId] = position
         }
+        // 每次上报进度都刷新最后播放时间，播放历史页据此排序
+        lastPlayedDates[bookId] = Date()
         saveProgress()
     }
 
@@ -346,6 +379,7 @@ final class LibraryService: ObservableObject {
 
         positions[book.id] = nil
         for chapter in book.chapters { chapterPositions[chapter.id] = nil }
+        lastPlayedDates[book.id] = nil
         // 直接从内存书库移除并保存；全量 rescan 会阻塞主线程，改为后台异步补扫一次
         books.removeAll { $0.id == book.id }
         saveProgress()
@@ -517,17 +551,20 @@ final class LibraryService: ObservableObject {
         return nil
     }
 
-    /// 持久化结构：书本进度 + 章节进度
+    /// 持久化结构：书本进度 + 章节进度 + 最后播放时间
     private struct ProgressStore: Codable {
         var books: [String: PlayPosition]
         var chapters: [String: PlayPosition]
+        var lastPlayed: [String: Date]?
     }
 
     private func saveProgress() {
         let t0 = CACurrentMediaTime()
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        let store = ProgressStore(books: positions, chapters: chapterPositions)
+        // 进度里存有 Date（最后播放时间）：统一用秒级 epoch，与工具链生成的 JSON 互通
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let store = ProgressStore(books: positions, chapters: chapterPositions, lastPlayed: lastPlayedDates)
         guard let data = try? encoder.encode(store) else { return }
         do {
             // Data.write 不会创建中间目录，而 iOS 不预建 Application Support，先确保父目录存在
@@ -545,10 +582,13 @@ final class LibraryService: ObservableObject {
 
     private func loadProgress() {
         guard let data = try? Data(contentsOf: progressURL) else { return }
-        if let store = try? JSONDecoder().decode(ProgressStore.self, from: data) {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        if let store = try? decoder.decode(ProgressStore.self, from: data) {
             positions = store.books
             chapterPositions = store.chapters
-        } else if let old = try? JSONDecoder().decode([String: PlayPosition].self, from: data) {
+            lastPlayedDates = store.lastPlayed ?? [:]
+        } else if let old = try? decoder.decode([String: PlayPosition].self, from: data) {
             // 兼容旧格式：只有按书记录的进度，从中派生出章节历史位置
             positions = old
             chapterPositions = [:]

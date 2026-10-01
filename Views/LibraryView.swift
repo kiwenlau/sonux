@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
-    @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var routers: TabRouters
     @AppStorage("libraryGridView") private var gridView = true
     /// 限定只看某一位作者的作品（作者页）：整套界面与书库共用，
     /// 差别只有顶部标题、隐藏「添加」入口与空态文案；nil 就是书库本身
@@ -17,6 +17,9 @@ struct LibraryView: View {
     @State private var importMessage: String?
     @State private var bookToDelete: Book?
     @State private var deleteErrorMessage: String?
+
+    /// 入栈统一走当前 tab 的导航栈
+    private var router: AppRouter { routers.active }
 
     /// 正在搜索：搜索框聚焦中或已输入关键词
     private var isSearching: Bool {
@@ -269,7 +272,9 @@ private struct BookGridView: View {
     let playBook: (Book) -> Void
 
     @EnvironmentObject private var player: PlayerService
-    @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var routers: TabRouters
+
+    private var router: AppRouter { routers.active }
 
     private let columns = [
         GridItem(.flexible(), spacing: 12),

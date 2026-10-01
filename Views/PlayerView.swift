@@ -2,9 +2,12 @@ import SwiftUI
 
 struct PlayerView: View {
     @EnvironmentObject private var player: PlayerService
-    @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var routers: TabRouters
     // 单例共享封面缓存，播放页大图与主色都由它提供
     @ObservedObject private var covers = CoverStore.shared
+
+    /// 点作者名关播放页后压进当前 tab 的导航栈（历史 tab 打开的就回落到历史栈）
+    private var router: AppRouter { routers.active }
     @State private var showingSleepSheet = false
     @State private var showingSpeedSheet = false
     @State private var scrubTime: TimeInterval?
