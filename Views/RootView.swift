@@ -2,11 +2,13 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var player: PlayerService
+    /// 书库 → 详情页的导航栈路径（列表行改用代码入栈，避免系统行尾箭头）
+    @State private var bookPath: [String] = []
 
     var body: some View {
         ZStack {
-            NavigationStack {
-                LibraryView()
+            NavigationStack(path: $bookPath) {
+                LibraryView(path: $bookPath)
                     .safeAreaInset(edge: .bottom) {
                         if player.currentBook != nil {
                             MiniPlayerView { withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { player.showPlayer = true } }

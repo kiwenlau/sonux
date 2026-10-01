@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
+    /// 书库 → 详情页的导航栈路径
+    @Binding var path: [String]
     @AppStorage("libraryGridView") private var gridView = true
     @State private var showImporter = false
     @State private var importMessage: String?
@@ -27,9 +29,12 @@ struct LibraryView: View {
             } else {
                 List {
                     ForEach(library.books) { book in
-                        NavigationLink(value: book.id) {
-                            BookRow(book: book)
-                        }
+                        // 不用 NavigationLink（行根视图会带系统箭头），改成点行入栈
+                        BookRow(
+                            book: book,
+                            onOpen: { path.append(book.id) },
+                            onPlay: { playFromLastPosition(book) }
+                        )
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 NSLog("[sonux] ui: 点击滑动删除按钮《%@》", book.title)
@@ -125,6 +130,13 @@ struct LibraryView: View {
         }
     }
 
+    /// 从该书最后记录的位置开始播放，并打开全屏播放页
+    private func playFromLastPosition(_ book: Book) {
+        NSLog("[sonux] ui: 点击列表播放按钮《%@》", book.title)
+        player.play(book: book, at: library.position(forBook: book.id))
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { player.showPlayer = true }
+    }
+
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
@@ -140,9 +152,11 @@ struct LibraryView: View {
     }
 }
 
-/// 列表行：只展示封面、书名和作者
+/// 列表行：封面、书名、作者（点击进详情页），右侧一个从上次位置续播的播放按钮
 private struct BookRow: View {
     let book: Book
+    let onOpen: () -> Void
+    let onPlay: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -158,7 +172,25 @@ private struct BookRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+
+            Spacer(minLength: 8)
+
+            Button(action: onPlay) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.indigo)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color.indigo.opacity(0.12)))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("从上次位置播放《\(book.title)》")
+            .accessibilityIdentifier("book-play-\(book.id)")
         }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { onOpen() }
         .padding(.vertical, 4)
     }
 }
