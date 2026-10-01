@@ -35,7 +35,6 @@ struct LibraryView: View {
                         BookRow(
                             book: book,
                             isNowPlaying: player.currentBook?.id == book.id,
-                            isPlaying: player.isPlaying,
                             onOpen: { path.append(book.id) },
                             onPlay: { playFromLastPosition(book) }
                         )
@@ -157,13 +156,11 @@ struct LibraryView: View {
 }
 
 /// 列表行：封面、书名、作者（点击进详情页），右侧一个从上次位置续播的播放按钮
-/// 该书正在播放时：封面加靛蓝描边、书名变靛蓝、右侧显示跳动音柱
+/// 该书正在播放时：封面加靛蓝描边、书名变靛蓝、作者变浅靛蓝，不再叠加音柱等额外元素
 private struct BookRow: View {
     let book: Book
     /// 该书是否为当前播放的书（无论暂停与否）
     let isNowPlaying: Bool
-    /// 当前是否处于播放中（控制音柱是否跳动）
-    let isPlaying: Bool
     let onOpen: () -> Void
     let onPlay: () -> Void
 
@@ -182,20 +179,14 @@ private struct BookRow: View {
                     .font(.headline)
                     .foregroundStyle(isNowPlaying ? Color.indigo : Color.primary)
                     .lineLimit(2)
-                // 正在播放的书优先显示「正在播放」，其余有作者显作者，否则退而显总时长
-                Text(isNowPlaying ? "正在播放" : (book.author ?? TimeFormat.duration(book.totalDuration)))
+                // 有作者显作者，否则退而显总时长；正在播放时作者也染浅靛蓝
+                Text(book.author ?? TimeFormat.duration(book.totalDuration))
                     .font(.subheadline)
-                    .foregroundStyle(isNowPlaying ? Color.indigo.opacity(0.8) : Color.secondary)
+                    .foregroundStyle(isNowPlaying ? Color.indigo.opacity(0.55) : Color.secondary)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
-
-            if isNowPlaying {
-                NowPlayingBars(height: 16, isPlaying: isPlaying)
-                    .padding(.trailing, 2)
-                    .accessibilityLabel("正在播放")
-            }
 
             Button(action: onPlay) {
                 Image(systemName: "play.fill")
@@ -240,7 +231,6 @@ private struct BookGridView: View {
                     BookGridCard(
                         book: book,
                         isNowPlaying: player.currentBook?.id == book.id,
-                        isPlaying: player.isPlaying,
                         onOpen: { path.append(book.id) },
                         onPlay: { playBook(book) }
                     )
