@@ -26,6 +26,7 @@ final class LibraryService: ObservableObject {
 
     private let documentsDir: URL
     private let progressURL: URL
+    private let metaCacheURL: URL
     /// 后台扫描任务防重入：上一次还没跑完时再触发，记下来结束后补扫一次
     private var scanning = false
     private var rescanRequestedWhileScanning = false
@@ -34,6 +35,7 @@ final class LibraryService: ObservableObject {
         documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         progressURL = appSupport.appendingPathComponent("progress.json")
+        metaCacheURL = appSupport.appendingPathComponent("audio-meta.json")
     }
 
     /// 重新扫描 Documents 目录，生成书库（保留已有进度）
@@ -49,7 +51,7 @@ final class LibraryService: ObservableObject {
         Task.detached(priority: .userInitiated) {
             let t0 = CACurrentMediaTime()
             NSLog("[sonux] rescan: 后台开始扫描 documentsDir=%@", documentsDir.path)
-            let scanned = Self.scanBooks(in: documentsDir, supportedExtensions: supportedExtensions)
+            let scanned = Self.scanBooks(in: documentsDir, supportedExtensions: supportedExtensions, cacheURL: self.metaCacheURL)
             NSLog("[sonux] rescan: 识别出 %d 本书，耗时 %.1f ms", scanned.count, (CACurrentMediaTime() - t0) * 1000)
             await MainActor.run {
                 self.applyScanResult(scanned)
@@ -76,10 +78,22 @@ final class LibraryService: ObservableObject {
         saveProgress()
     }
 
-    /// 后台执行：遍历目录并读取每个音频的时长/作者等元数据
-    nonisolated private static func scanBooks(in documentsDir: URL, supportedExtensions: Set<String>) -> [Book] {
+    /// 音频元数据缓存：按「相对路径 + 文件大小 + 修改时间」判断是否复用，
+    /// 只有新增/替换过的文件才真正读元数据，扫描从秒级降到毫秒级
+    nonisolated private struct AudioFileMeta: Codable, Equatable {
+        var size: Int
+        var mtime: Int
+        var duration: TimeInterval
+        var author: String?
+    }
+
+    /// 后台执行：遍历目录并读取每个音频的时长/作者等元数据（优先命中磁盘缓存）
+    nonisolated private static func scanBooks(in documentsDir: URL, supportedExtensions: Set<String>, cacheURL: URL) -> [Book] {
         let fm = FileManager.default
         var books: [Book] = []
+        var cache = loadMetaCache(from: cacheURL)
+        var fresh: [String: AudioFileMeta] = [:]
+        var misses = 0
 
         // 顶层条目：文件夹 = 多章节书；音频文件 = 单本书
         let topItems: [URL]
@@ -98,23 +112,65 @@ final class LibraryService: ObservableObject {
         for entry in topItems {
             let isDir = (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
             if isDir {
-                if let book = makeBook(fromFolder: entry, documentsDir: documentsDir) {
+                if let book = makeBook(fromFolder: entry, documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses) {
                     books.append(book)
                 }
             } else if supportedExtensions.contains(entry.pathExtension.lowercased()) {
-                let bookId = "file:\(relativePath(entry, documentsDir: documentsDir))"
-                if let chapter = makeChapter(file: entry, bookId: bookId, index: 0, documentsDir: documentsDir) {
+                let path = relativePath(entry, documentsDir: documentsDir)
+                let bookId = "file:\(path)"
+                if let chapter = makeChapter(file: entry, bookId: bookId, index: 0, documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses) {
                     books.append(Book(
                         id: bookId,
                         title: entry.deletingPathExtension().lastPathComponent,
-                        author: Self.audioAuthor(of: entry),
+                        author: fresh[path]?.author,
                         chapters: [chapter],
-                        storagePath: relativePath(entry, documentsDir: documentsDir)
+                        storagePath: path
                     ))
                 }
             }
         }
+        // 只保留本次扫描仍存在的有效条目，避免缓存无限增长
+        saveMetaCache(fresh, to: cacheURL)
+        NSLog("[sonux] rescan: 元数据缓存命中 %d / 需读取 %d", fresh.count - misses, misses)
         return books
+    }
+
+    /// 取单个音频的元数据：大小和修改时间都没变则用缓存，否则重新读取并写入缓存
+    nonisolated private static func meta(for file: URL, path: String, cache: [String: AudioFileMeta], fresh: inout [String: AudioFileMeta], misses: inout Int) -> AudioFileMeta {
+        if let cached = fresh[path] {
+            return cached
+        }
+        let values = try? file.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let size = values?.fileSize ?? -1
+        let mtime = Int((values?.contentModificationDate ?? .distantPast).timeIntervalSince1970)
+        if let cached = cache[path], cached.size == size, cached.mtime == mtime {
+            fresh[path] = cached
+            return cached
+        }
+        let meta = AudioFileMeta(size: size, mtime: mtime,
+                                 duration: audioDuration(of: file),
+                                 author: audioAuthor(of: file))
+        fresh[path] = meta
+        misses += 1
+        return meta
+    }
+
+    nonisolated private static func loadMetaCache(from cacheURL: URL) -> [String: AudioFileMeta] {
+        guard let data = try? Data(contentsOf: cacheURL),
+              let map = try? JSONDecoder().decode([String: AudioFileMeta].self, from: data) else { return [:] }
+        return map
+    }
+
+    nonisolated private static func saveMetaCache(_ cache: [String: AudioFileMeta], to cacheURL: URL) {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        guard let data = try? encoder.encode(cache) else { return }
+        do {
+            try FileManager.default.createDirectory(at: cacheURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: cacheURL, options: .atomic)
+        } catch {
+            NSLog("[sonux] saveMetaCache: 写入失败 %@", error.localizedDescription)
+        }
     }
 
     /// 第一本未听完的书（用于「继续收听」）
@@ -250,7 +306,7 @@ final class LibraryService: ObservableObject {
 
     // MARK: - Private
 
-    nonisolated private static func makeBook(fromFolder folder: URL, documentsDir: URL) -> Book? {
+    nonisolated private static func makeBook(fromFolder folder: URL, documentsDir: URL, cache: [String: AudioFileMeta], fresh: inout [String: AudioFileMeta], misses: inout Int) -> Book? {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: folder,
@@ -269,22 +325,22 @@ final class LibraryService: ObservableObject {
         audioFiles.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
         let bookId = "dir:\(relativePath(folder, documentsDir: documentsDir))"
         let chapters = audioFiles.enumerated().compactMap { index, file in
-            makeChapter(file: file, bookId: bookId, index: index, documentsDir: documentsDir)
+            makeChapter(file: file, bookId: bookId, index: index, documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses)
         }
         guard !chapters.isEmpty else { return nil }
 
         return Book(
             id: bookId,
             title: folder.lastPathComponent,
-            author: Self.audioAuthor(of: audioFiles[0]),
+            author: fresh[relativePath(audioFiles[0], documentsDir: documentsDir)]?.author,
             chapters: chapters,
             storagePath: relativePath(folder, documentsDir: documentsDir)
         )
     }
 
-    nonisolated private static func makeChapter(file: URL, bookId: String, index: Int, documentsDir: URL) -> Chapter? {
+    nonisolated private static func makeChapter(file: URL, bookId: String, index: Int, documentsDir: URL, cache: [String: AudioFileMeta], fresh: inout [String: AudioFileMeta], misses: inout Int) -> Chapter? {
         let id = relativePath(file, documentsDir: documentsDir)
-        let duration = Self.audioDuration(of: file)
+        let duration = meta(for: file, path: id, cache: cache, fresh: &fresh, misses: &misses).duration
         return Chapter(
             id: id,
             bookId: bookId,
