@@ -73,6 +73,7 @@ struct LibraryView: View {
                             }
                         }
                         .accessibilityIdentifier("book-row-\(book.id)")
+                        .listRowSeparator(.hidden)
                     }
                 }
                 .listStyle(.plain)
