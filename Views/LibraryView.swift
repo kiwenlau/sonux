@@ -7,12 +7,28 @@ struct LibraryView: View {
     /// 书库 → 详情页的导航栈路径
     @Binding var path: [String]
     @AppStorage("libraryGridView") private var gridView = true
+    /// 用于过滤的关键词：由搜索栏停顿后同步过来，不跟随每一下击键
+    @State private var searchQuery = ""
+    /// 自定义搜索框是否聚焦中
+    @FocusState private var searchFocused: Bool
     @State private var showImporter = false
     @State private var importMessage: String?
     @State private var bookToDelete: Book?
     @State private var deleteErrorMessage: String?
 
-    var body: some View {
+    /// 正在搜索：搜索框聚焦中或已输入关键词
+    private var isSearching: Bool {
+        searchFocused || !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// 按搜索关键词过滤后的书，空关键词时返回全部
+    private var visibleBooks: [Book] {
+        library.books.filter { $0.matches(searchText: searchQuery) }
+    }
+
+    /// 书库主体：空态 / 无搜索结果 / 卡片网格 / 列表四种情况
+    @ViewBuilder
+    private var libraryContent: some View {
         Group {
             if library.books.isEmpty {
                 // 区分「真没数据」和「首次扫描还没出结果」：后者只给轻量 loading，不闪空状态
@@ -21,16 +37,18 @@ struct LibraryView: View {
                 } else {
                     LoadingLibraryView()
                 }
+            } else if visibleBooks.isEmpty {
+                NoSearchResultView(searchText: searchQuery)
             } else if gridView {
                 BookGridView(
-                    books: library.books,
+                    books: visibleBooks,
                     path: $path,
                     deleteBook: { bookToDelete = $0 },
                     playBook: { playFromLastPosition($0) }
                 )
             } else {
                 List {
-                    ForEach(library.books) { book in
+                    ForEach(visibleBooks) { book in
                         // 不用 NavigationLink（行根视图会带系统箭头），改成点行入栈
                         BookRow(
                             book: book,
@@ -58,6 +76,7 @@ struct LibraryView: View {
                     }
                 }
                 .listStyle(.plain)
+                .scrollDismissesKeyboard(.interactively)
                 .navigationDestination(for: String.self) { bookId in
                     if let book = library.book(id: bookId) {
                         BookDetailView(book: book)
@@ -65,13 +84,31 @@ struct LibraryView: View {
                 }
             }
         }
-        .navigationTitle("书库")
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // 不用系统 .searchable：它聚焦时会把工具栏右侧按钮整个换成「取消」，
+            // 做不到「隐藏添加、保留视图切换」，所以搜索栏自己画
+            if !library.books.isEmpty {
+                LibrarySearchBar(query: $searchQuery, focused: $searchFocused)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 6)
+                    .padding(.bottom, 8)
+            }
+            libraryContent
+        }
+        .background(Color(.systemBackground))
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showImporter = true
-                } label: {
-                    Image(systemName: "plus")
+                // 搜索时收起「添加」入口（此时导入会打乱搜索结果），视图切换按钮保留
+                if !isSearching {
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -248,11 +285,90 @@ private struct BookGridView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
         }
+        .scrollDismissesKeyboard(.interactively)
         .navigationDestination(for: String.self) { bookId in
             if let book = library.book(id: bookId) {
                 BookDetailView(book: book)
             }
         }
+    }
+}
+
+/// 书库搜索栏：长得像系统搜索框，但聚焦时不会顶掉工具栏按钮
+/// 文本存在子视图自己的 @State 里，击键只重绘这个搜索栏；
+/// 停顿 180ms 后才把关键词交给父视图过滤，否则中文输入法每敲一个拼音字母都要重排整个书库
+private struct LibrarySearchBar: View {
+    /// 已生效的关键词（父视图用它过滤）
+    @Binding var query: String
+    @FocusState.Binding var focused: Bool
+    /// 输入框里的实时文本
+    @State private var text = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            // 按规范不出占位文案，所以标题给空字符串，另补无障碍标签
+            TextField("", text: $text)
+                .focused($focused)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .submitLabel(.search)
+                .onSubmit {
+                    focused = false
+                    apply()
+                }
+                .accessibilityLabel("搜索书库")
+                .accessibilityIdentifier("library-search")
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                    apply()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("清空搜索关键词")
+                .accessibilityIdentifier("library-search-clear")
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 36)
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        // 点输入框周围的空白也能聚焦，和系统搜索框手感一致
+        .onTapGesture { focused = true }
+        // 文本每次变化都重新计时：只有停手不再敲了才提交过滤
+        .task(id: text) {
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+            apply()
+        }
+    }
+
+    private func apply() {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query != trimmed { query = trimmed }
+    }
+}
+
+/// 搜索无结果：只提示关键词，不出导入按钮
+private struct NoSearchResultView: View {
+    let searchText: String
+
+    var body: some View {
+        ContentUnavailableWrapper(
+            title: "没有找到「\(searchText.trimmingCharacters(in: .whitespacesAndNewlines))」",
+            message: "换个书名、作者或章节关键词试试",
+            systemImage: "magnifyingglass"
+        ) { EmptyView() }
     }
 }
 
@@ -292,11 +408,12 @@ private struct EmptyLibraryView: View {
 struct ContentUnavailableWrapper<ActionView: View>: View {
     let title: String
     var message: String = ""
+    var systemImage: String = "tray.and.arrow.down.fill"
     @ViewBuilder let action: () -> ActionView
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "tray.and.arrow.down.fill")
+            Image(systemName: systemImage)
                 .font(.system(size: 48))
                 .foregroundStyle(.indigo)
             Text(title)

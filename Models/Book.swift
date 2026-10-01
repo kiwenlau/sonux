@@ -13,6 +13,15 @@ struct Book: Identifiable, Codable, Equatable {
     var totalDuration: TimeInterval {
         chapters.reduce(0) { $0 + $1.duration }
     }
+
+    /// 是否匹配搜索关键词：书名、作者或任一章节标题包含即算命中（忽略大小写）
+    func matches(searchText: String) -> Bool {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return true }
+        if title.localizedCaseInsensitiveContains(query) { return true }
+        if let author, author.localizedCaseInsensitiveContains(query) { return true }
+        return chapters.contains { $0.title.localizedCaseInsensitiveContains(query) }
+    }
 }
 
 /// 一个章节（对应一个音频文件）
