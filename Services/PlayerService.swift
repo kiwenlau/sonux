@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import MediaPlayer
+import QuartzCore
 import Combine
 
 /// 定时关闭模式：分钟数可在滑动条范围内任意设置，也可在本章播完时关闭
@@ -146,20 +147,26 @@ final class PlayerService: NSObject, ObservableObject {
     }
 
     func togglePlayPause() {
+        let t0 = CACurrentMediaTime()
+        NSLog("[sonux] togglePlayPause: begin isPlaying=%d", isPlaying ? 1 : 0)
         guard let player = player else {
+            NSLog("[sonux] togglePlayPause: no player, replay book")
             if let book = currentBook { play(book: book, at: currentPosition()) }
             return
         }
         if player.isPlaying {
             player.pause()
             isPlaying = false
+            NSLog("[sonux] togglePlayPause: paused %.1f ms", (CACurrentMediaTime() - t0) * 1000)
         } else {
             player.play()
             player.rate = speed // 暂停期间调整的倍速需重新应用
             isPlaying = true
             applyRememberedSleepTimerIfNeeded()
+            NSLog("[sonux] togglePlayPause: resumed %.1f ms", (CACurrentMediaTime() - t0) * 1000)
         }
         updateNowPlaying()
+        NSLog("[sonux] togglePlayPause: done total %.1f ms", (CACurrentMediaTime() - t0) * 1000)
     }
 
     func seek(to time: TimeInterval) {
@@ -360,8 +367,11 @@ final class PlayerService: NSObject, ObservableObject {
                 guard let self = self else { return }
                 guard let player = self.player else { return }
                 if player.isPlaying {
+                    let t0 = CACurrentMediaTime()
                     self.currentTime = player.currentTime
                     self.reportPosition()
+                    let ms = (CACurrentMediaTime() - t0) * 1000
+                    if ms > 50 { NSLog("[sonux] progressTick: 耗时 %.1f ms", ms) }
                 }
             }
         }
@@ -376,6 +386,7 @@ final class PlayerService: NSObject, ObservableObject {
     }
 
     private func updateNowPlaying() {
+        let t0 = CACurrentMediaTime()
         guard let chapter = currentChapter, let book = currentBook else {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
             return
@@ -392,6 +403,8 @@ final class PlayerService: NSObject, ObservableObject {
             info[MPMediaItemPropertyArtist] = author
         }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        let ms = (CACurrentMediaTime() - t0) * 1000
+        if ms > 30 { NSLog("[sonux] updateNowPlaying: 耗时 %.1f ms", ms) }
     }
 
     private func setupRemoteCommands() {

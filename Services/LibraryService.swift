@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import QuartzCore
 
 enum LibraryError: LocalizedError {
     case deleteFailed(String, underlying: Error)
@@ -21,10 +22,13 @@ final class LibraryService: ObservableObject {
     /// key: chapterId，value: 该音频自己的历史播放位置（重新播放时从此处续播）
     @Published private(set) var chapterPositions: [String: PlayPosition] = [:]
 
-    static let supportedExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "wav", "wave"]
+    nonisolated static let supportedExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "wav", "wave"]
 
     private let documentsDir: URL
     private let progressURL: URL
+    /// 后台扫描任务防重入：上一次还没跑完时再触发，记下来结束后补扫一次
+    private var scanning = false
+    private var rescanRequestedWhileScanning = false
 
     init() {
         documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -33,10 +37,49 @@ final class LibraryService: ObservableObject {
     }
 
     /// 重新扫描 Documents 目录，生成书库（保留已有进度）
+    /// 扫描与元数据读取在后台线程执行，避免阻塞主线程（真机上 1300+ 文件同步读时长要 3 秒）
     func rescan() {
+        if scanning {
+            rescanRequestedWhileScanning = true
+            return
+        }
+        scanning = true
+        let documentsDir = self.documentsDir
+        let supportedExtensions = Self.supportedExtensions
+        Task.detached(priority: .userInitiated) {
+            let t0 = CACurrentMediaTime()
+            NSLog("[sonux] rescan: 后台开始扫描 documentsDir=%@", documentsDir.path)
+            let scanned = Self.scanBooks(in: documentsDir, supportedExtensions: supportedExtensions)
+            NSLog("[sonux] rescan: 识别出 %d 本书，耗时 %.1f ms", scanned.count, (CACurrentMediaTime() - t0) * 1000)
+            await MainActor.run {
+                self.applyScanResult(scanned)
+                self.scanning = false
+                if self.rescanRequestedWhileScanning {
+                    self.rescanRequestedWhileScanning = false
+                    self.rescan()
+                }
+            }
+        }
+    }
+
+    /// 扫描结果回到主线程后赋值：清理已消失文件的进度并落盘
+    private func applyScanResult(_ scanned: [Book]) {
+        let previous = Set(books.map { "\($0.id):\($0.chapters.count)" })
+        let current = Set(scanned.map { "\($0.id):\($0.chapters.count)" })
+        if previous != current {
+            self.books = scanned
+        }
+        let aliveBookIds = Set(scanned.map(\.id))
+        positions = positions.filter { aliveBookIds.contains($0.key) }
+        let aliveChapterIds = Set(scanned.flatMap { $0.chapters.map(\.id) })
+        chapterPositions = chapterPositions.filter { aliveChapterIds.contains($0.key) }
+        saveProgress()
+    }
+
+    /// 后台执行：遍历目录并读取每个音频的时长/作者等元数据
+    nonisolated private static func scanBooks(in documentsDir: URL, supportedExtensions: Set<String>) -> [Book] {
         let fm = FileManager.default
         var books: [Book] = []
-        NSLog("[sonux] rescan: documentsDir=%@", documentsDir.path)
 
         // 顶层条目：文件夹 = 多章节书；音频文件 = 单本书
         let topItems: [URL]
@@ -55,31 +98,23 @@ final class LibraryService: ObservableObject {
         for entry in topItems {
             let isDir = (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
             if isDir {
-                if let book = makeBook(fromFolder: entry) {
+                if let book = makeBook(fromFolder: entry, documentsDir: documentsDir) {
                     books.append(book)
                 }
-            } else if Self.supportedExtensions.contains(entry.pathExtension.lowercased()) {
-                let bookId = "file:\(relativePath(entry))"
-                if let chapter = makeChapter(file: entry, bookId: bookId, index: 0) {
+            } else if supportedExtensions.contains(entry.pathExtension.lowercased()) {
+                let bookId = "file:\(relativePath(entry, documentsDir: documentsDir))"
+                if let chapter = makeChapter(file: entry, bookId: bookId, index: 0, documentsDir: documentsDir) {
                     books.append(Book(
                         id: bookId,
                         title: entry.deletingPathExtension().lastPathComponent,
                         author: Self.audioAuthor(of: entry),
                         chapters: [chapter],
-                        storagePath: relativePath(entry)
+                        storagePath: relativePath(entry, documentsDir: documentsDir)
                     ))
                 }
             }
         }
-
-        self.books = books
-        NSLog("[sonux] rescan: 识别出 %d 本书", books.count)
-        // 清理已消失文件的进度
-        let aliveBookIds = Set(books.map(\.id))
-        positions = positions.filter { aliveBookIds.contains($0.key) }
-        let aliveChapterIds = Set(books.flatMap { $0.chapters.map(\.id) })
-        chapterPositions = chapterPositions.filter { aliveChapterIds.contains($0.key) }
-        saveProgress()
+        return books
     }
 
     /// 第一本未听完的书（用于「继续收听」）
@@ -143,8 +178,10 @@ final class LibraryService: ObservableObject {
 
         positions[book.id] = nil
         for chapter in book.chapters { chapterPositions[chapter.id] = nil }
-        rescan()
+        // 直接从内存书库移除并保存；全量 rescan 会阻塞主线程，改为后台异步补扫一次
+        books.removeAll { $0.id == book.id }
         saveProgress()
+        rescan()
     }
 
     /// 递归删除：先删尽目录内所有文件，再从最深层开始删空目录；全部成功返回 true
@@ -213,7 +250,7 @@ final class LibraryService: ObservableObject {
 
     // MARK: - Private
 
-    private func makeBook(fromFolder folder: URL) -> Book? {
+    nonisolated private static func makeBook(fromFolder folder: URL, documentsDir: URL) -> Book? {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: folder,
@@ -230,9 +267,9 @@ final class LibraryService: ObservableObject {
         guard !audioFiles.isEmpty else { return nil }
 
         audioFiles.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        let bookId = "dir:\(relativePath(folder))"
+        let bookId = "dir:\(relativePath(folder, documentsDir: documentsDir))"
         let chapters = audioFiles.enumerated().compactMap { index, file in
-            makeChapter(file: file, bookId: bookId, index: index)
+            makeChapter(file: file, bookId: bookId, index: index, documentsDir: documentsDir)
         }
         guard !chapters.isEmpty else { return nil }
 
@@ -241,12 +278,12 @@ final class LibraryService: ObservableObject {
             title: folder.lastPathComponent,
             author: Self.audioAuthor(of: audioFiles[0]),
             chapters: chapters,
-            storagePath: relativePath(folder)
+            storagePath: relativePath(folder, documentsDir: documentsDir)
         )
     }
 
-    private func makeChapter(file: URL, bookId: String, index: Int) -> Chapter? {
-        let id = relativePath(file)
+    nonisolated private static func makeChapter(file: URL, bookId: String, index: Int, documentsDir: URL) -> Chapter? {
+        let id = relativePath(file, documentsDir: documentsDir)
         let duration = Self.audioDuration(of: file)
         return Chapter(
             id: id,
@@ -258,7 +295,7 @@ final class LibraryService: ObservableObject {
         )
     }
 
-    private func relativePath(_ url: URL) -> String {
+    nonisolated private static func relativePath(_ url: URL, documentsDir: URL) -> String {
         // 不能用字符串前缀裁剪：真机上 documentsDir.path 带 /private 前缀而目录遍历结果不带，
         // 前缀替换会残留 “private”。先统一规范化，再按路径分量逐段比较裁剪
         let base = Self.normalized(documentsDir).pathComponents
@@ -270,7 +307,7 @@ final class LibraryService: ObservableObject {
     }
 
     /// 去掉 /var 路径的 /private 前缀，统一两种写法便于比较
-    private static func normalized(_ url: URL) -> URL {
+    nonisolated private static func normalized(_ url: URL) -> URL {
         var path = url.standardizedFileURL.path
         if path.hasPrefix("/private/var") {
             path.removeFirst("/private".count)
@@ -279,7 +316,7 @@ final class LibraryService: ObservableObject {
     }
 
     /// 从文件名提取章节标题：去掉前导序号，如 "01 - 引言.mp3" -> "引言"
-    private static func chapterTitle(from url: URL) -> String {
+    nonisolated private static func chapterTitle(from url: URL) -> String {
         let base = url.deletingPathExtension().lastPathComponent
         let pattern = "^[0-9]+[\\.\\-−—\\s]+(.+)$"
         if let range = base.range(of: pattern, options: .regularExpression) {
@@ -319,6 +356,7 @@ final class LibraryService: ObservableObject {
     }
 
     private func saveProgress() {
+        let t0 = CACurrentMediaTime()
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let store = ProgressStore(books: positions, chapters: chapterPositions)
@@ -333,6 +371,8 @@ final class LibraryService: ObservableObject {
         } catch {
             NSLog("[sonux] saveProgress: 写入失败 %@", error.localizedDescription)
         }
+        let ms = (CACurrentMediaTime() - t0) * 1000
+        if ms > 30 { NSLog("[sonux] saveProgress: 耗时 %.1f ms (bytes=%d, chapters=%d)", ms, data.count, chapterPositions.count) }
     }
 
     private func loadProgress() {
