@@ -21,12 +21,15 @@ final class LibraryService: ObservableObject {
     @Published private(set) var positions: [String: PlayPosition] = [:]
     /// key: chapterId，value: 该音频自己的历史播放位置（重新播放时从此处续播）
     @Published private(set) var chapterPositions: [String: PlayPosition] = [:]
+    /// 首次扫描是否已出结果：未出结果前界面显示 loading，而不是「书库是空的」
+    @Published private(set) var hasFinishedFirstScan = false
 
     nonisolated static let supportedExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "wav", "wave"]
 
     private let documentsDir: URL
     private let progressURL: URL
     private let metaCacheURL: URL
+    private let snapshotURL: URL
     /// 后台扫描任务防重入：上一次还没跑完时再触发，记下来结束后补扫一次
     private var scanning = false
     private var rescanRequestedWhileScanning = false
@@ -36,6 +39,15 @@ final class LibraryService: ObservableObject {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         progressURL = appSupport.appendingPathComponent("progress.json")
         metaCacheURL = appSupport.appendingPathComponent("audio-meta.json")
+        snapshotURL = appSupport.appendingPathComponent("library-snapshot.json")
+        // 冷启动的第一帧就要有内容：进度和上次扫描出的书库在 init 里同步读盘，
+        // 真正的文件扫描留给 bootstrap 异步做，结果没变就不重绘，避免闪空状态
+        let t0 = CACurrentMediaTime()
+        loadProgress()
+        let t1 = CACurrentMediaTime()
+        loadSnapshot()
+        NSLog("[sonux] init: 读进度 %.1f ms + 读书库快照 %.1f ms（%d 本书）",
+              (t1 - t0) * 1000, (CACurrentMediaTime() - t1) * 1000, books.count)
     }
 
     /// 重新扫描 Documents 目录，生成书库（保留已有进度）
@@ -53,8 +65,14 @@ final class LibraryService: ObservableObject {
             NSLog("[sonux] rescan: 后台开始扫描 documentsDir=%@", documentsDir.path)
             let scanned = Self.scanBooks(in: documentsDir, supportedExtensions: supportedExtensions, cacheURL: self.metaCacheURL)
             NSLog("[sonux] rescan: 识别出 %d 本书，耗时 %.1f ms", scanned.count, (CACurrentMediaTime() - t0) * 1000)
+            // 书库快照另起低优先级任务落盘，不拖慢结果上屏
+            let snapshotURL = self.snapshotURL
+            Task.detached(priority: .utility) {
+                Self.writeSnapshot(scanned, to: snapshotURL)
+            }
             await MainActor.run {
                 self.applyScanResult(scanned)
+                self.hasFinishedFirstScan = true
                 self.scanning = false
                 if self.rescanRequestedWhileScanning {
                     self.rescanRequestedWhileScanning = false
@@ -76,6 +94,83 @@ final class LibraryService: ObservableObject {
         let aliveChapterIds = Set(scanned.flatMap { $0.chapters.map(\.id) })
         chapterPositions = chapterPositions.filter { aliveChapterIds.contains($0.key) }
         saveProgress()
+    }
+
+    /// 第一帧渲染用的书库快照：只存相对路径、标题、时长等纯数据，
+    /// 章节 fileURL 由当前 Documents 路径重建，避免绝对路径在模拟器/真机间失效
+    private struct SnapshotChapter: Codable {
+        var path: String
+        var title: String
+        var duration: TimeInterval
+
+        init(_ chapter: Chapter) {
+            path = chapter.id
+            title = chapter.title
+            duration = chapter.duration
+        }
+
+        func chapter(bookId: String, index: Int, basePath: String) -> Chapter {
+            // 章节上千个，直接拼已规范化的相对路径比逐段 appendingPathComponent 便宜
+            Chapter(id: path, bookId: bookId, index: index, title: title, duration: duration,
+                    fileURL: URL(fileURLWithPath: "\(basePath)/\(path)"))
+        }
+    }
+
+    private struct SnapshotBook: Codable {
+        var id: String
+        var title: String
+        var author: String?
+        var storagePath: String
+        var chapters: [SnapshotChapter]
+
+        init(_ book: Book) {
+            id = book.id
+            title = book.title
+            author = book.author
+            storagePath = book.storagePath
+            chapters = book.chapters.map(SnapshotChapter.init)
+        }
+
+        func book(basePath: String) -> Book {
+            Book(id: id, title: title, author: author,
+                 chapters: chapters.enumerated().map { $0.element.chapter(bookId: id, index: $0.offset, basePath: basePath) },
+                 storagePath: storagePath)
+        }
+    }
+
+    /// 读取书库快照，并按当前文件系统剔掉已消失的顶层条目
+    private func loadSnapshot() {
+        let t0 = CACurrentMediaTime()
+        guard let data = try? Data(contentsOf: snapshotURL),
+              let snapshot = try? JSONDecoder().decode([SnapshotBook].self, from: data) else { return }
+        let t1 = CACurrentMediaTime()
+        // 一次列目录就拿到全部顶层条目，避免逐本书 stat
+        let existing = Set((try? FileManager.default.contentsOfDirectory(
+            at: documentsDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ).map { $0.lastPathComponent }) ?? [])
+        let basePath = documentsDir.path
+        books = snapshot.compactMap { item in
+            let top = String(item.storagePath.prefix { $0 != "/" })
+            guard existing.contains(top) else { return nil }
+            return item.book(basePath: basePath)
+        }
+        NSLog("[sonux] loadSnapshot: 读盘+解码 %.1f ms（%d 字节），校验存在性+重建 %.1f ms",
+              (t1 - t0) * 1000, data.count, (CACurrentMediaTime() - t1) * 1000)
+    }
+
+    /// 后台写入快照，供下次冷启动第一帧直接渲染
+    /// 每次扫描成功都写，不比较差异：删除书后内存与扫描结果已经一致，
+    /// 只有无条件落盘才不会把被删的书留在快照里（下次启动会闪出幽灵条目）
+    nonisolated private static func writeSnapshot(_ books: [Book], to url: URL) {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        guard let data = try? encoder.encode(books.map(SnapshotBook.init)) else { return }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            NSLog("[sonux] writeSnapshot: 写入失败 %@", error.localizedDescription)
+        }
     }
 
     /// 音频元数据缓存：按「相对路径 + 文件大小 + 修改时间」判断是否复用，
@@ -446,9 +541,8 @@ final class LibraryService: ObservableObject {
         }
     }
 
-    /// 启动时先读进度再扫描（在 rescan 前调用）
+    /// 启动时先读进度和书库快照（已在 init 完成）再后台扫描校验
     func bootstrap() {
-        loadProgress()
         rescan()
     }
 }

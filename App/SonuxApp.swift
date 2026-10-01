@@ -24,7 +24,10 @@ struct SonuxApp: App {
                         }
                     case .active:
                         // 回到前台时刷新书库（电脑可能刚同步了新文件）
-                        library.rescan()
+                        // 冷启动时 bootstrap 已经在扫了，首次 .active 不必再扫一遍
+                        if library.hasFinishedFirstScan {
+                            library.rescan()
+                        }
                     default:
                         break
                     }

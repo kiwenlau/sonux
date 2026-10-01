@@ -13,7 +13,12 @@ struct LibraryView: View {
     var body: some View {
         Group {
             if library.books.isEmpty {
-                EmptyLibraryView(onImport: { showImporter = true })
+                // 区分「真没数据」和「首次扫描还没出结果」：后者只给轻量 loading，不闪空状态
+                if library.hasFinishedFirstScan {
+                    EmptyLibraryView(onImport: { showImporter = true })
+                } else {
+                    LoadingLibraryView()
+                }
             } else if gridView {
                 BookGridView(
                     books: library.books,
@@ -224,6 +229,17 @@ private struct BookGridView: View {
                 BookDetailView(book: book)
             }
         }
+    }
+}
+
+/// 首次扫描期间的轻量占位：只有一个转圈，不出文字不出按钮，避免与空状态互相跳变
+private struct LoadingLibraryView: View {
+    var body: some View {
+        ProgressView()
+            .controlSize(.large)
+            .tint(.indigo)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityLabel("正在载入书库")
     }
 }
 
