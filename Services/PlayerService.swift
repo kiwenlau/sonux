@@ -36,6 +36,11 @@ final class PlayerService: NSObject, ObservableObject {
     var onPositionChange: ((PlayPosition) -> Void)?
     /// 查询某章节的历史播放位置（自动续播到下一章时使用）
     var chapterHistory: ((String) -> PlayPosition?)?
+    /// 收听时长上报：真实收听了多少墙钟秒（倍速不放大，暂停与挂起的空档不计入）
+    var onListening: ((TimeInterval, String) -> Void)?
+
+    /// 上次计时的时间点：只在播放中累加，暂停/停止时清空
+    private var listeningAnchor: Date?
 
     private var player: AVAudioPlayer?
     private var displayLinkTimer: Timer?
@@ -121,6 +126,7 @@ final class PlayerService: NSObject, ObservableObject {
             player.play()
 
             startProgressTimer()
+            listeningAnchor = Date()
             applyRememberedSleepTimerIfNeeded()
             updateNowPlaying()
         } catch {
@@ -221,6 +227,7 @@ final class PlayerService: NSObject, ObservableObject {
     }
 
     func stop() {
+        flushListening()
         reportPosition()
         player?.stop()
         player = nil
@@ -368,15 +375,39 @@ final class PlayerService: NSObject, ObservableObject {
                 guard let player = self.player else { return }
                 if player.isPlaying {
                     let t0 = CACurrentMediaTime()
+                    self.accumulateListening()
                     self.currentTime = player.currentTime
                     self.reportPosition()
                     let ms = (CACurrentMediaTime() - t0) * 1000
                     if ms > 50 { NSLog("[sonux] progressTick: 耗时 %.1f ms", ms) }
+                } else {
+                    // 暂停中：把最后一段收听时长收尾，恢复播放后重新起算
+                    self.flushListening()
                 }
             }
         }
         RunLoop.main.add(timer, forMode: .common)
         displayLinkTimer = timer
+    }
+
+    // MARK: - 收听时长统计
+
+    /// 把上次计时点到现在的一段真实收听秒数上报给统计
+    private func accumulateListening() {
+        let now = Date()
+        defer { listeningAnchor = now }
+        guard let anchor = listeningAnchor, let bookId = currentBook?.id else { return }
+        let delta = now.timeIntervalSince(anchor)
+        // 定时器抖动、后台挂起造成的长空档不计入收听时长
+        guard delta > 0, delta < 10 else { return }
+        onListening?(delta, bookId)
+    }
+
+    /// 结束本次计时（暂停、停止、切书前都要调一次）
+    private func flushListening() {
+        guard listeningAnchor != nil else { return }
+        accumulateListening()
+        listeningAnchor = nil
     }
 
     private func configureAudioSession() {

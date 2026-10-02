@@ -19,6 +19,8 @@
 		40000000000000000000000A /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000A /* RootView.swift */; };
 		40000000000000000000000B /* CoverStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000B /* CoverStore.swift */; };
 		40000000000000000000000C /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000C /* HistoryView.swift */; };
+		40000000000000000000000D /* ListeningStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000D /* ListeningStats.swift */; };
+		40000000000000000000000F /* MeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000F /* MeView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +37,8 @@
 		30000000000000000000000A /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		30000000000000000000000B /* CoverStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverStore.swift; sourceTree = "<group>"; };
 		30000000000000000000000C /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		30000000000000000000000D /* ListeningStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningStats.swift; sourceTree = "<group>"; };
+		30000000000000000000000F /* MeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				300000000000000000000002 /* Book.swift */,
+				30000000000000000000000D /* ListeningStats.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -103,6 +108,7 @@
 				30000000000000000000000A /* RootView.swift */,
 				30000000000000000000000B /* CoverStore.swift */,
 				30000000000000000000000C /* HistoryView.swift */,
+				30000000000000000000000F /* MeView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -187,6 +193,8 @@
 				40000000000000000000000A /* RootView.swift in Sources */,
 				40000000000000000000000B /* CoverStore.swift in Sources */,
 				40000000000000000000000C /* HistoryView.swift in Sources */,
+				40000000000000000000000D /* ListeningStats.swift in Sources */,
+				40000000000000000000000F /* MeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

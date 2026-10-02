@@ -24,6 +24,16 @@ enum TimeFormat {
         return "不足 1 分钟"
     }
 
+    /// 紧凑时长：只留最大的一级，3720 -> "1 小时"，300 -> "5 分"，40 -> "40 秒"
+    static func compact(_ seconds: TimeInterval) -> String {
+        let total = Int(max(0, seconds).rounded())
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        if h > 0 { return "\(h) 小时" }
+        if m > 0 { return "\(m) 分" }
+        return "\(total) 秒"
+    }
+
     /// 1.0 -> "1"，1.2 -> "1.2"（语速以 0.1 为步进，最多一位小数）
     static func speed(_ value: Float) -> String {
         let rounded = (value * 10).rounded() / 10

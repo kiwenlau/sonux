@@ -45,5 +45,9 @@ struct SonuxApp: App {
         player.chapterHistory = { [weak library] chapterId in
             library?.position(forChapter: chapterId)
         }
+        // 收听时长累加：同一秒内紧跟着的 recordPosition 会把统计一起落盘
+        player.onListening = { [weak library] seconds, bookId in
+            library?.addListening(seconds: seconds, bookId: bookId)
+        }
     }
 }
