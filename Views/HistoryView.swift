@@ -46,7 +46,7 @@ struct HistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("播放历史")
+        .navigationTitle("历史")
         .navigationBarTitleDisplayMode(.inline)
     }
 

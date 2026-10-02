@@ -23,7 +23,7 @@ struct MeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("我")
+        .navigationTitle("我的")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("me-page")
     }

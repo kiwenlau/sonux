@@ -7,7 +7,7 @@ enum LibraryRoute: Hashable {
     case author(String)
 }
 
-/// 底部标签页：书库、播放历史与「我」各挂一条独立导航栈
+/// 底部标签页：音频、历史与「我的」各挂一条独立导航栈
 enum AppTab: Hashable, CaseIterable, Identifiable {
     case library
     case history
@@ -17,26 +17,27 @@ enum AppTab: Hashable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .library: return "书库"
+        case .library: return "音频"
         case .history: return "历史"
-        case .me: return "我"
+        case .me: return "我的"
         }
     }
 
     /// tab 栏图标：微信读书那样线框图标加小字，选中只靠主题色区分
     var icon: String {
         switch self {
-        case .library: return "books.vertical"
+        case .library: return "waveform"
         case .history: return "clock.arrow.circlepath"
         case .me: return "person"
         }
     }
 
-    /// 选中时的实心图标
-    var filledIcon: String {
+    /// 选中时的实心图标；nil 表示这个符号没有 .fill 变体（如 waveform、clock.arrow.circlepath），
+    /// 选中态只靠主题色区分——写个不存在的名字会画成空白
+    var filledIcon: String? {
         switch self {
-        case .library: return "books.vertical.fill"
-        case .history: return "clock.arrow.circlepath.fill"
+        case .library: return nil
+        case .history: return nil
         case .me: return "person.fill"
         }
     }
@@ -227,6 +228,9 @@ private struct TabBarView: View {
 
     /// 图标加文字那一行的高度，与系统旧版 tab 栏齐平
     private static let contentHeight: CGFloat = 49
+    /// 图标与顶部分割线之间的留白：不填满高度时图标会贴着边缘，
+    /// 这段留白从主屏指示条那一条里扣，整条 tab 栏高度不变
+    private static let topPadding: CGFloat = 8
 
     var body: some View {
         HStack(spacing: 0) {
@@ -236,7 +240,7 @@ private struct TabBarView: View {
                     onTap(tab)
                 } label: {
                     VStack(spacing: 3) {
-                        Image(systemName: isSelected ? tab.filledIcon : tab.icon)
+                        Image(systemName: isSelected ? (tab.filledIcon ?? tab.icon) : tab.icon)
                             .font(.system(size: 21))
                         Text(tab.title)
                             .font(.system(size: 10, weight: isSelected ? .medium : .regular))
@@ -253,8 +257,9 @@ private struct TabBarView: View {
         }
         .frame(height: Self.contentHeight)
         .frame(maxWidth: .infinity)
+        .padding(.top, Self.topPadding)
         // 主屏指示条那一条也归 tab 栏，背景铺满才不会有割裂感
-        .padding(.bottom, HomeIndicator.inset)
+        .padding(.bottom, max(HomeIndicator.inset - Self.topPadding, 0))
         .background(Color(.systemBackground))
         .overlay(alignment: .top) {
             Rectangle()
