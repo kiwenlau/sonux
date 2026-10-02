@@ -354,34 +354,16 @@ final class LibraryService: ObservableObject {
         let todaySeconds: TimeInterval
         let last7Seconds: TimeInterval
         let streakDays: Int
-        let listenedDays: Int
-        let averagePerDay: TimeInterval
-        /// 近 7 天逐日时长，旧的在前
-        let recentDays: [ListeningDay]
-        /// 收听最多的书（最多 5 本）
-        let topBooks: [ListenedBook]
-        /// 收听过（有秒数记录且仍在书库里）的书本数
-        let listenedBookCount: Int
 
         var isEmpty: Bool { totalSeconds < 1 }
     }
 
     func listeningSummary(now: Date = Date()) -> ListeningSummary {
-        let recent = listening.recentDays(7, endingOn: now)
-        let top = listening.topBooks(limit: 5, books: books)
-        let days = listening.listenedDays
-        // 收听过且仍在书库里的书本数
-        let listenedBooks = books.filter { (listening.byBook[$0.id] ?? 0) > 0 }
-        return ListeningSummary(
+        ListeningSummary(
             totalSeconds: listening.totalSeconds,
             todaySeconds: listening.seconds(on: now),
             last7Seconds: listening.seconds(in: 7, endingOn: now),
-            streakDays: listening.streakDays(endingOn: now),
-            listenedDays: days,
-            averagePerDay: days > 0 ? listening.totalSeconds / Double(days) : 0,
-            recentDays: recent,
-            topBooks: top,
-            listenedBookCount: listenedBooks.count
+            streakDays: listening.streakDays(endingOn: now)
         )
     }
 

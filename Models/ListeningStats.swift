@@ -10,8 +10,6 @@ struct ListeningStats: Codable, Equatable {
 
     /// 累计收听总秒数
     var totalSeconds: TimeInterval { daily.values.reduce(0, +) }
-    /// 有收听记录的天数
-    var listenedDays: Int { daily.filter { $0.value > 0 }.count }
 
     /// 一天的累计秒数
     func seconds(on date: Date, calendar: Calendar = .current) -> TimeInterval {
@@ -49,16 +47,6 @@ struct ListeningStats: Codable, Equatable {
         }
     }
 
-    /// 收听最多的若干本书（书已被删除的记录不再展示）
-    func topBooks(limit: Int, books: [Book]) -> [ListenedBook] {
-        let byId = Dictionary(books.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return byBook
-            .filter { $0.value > 0 && byId[$0.key] != nil }
-            .sorted { $0.value > $1.value }
-            .prefix(limit)
-            .compactMap { id, seconds in byId[id].map { ListenedBook(book: $0, seconds: seconds) } }
-    }
-
     /// 记一段收听时长
     mutating func add(seconds: TimeInterval, bookId: String, at date: Date = Date(), calendar: Calendar = .current) {
         guard seconds > 0, seconds.isFinite else { return }
@@ -79,18 +67,10 @@ struct ListeningStats: Codable, Equatable {
     }
 }
 
-/// 某一天的收听时长，供「我」页的近 7 天柱状图使用
+/// 某一天的收听时长，供「我」页的时长统计使用
 struct ListeningDay: Identifiable, Equatable {
     let date: Date
     let seconds: TimeInterval
 
     var id: Date { date }
-}
-
-/// 一本书的收听时长，供「我」页的收听排行使用
-struct ListenedBook: Identifiable, Equatable {
-    let book: Book
-    let seconds: TimeInterval
-
-    var id: String { book.id }
 }

@@ -156,10 +156,10 @@ struct RootView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { miniPlayerInset }
     }
 
-    /// 「我」tab：收听时长统计，排行里的书也压进本 tab 自己的栈
+    /// 「我」tab：收听时长统计
     private var meTab: some View {
         NavigationStack(path: pathBinding(for: routers.meRouter)) {
-            MeView(onOpenBook: { routers.meRouter.openBook(id: $0) })
+            MeView()
                 .navigationDestination(for: LibraryRoute.self) { route in
                     destination(for: route)
                 }
