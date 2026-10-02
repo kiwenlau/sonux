@@ -11,9 +11,25 @@ DerivedData/
 # 界面验证时临时截图/脚本的输出目录
 .tmp-shots/
 
+# 广告检测原型脚本与 Whisper 模型（本地缓存，不入库）
+.tmp-adcheck/
+tools/models/
+tools/adcheck-cache/
+
+# 广告切除流水线的运行产物（都能由脚本重算，不入库）
+tools/adcheck.jsonl
+tools/adcheck.jsonl.recovered
+tools/adcuts.jsonl
+tools/adcheck-ads.jsonl
+tools/adcheck-audit.csv
+tools/adcut-report.csv
+tools/adcheck-removed.md
+
 # 测试用音频书库（体积大，不入库；元数据清单在 tools/books.json）
 TestBooks/*
 !TestBooks/.gitkeep
+TestBooks-clean/
+TestBooks-original/
 
 # Xcode 用户个人状态（窗口布局、方案管理等）
 xcuserdata/

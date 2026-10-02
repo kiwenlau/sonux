@@ -33,12 +33,16 @@ for item in "$@"; do
     echo "⚠️  跳过（不存在）：$item"
     continue
   fi
-  if [ -d "$item" ]; then
-    cp -R "$item" "$DOC/"
-    echo "📁 已复制文件夹：$item"
+  # 必须去掉结尾斜杠：`cp -R 书目录/ 目标/` 会把目录里的文件平铺到目标根，
+  # 而不是复制整个目录（BSD cp 的行为），会在书库里留下一堆散落的单文件书。
+  src="${item%/}"
+  [ -z "$src" ] && src="$item"
+  if [ -d "$src" ]; then
+    if ! cp -R "$src" "$DOC/"; then echo "❌ 复制失败：$src"; continue; fi
+    echo "📁 已复制文件夹：$src"
   else
-    cp "$item" "$DOC/"
-    echo "🎵 已复制文件：$item"
+    if ! cp "$src" "$DOC/"; then echo "❌ 复制失败：$src"; continue; fi
+    echo "🎵 已复制文件：$src"
   fi
   count=$((count + 1))
 done
