@@ -40,7 +40,8 @@ struct PlayerView: View {
     static let gapProgressToControls: CGFloat = 24
 
     /// 字幕区固定按两行留高：单行也占同样位置，进度条与控制排才不会随文案长短抽动
-    static let captionHeight: CGFloat = 46
+    /// 字号比章节名的 .subheadline（15pt）小一档，留高按 .footnote（13pt）的两行算
+    static let captionHeight: CGFloat = 36
 
     /// 封面宽度硬上限：大屏上多余空间交给上下空隙，不把封面无限放大
     private static let coverMaxWidth: CGFloat = 340
@@ -273,9 +274,9 @@ struct PlayerView: View {
             ZStack(alignment: .topLeading) {
                 if let text = captionText {
                     Text(text)
-                        .font(.body)
+                        .font(.footnote)
                         .multilineTextAlignment(.leading)
-                        .foregroundStyle(.white.opacity(0.92))
+                        .foregroundStyle(.white.opacity(0.85))
                         .lineLimit(2)
                         .minimumScaleFactor(0.85)
                         // 只在换句时重建视图，配合 transition 做淡入淡出
