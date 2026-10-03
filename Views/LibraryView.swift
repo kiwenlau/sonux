@@ -51,7 +51,6 @@ struct LibraryView: View {
                     // 作者页只在书被删空时走到这里，不给导入入口
                     ContentUnavailableWrapper(
                         title: "「\(pageTitle)」的作品已不在书库",
-                        message: "对应的音频可能已被删除，回书库看看其他作品",
                         systemImage: "person"
                     ) { EmptyView() }
                 } else if library.hasFinishedFirstScan {
@@ -382,7 +381,6 @@ private struct NoSearchResultView: View {
     var body: some View {
         ContentUnavailableWrapper(
             title: "没有找到「\(searchText.trimmingCharacters(in: .whitespacesAndNewlines))」",
-            message: "换个书名、作者或章节关键词试试",
             systemImage: "magnifyingglass"
         ) { EmptyView() }
     }
@@ -423,7 +421,6 @@ private struct EmptyLibraryView: View {
 
 struct ContentUnavailableWrapper<ActionView: View>: View {
     let title: String
-    var message: String = ""
     var systemImage: String = "tray.and.arrow.down.fill"
     @ViewBuilder let action: () -> ActionView
 
@@ -434,13 +431,6 @@ struct ContentUnavailableWrapper<ActionView: View>: View {
                 .foregroundStyle(.indigo)
             Text(title)
                 .font(.title2.bold())
-            if !message.isEmpty {
-                Text(message)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
             action()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

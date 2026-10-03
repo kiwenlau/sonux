@@ -14,7 +14,6 @@ struct HistoryView: View {
             if entries.isEmpty {
                 ContentUnavailableWrapper(
                     title: "还没有播放记录",
-                    message: "去书库挑一本书开始收听吧",
                     systemImage: "clock.arrow.circlepath"
                 ) { EmptyView() }
             } else {

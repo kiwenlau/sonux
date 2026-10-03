@@ -11,7 +11,6 @@ struct MeView: View {
             if summary.isEmpty {
                 ContentUnavailableWrapper(
                     title: "还没有收听记录",
-                    message: "去书库或历史页挑一本书开始收听，这里会累计你的收听时长",
                     systemImage: "person"
                 ) { EmptyView() }
             } else {
