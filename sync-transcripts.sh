@@ -36,8 +36,10 @@ if [ "$TO_SIM" -eq 1 ]; then
     DOC="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data 2>/dev/null)/Documents"
     if [ -n "$DOC" ] && [ -d "$DOC" ]; then
       mkdir -p "$DOC/transcripts"
-      # -a 保留时间戳，rsync 只传改过的书；不加 --delete，别把别的书带进的字幕删掉
-      rsync -a --exclude '.DS_Store' --exclude '*.tmp' "$SRC/" "$DOC/transcripts/"
+      # -a 保留时间戳只传改过的书；--delete 让沙盒与仓库一致：
+      # 打包只收当前模型的章，换模型后旧模型那几本会被从仓库包里剔除，
+      # 不删就会在设备上继续显示被淘汰的旧字幕
+      rsync -a --delete --exclude '.DS_Store' --exclude '*.tmp' --exclude '*.part' "$SRC/" "$DOC/transcripts/"
       echo "📱 模拟器字幕已同步：$DOC/transcripts"
     else
       echo "⚠️  模拟器里没装 $BUNDLE_ID，跳过模拟器"
