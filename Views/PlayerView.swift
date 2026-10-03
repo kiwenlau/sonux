@@ -5,6 +5,8 @@ struct PlayerView: View {
     @EnvironmentObject private var routers: TabRouters
     // 单例共享封面缓存，播放页大图与主色都由它提供
     @ObservedObject private var covers = CoverStore.shared
+    // 字幕（正在朗读的那一句）按书读盘，也只留当前这本
+    @ObservedObject private var transcripts = TranscriptStore.shared
 
     /// 点作者名关播放页后压进当前 tab 的导航栈（历史 tab 打开的就回落到历史栈）
     private var router: AppRouter { routers.active }
@@ -32,8 +34,13 @@ struct PlayerView: View {
     // 封面与播放组之间取 32：封面阴影向下扩散约 24pt，必须留出净距才不会压到章节名
     static let gapHeaderToText: CGFloat = 16
     static let gapCoverToChapter: CGFloat = 32
+    static let gapChapterToCaption: CGFloat = 8
     static let gapChapterToProgress: CGFloat = 16
+    static let gapCaptionToProgress: CGFloat = 12
     static let gapProgressToControls: CGFloat = 24
+
+    /// 字幕区固定按两行留高：单行也占同样位置，进度条与控制排才不会随文案长短抽动
+    static let captionHeight: CGFloat = 46
 
     /// 封面宽度硬上限：大屏上多余空间交给上下空隙，不把封面无限放大
     private static let coverMaxWidth: CGFloat = 340
@@ -110,6 +117,7 @@ struct PlayerView: View {
         .preferredColorScheme(.dark)
         .task(id: book?.id) {
             guard let book else { return }
+            await transcripts.load(book: book)
             await covers.loadLarge(for: book)
         }
         .sheet(isPresented: $showingSleepSheet) {
@@ -246,16 +254,57 @@ struct PlayerView: View {
             .padding(.horizontal, 12)
     }
 
+    // MARK: - 字幕（正在朗读的那一句）
+
+    /// 当前该显示的字幕：拖动进度条时跟着预览位置走，与两侧时间数字保持一致
+    private var captionText: String? {
+        transcripts.text(forChapter: player.currentChapter?.id,
+                         at: scrubTime ?? player.currentTime)
+    }
+
+    /// 当前这一章有没有字幕（没转写出来的书整块不占位，不留一行空白）
+    private var hasCaption: Bool {
+        transcripts.hasTranscript(for: player.currentChapter?.id)
+    }
+
+    @ViewBuilder
+    private var caption: some View {
+        if hasCaption {
+            ZStack(alignment: .topLeading) {
+                if let text = captionText {
+                    Text(text)
+                        .font(.body)
+                        .multilineTextAlignment(.leading)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                        // 只在换句时重建视图，配合 transition 做淡入淡出
+                        .id(text)
+                        .transition(.opacity)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: Self.captionHeight, alignment: .topLeading)
+            .clipped()
+            .animation(.easeInOut(duration: 0.28), value: captionText ?? "")
+            // 上间距加在 if 分支内部：无字幕时整块不出现，不能在外面留下 8pt 空档
+            .padding(.top, Self.gapChapterToCaption)
+            .padding(.horizontal, 12)
+            .accessibilityIdentifier("caption")
+        }
+    }
+
     // MARK: - 底部播放组
 
-    /// 章节名、进度条、控制排是一个功能整体，用统一的组内间距成组贴底，
+    /// 章节名、字幕、进度条、控制排是一个功能整体，用统一的组内间距成组贴底，
     /// 与封面的间距大于组内间距，突出「图注+操作」这一组
     private var playbackGroup: some View {
         VStack(spacing: 0) {
             chapterText
 
+            caption
+
             progress
-                .padding(.top, Self.gapChapterToProgress)
+                .padding(.top, hasCaption ? Self.gapCaptionToProgress : Self.gapChapterToProgress)
 
             controls
                 .padding(.top, Self.gapProgressToControls)

@@ -24,6 +24,8 @@
 		400000000000000000000010 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000010 /* Localization.swift */; };
 		400000000000000000000011 /* LanguageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000011 /* LanguageView.swift */; };
 		400000000000000000000012 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000012 /* Localizable.xcstrings */; };
+		400000000000000000000013 /* Transcript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000013 /* Transcript.swift */; };
+		400000000000000000000014 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000014 /* TranscriptStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +47,8 @@
 		300000000000000000000010 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		300000000000000000000011 /* LanguageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageView.swift; sourceTree = "<group>"; };
 		300000000000000000000012 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		300000000000000000000013 /* Transcript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcript.swift; sourceTree = "<group>"; };
+		300000000000000000000014 /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +104,7 @@
 			children = (
 				300000000000000000000002 /* Book.swift */,
 				30000000000000000000000D /* ListeningStats.swift */,
+				300000000000000000000013 /* Transcript.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -109,6 +114,7 @@
 			children = (
 				300000000000000000000003 /* LibraryService.swift */,
 				300000000000000000000004 /* PlayerService.swift */,
+				300000000000000000000014 /* TranscriptStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -248,6 +254,8 @@
 				40000000000000000000000F /* MeView.swift in Sources */,
 				400000000000000000000010 /* Localization.swift in Sources */,
 				400000000000000000000011 /* LanguageView.swift in Sources */,
+				400000000000000000000013 /* Transcript.swift in Sources */,
+				400000000000000000000014 /* TranscriptStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
