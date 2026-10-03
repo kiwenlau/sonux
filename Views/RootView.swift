@@ -126,10 +126,12 @@ struct RootView: View {
         Binding(get: { router.path }, set: { router.path = $0 })
     }
 
-    /// 「正在播放」收起条。放在每个 tab 内容的底部安全区里，因此它悬在 tab 栏上方、
-    /// 不会遮住 tab（参考微信听书：tab 在最下，播放条在其上）
+    /// 「正在播放」收起条。作为 tab 内容的兄弟视图排在自绘 tab 栏上方：
+    /// 既不会遮住 tab（参考微信听书：tab 在最下，播放条在其上），
+    /// 也不会像 .safeAreaInset 那样被外层 ignoresSafeArea 抵消——
+    /// 那样页面内容会一直铺到屏幕底，最后一章永远滚不出播放条的范围
     @ViewBuilder
-    private var miniPlayerInset: some View {
+    private var miniPlayerBar: some View {
         if player.currentBook != nil {
             MiniPlayerView { withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { player.showPlayer = true } }
         }
@@ -143,7 +145,6 @@ struct RootView: View {
                     destination(for: route)
                 }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { miniPlayerInset }
     }
 
     /// 播放历史 tab：详情页压进本 tab 自己的栈，返回时回到历史页而不是书库
@@ -154,7 +155,6 @@ struct RootView: View {
                     destination(for: route)
                 }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { miniPlayerInset }
     }
 
     /// 「我」tab：收听时长统计
@@ -165,10 +165,9 @@ struct RootView: View {
                     destination(for: route)
                 }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { miniPlayerInset }
     }
 
-    /// 一个 tab 的全部内容：自己的导航栈加自己那份 tab 栏。
+    /// 一个 tab 的全部内容：自己的导航栈、正在播放条、再加自己那份 tab 栏。
     /// 每个 tab 各自画一份 tab 栏，高亮的就是本 tab（常量），不需要状态传播就能正确高亮；
     /// 系统 tab 栏（iOS 26 是悬浮玻璃胶囊，改不了样式）隐藏掉
     private func tabView(_ tab: AppTab) -> some View {
@@ -181,6 +180,8 @@ struct RootView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            miniPlayerBar
 
             TabBarView(selection: tab) { tapped in
                 // 再点当前 tab 退回根页面，其他情况切 tab
