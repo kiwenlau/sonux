@@ -1,23 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""用本地大模型修字幕里的同音别字：ASR 只管时间轴，文字交给语言模型。
+"""用大模型修字幕里的同音别字：ASR 只管时间轴，文字交给语言模型。
+
+两个模型后端（闸门逻辑共用，换后端不影响产物结构）：
+- 本地 MLX（默认）：tools/models/Qwen2.5-14B-Instruct-4bit，每进程约 9GB 内存，
+  一次只能跑 1~2 个，全库要二十几小时；14B 的知识量对文言引文与人名不够用。
+- 云端 API（--api）：OpenAI 兼容接口，默认阿里云百炼。上下文可以开大到 160 行/次，
+  多线程并发，全库几十分钟；专名与文言还原明显更强。密钥只从环境变量读：
+  DASHSCOPE_API_KEY（或 SONUX_LLM_API_KEY），绝不写进仓库。
 
 为什么要这一步：whisper 与中文专用 Paraformer 我都试过，两路在同一类地方一起栽——
-文言引文、人名、生僻词（「曾国荃」一个写成「曾国权」一个写成「曾国醛」，「佾生」
-一个写成「一声」一个写成「一声」）。原因是 ASR 只有声学、没有语言知识，而这类错误
-的特征正是「读音对、字形错」，恰好是语言模型擅长修的。
+文言引文、人名、地名、官职名、生僻词（「曾国荃」一个写成「曾国权」一个写成「曾国醛」）。
+ASR 只有声学、没有语言知识，而这类错误的特征正是「读音对、字形错」，恰好是语言模型擅长的。
 
-三道闸，防止语言模型把「纠错」变成「改写」：
-1. 只许改字：改后必须与原行等长（±2 字），逐字拼音（忽略声调）相似度 ≥0.85；
-2. 不许增删：提示词里明确只改别字与标点，不重写句子、不补内容；
+三道闸，防止语言模型把「纠错」变成「改写」（不管本地还是云端都一视同仁）：
+1. 逐词拼音相似度 ≥0.6：挡得住「一声→一岁」(0.50)、「窃→谴」(0.57)，
+   又留得住「虹口→湖口」(0.67)；
+2. 整行拼音 ≥0.85 且长度变化 ≤2 字：挡住「顺手把句子改通顺」；
 3. 拿不准就不改：模型只输出它确实改动的行号，其余保持 ASR 原文。
 
 用法：
-    python3 tools/subtitle-fix.py --book 曾国藩的正面与侧面        # 修一本
-    python3 tools/subtitle-fix.py --all                          # 全库（跳过已修的章）
-    python3 tools/subtitle-fix.py --files TestBooks/书/01.mp3 --dry-run   # 只看提示词
+    python3 tools/subtitle-fix.py --book 曾国藩的正面与侧面            # 本地模型
+    DASHSCOPE_API_KEY=sk-... tools/.venv-mlx/bin/python3 tools/subtitle-fix.py \
+        --api --all --workers 8 --chunk 160                            # 云端校对
+    ... --api --probe 3                                                # 先跑 3 章看质看成本
+密钥也可以放 ~/.config/sonux/llm-key（一行，chmod 600），后台看门狗不需要 export。
 产物：tools/transcripts-fix/<书>/<章>.json；transcribe.py 打包时优先取这份，
-缺的章退回 ASR 版。所以纠错可以一本一本地推进，没修到的书照样有字幕可看。
+缺的章退回 ASR 版。标签里带模型名与规则版本，换模型或改闸门会自动重跑。
 """
 
 import argparse
@@ -27,7 +36,9 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
+import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import transcribe as T  # noqa: E402  复用章节枚举、成句、路径与打包约定
@@ -36,6 +47,9 @@ ROOT = T.ROOT
 FIX_DIR = os.path.join(ROOT, "tools", "transcripts-fix")
 MODEL_DIR = os.environ.get(
     "SONUX_FIX_MODEL", os.path.join(ROOT, "tools", "models", "Qwen2.5-14B-Instruct-4bit"))
+# 云端后端默认阿里云百炼的 OpenAI 兼容入口；密钥只读环境变量
+API_BASE = os.environ.get("SONUX_LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+API_MODEL = os.environ.get("SONUX_LLM_MODEL", "qwen-plus")
 MIN_PINYIN_SIM = 0.85      # 整行拼音相似度低于此就认定模型改的不是同一个读音，驳回
 # 单个替换词的拼音相似度下限。0.6 是实测定的：挡得住「一声→一岁」(0.50)、
 # 「窃→谴」(0.57)、「魁丑→丑魁」(0.57) 这类错改，又留得住「虹口→湖口」(0.67)、
@@ -44,7 +58,9 @@ MIN_PAIR_SIM = 0.6
 # 规则版本：改提示词或阈值时递增，旧结果会自动重跑（逐章文件里记着这个标签）
 RULES_VER = "v2"
 LEN_SLACK = 2              # 允许字数增减（补漏字/删赘字），再多就视为改写
-FIX_TAG = f"fix:{os.path.basename(MODEL_DIR)}:{RULES_VER}"
+# 当前使用的模型名（main 里按 --api 定）；进结果标签，换模型自动重跑
+LLM_NAME = os.path.basename(MODEL_DIR)
+FIX_TAG = f"fix:{LLM_NAME}:{RULES_VER}"
 
 SYSTEM = (
     "你在校对中文有声书的自动转写字幕。字幕来自语音识别，声学上没错，"
@@ -173,21 +189,92 @@ def apply_edits(orig, kind, payload):
     return new, dropped
 
 
-def run_llm(messages, model, tokenizer, max_tokens):
-    """一次对话式生成。
+class LocalMLX:
+    """本地 MLX 模型：模型只加载一次，贪心解码（校对要可复现，不靠采样拿惊喜）。"""
 
-    这版 mlx-lm 的 generate() 只接受拼好的 prompt 字符串（没有 messages 参数），
-    采样参数也不叫 temperature，得自己构造一个 sampler。用贪心解码：校对要的是
-    可复现，不靠采样拿惊喜。
+    def __init__(self, model_dir):
+        from mlx_lm import load
+        from mlx_lm.sample_utils import make_sampler
+        self.model, self.tokenizer = load(model_dir)
+        self.sampler = make_sampler(temp=0.0)
+        self.name = os.path.basename(model_dir)
+
+    def chat(self, messages, max_tokens):
+        from mlx_lm import generate
+        # 这版 mlx-lm 的 generate() 只接受拼好的 prompt 字符串（没有 messages 参数）
+        prompt = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True)
+        return generate(self.model, self.tokenizer, prompt, max_tokens=max_tokens,
+                        sampler=self.sampler, verbose=False)
+
+
+class ApiLLM:
+    """OpenAI 兼容接口的云端模型（默认阿里云百炼）。
+
+    用 urllib 而不是官方 SDK：环境里没必要再多一个依赖，我们只用 chat/completions
+    一个端点。线程安全：云端路径靠多线程并发提速，token 统计要累加。
     """
-    from mlx_lm import generate
-    from mlx_lm.sample_utils import make_sampler
-    prompt = tokenizer.apply_chat_template(messages, add_generation_prompt=True)
-    return generate(model, tokenizer, prompt, max_tokens=max_tokens,
-                    sampler=make_sampler(temp=0.0), verbose=False)
+
+    def __init__(self, base, model, key):
+        import threading
+        self.base, self.name, self.key = base.rstrip("/"), model, key
+        self.lock = threading.Lock()
+        self.calls = self.in_tokens = self.out_tokens = 0
+
+    def chat(self, messages, max_tokens):
+        body = json.dumps({"model": self.name, "messages": messages,
+                           "temperature": 0.0, "max_tokens": max_tokens}).encode()
+        for attempt in range(5):
+            req = urllib.request.Request(
+                f"{self.base}/chat/completions", data=body,
+                headers={"Content-Type": "application/json",
+                         "Authorization": "Bearer " + self.key})
+            try:
+                with urllib.request.urlopen(req, timeout=180) as r:
+                    data = json.load(r)
+                usage = data.get("usage") or {}
+                with self.lock:
+                    self.calls += 1
+                    self.in_tokens += int(usage.get("prompt_tokens") or 0)
+                    self.out_tokens += int(usage.get("completion_tokens") or 0)
+                return data["choices"][0]["message"]["content"] or ""
+            except Exception as ex:
+                # 密钥错、模型名错要立刻看见；限流与 5xx 退避重试
+                if getattr(ex, "code", None) in (400, 401, 403, 404):
+                    raise
+                time.sleep(2 ** attempt)
+        raise RuntimeError("云端接口连续 5 次失败")
 
 
-def fix_chapter(book, name, lines, author, chapter, model, tokenizer, args, log):
+def api_key():
+    """云端密钥：优先环境变量，其次读仓库外的密钥文件。
+
+    为什么多一个文件入口：流水线是看门狗后台跑的，不能要求每次都在 shell 里 export；
+    但密钥绝对不能进仓库。默认文件 ~/.config/sonux/llm-key（自己 chmod 600）。
+    """
+    key = os.environ.get("DASHSCOPE_API_KEY") or os.environ.get("SONUX_LLM_API_KEY")
+    if key:
+        return key.strip()
+    path = os.environ.get("SONUX_LLM_KEY_FILE",
+                          os.path.expanduser("~/.config/sonux/llm-key"))
+    try:
+        with open(path) as fh:
+            return fh.readline().strip() or None
+    except OSError:
+        return None
+
+
+def make_llm(args):
+    """按命令行返一个可调用的模型后端。"""
+    if args.api:
+        key = api_key()
+        if not key:
+            sys.exit("走 --api 但没找到密钥：export DASHSCOPE_API_KEY=sk-...，"
+                     "或者把密钥写进 ~/.config/sonux/llm-key（chmod 600）")
+        return ApiLLM(args.base_url, args.llm_model, key)
+    return LocalMLX(MODEL_DIR)
+
+
+def fix_chapter(book, name, lines, author, chapter, llm, args, log):
     """一章分若干窗口送模型校对，返回 (新 lines, 改动数, 驳回数)。"""
     texts = [l[2] for l in lines]
     new_texts = list(texts)
@@ -198,8 +285,8 @@ def fix_chapter(book, name, lines, author, chapter, model, tokenizer, args, log)
         window = [(i, texts[i]) for i in range(ctx_from, min(len(texts), start + step))]
         editable = {i for i, _ in window if i >= start}
         prompt = build_prompt(book, author, chapter, window, start)
-        raw = run_llm([{"role": "system", "content": SYSTEM},
-                       {"role": "user", "content": prompt}], model, tokenizer, args.max_tokens)
+        raw = llm.chat([{"role": "system", "content": SYSTEM},
+                        {"role": "user", "content": prompt}], args.max_tokens)
         # 模型可能把同一行拆成多条输出，先归并再应用，否则后一条会从前一条的结果里丢掉
         grouped = {}
         for i, (kind, payload) in parse_model_out(raw, editable):
@@ -230,40 +317,77 @@ def fix_chapter(book, name, lines, author, chapter, model, tokenizer, args, log)
     return out, n_edit, n_reject
 
 
+def fix_one(item, llm, authors, args):
+    """校对一章并落盘，返回一行结果（本地 worker 与云端线程共用这一份实现）。"""
+    path, book, name = item
+    size = os.path.getsize(path)
+    if fix_done(fix_path(book, name), size):
+        return {"file": f"{book}/{name}", "skipped": True}
+    lines = asr_lines(book, name, size)
+    if not lines:
+        return {"file": f"{book}/{name}", "skipped": True}
+    log = []
+    t0 = time.time()
+    out, n_edit, n_reject = fix_chapter(
+        book, name, lines, authors.get(book, ""), T.chapter_title(name), llm, args, log)
+    os.makedirs(os.path.dirname(fix_path(book, name)), exist_ok=True)
+    tmp = fix_path(book, name) + f".{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w") as fh:
+        json.dump({"sig": size, "asr": FIX_TAG, "src": T.asr_tag(),
+                   "dur": lines[-1][1], "nchar": sum(len(l[2]) for l in out),
+                   "lines": out}, fh, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, fix_path(book, name))
+    return {"file": f"{book}/{name}", "n": len(out), "edit": n_edit, "reject": n_reject,
+            "sec": round(time.time() - t0), "log": log[:args.show_log]}
+
+
 def worker_shard(shard, args):
-    """一个纠错 worker：模型只加载一次，跑完自己那份分片。"""
+    """一个本地纠错 worker：模型只加载一次，跑完自己那份分片。"""
     items = json.load(open(shard))
     authors = T.book_authors()
-    from mlx_lm import load
-    model, tokenizer = load(MODEL_DIR)
-    for path, book, name in items:
-        size = os.path.getsize(path)
-        if fix_done(fix_path(book, name), size):
-            continue
-        lines = asr_lines(book, name, size)
-        if not lines:
-            continue
-        log = []
-        t0 = time.time()
+    llm = make_llm(args)
+    for item in items:
         try:
-            out, n_edit, n_reject = fix_chapter(
-                book, name, lines, authors.get(book, ""), T.chapter_title(name),
-                model, tokenizer, args, log)
+            r = fix_one(item, llm, authors, args)
         except Exception as ex:
-            print(json.dumps({"file": f"{book}/{name}", "error": str(ex)[:180]}), flush=True)
-            continue
-        os.makedirs(os.path.dirname(fix_path(book, name)), exist_ok=True)
-        tmp = fix_path(book, name) + f".{os.getpid()}.tmp"
-        with open(tmp, "w") as fh:
-            json.dump({"sig": size, "asr": FIX_TAG, "src": T.asr_tag(),
-                       "dur": lines[-1][1], "nchar": sum(len(l[2]) for l in out),
-                       "lines": out}, fh, ensure_ascii=False, separators=(",", ":"))
-        os.replace(tmp, fix_path(book, name))
-        print(json.dumps({"file": f"{book}/{name}", "n": len(out), "edit": n_edit,
-                          "reject": n_reject, "sec": round(time.time() - t0)},
-                         ensure_ascii=False), flush=True)
-        for l in log[:args.show_log]:
+            r = {"file": f"{item[1]}/{item[2]}", "error": str(ex)[:180]}
+        log = r.pop("log", None)
+        print(json.dumps(r, ensure_ascii=False), flush=True)
+        for l in (log or []):
             print("  " + l, flush=True)
+
+
+def run_api(todo, args):
+    """云端后端：单进程多线程按章并发（IO 等待为主，不占内存也不占 GPU）。"""
+    from concurrent.futures import ThreadPoolExecutor
+    authors = T.book_authors()
+    llm = make_llm(args)
+    print(f"云端校对：{llm.name} @ {llm.base}，并发 {args.workers}，每窗口 {args.chunk} 行",
+          flush=True)
+    t0, n, done = time.time(), 0, 0
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        futures = [pool.submit(fix_one, it, llm, authors, args) for it in todo]
+        for f in futures:                      # futures 保留提交顺序，进度按章递增
+            try:
+                r = f.result()
+            except Exception as ex:
+                r = {"error": str(ex)[:180]}
+            n += 1
+            if r.get("error"):
+                print(f"  失败 {r['error']}", flush=True)
+                continue
+            if r.get("skipped"):
+                continue
+            done += 1
+            el = time.time() - t0
+            print(f"  {n}/{len(todo)} {r['file'][-40:]:42s} 改 {r['edit']:3d} 驳回 {r['reject']:3d} "
+                  f"{r['sec']:4d}s 已用 {el/60:.1f} 分 预计还剩 {el/done*(len(todo)-n)/60:.0f} 分",
+                  flush=True)
+            for l in r.get("log") or []:
+                print(l, flush=True)
+    print(f"完成 {done} 章，用时 {(time.time()-t0)/60:.1f} 分；"
+          f"调用 {llm.calls} 次，输入 {llm.in_tokens/1e6:.2f}M token，"
+          f"输出 {llm.out_tokens/1e6:.2f}M token", flush=True)
 
 
 def spawn_workers(todo, args):
@@ -320,26 +444,38 @@ def spawn_workers(todo, args):
 
 
 def main():
-    global MODEL_DIR, FIX_TAG
-    ap = argparse.ArgumentParser(description="用本地大模型修字幕的同音别字")
+    global MODEL_DIR, FIX_TAG, LLM_NAME
+    ap = argparse.ArgumentParser(description="用大模型修字幕的同音别字")
     ap.add_argument("--book", action="append", help="书名（可重复）")
     ap.add_argument("--files", nargs="*")
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--limit", type=int)
-    ap.add_argument("--chunk", type=int, default=40, help="一次送模型校对多少行")
+    ap.add_argument("--chunk", type=int, help="一次送模型校对多少行（本地默认 40，云端 160）")
     ap.add_argument("--context", type=int, default=4, help="额外带几行只作上下文")
-    ap.add_argument("--max-tokens", type=int, default=1200)
+    ap.add_argument("--max-tokens", type=int, help="单次回复上限（本地 1200，云端 3000）")
     ap.add_argument("--limit-windows", type=int, help="每章只跑前 N 个窗口（调试用）")
     ap.add_argument("--show-log", type=int, default=0, help="每章打印前 N 条改动/驳回详情")
+    ap.add_argument("--probe", type=int, help="只跑 N 章并打印改动详情（看质量与成本）")
     ap.add_argument("--dry-run", action="store_true", help="只打印提示词，不调模型")
     ap.add_argument("--check", action="store_true", help="只报待修章数就退出（给看门狗探进用）")
-    ap.add_argument("--jobs", type=int, default=2, help="并行纠错进程数（每个占 ~9GB 内存）")
+    ap.add_argument("--api", action="store_true", help="用云端 OpenAI 兼容接口，不跑本地模型")
+    ap.add_argument("--base-url", default=API_BASE, help="OpenAI 兼容入口地址")
+    ap.add_argument("--llm-model", default=API_MODEL, help="云端模型名（如 qwen-plus / qwen-max）")
+    ap.add_argument("--workers", type=int, default=8, help="云端并发线程数")
+    ap.add_argument("--jobs", type=int, default=2, help="本地并行纠错进程数（每个占 ~9GB 内存）")
     ap.add_argument("--shard", help=argparse.SUPPRESS)      # 内部：worker 分片文件
     ap.add_argument("--model", default=MODEL_DIR)
     args = ap.parse_args()
 
     MODEL_DIR = args.model
-    FIX_TAG = f"fix:{os.path.basename(MODEL_DIR)}:{RULES_VER}"
+    LLM_NAME = args.llm_model if args.api else os.path.basename(MODEL_DIR)
+    FIX_TAG = f"fix:{LLM_NAME}:{RULES_VER}"
+    # 云端窗口开大能大幅减少调用次数（上下文不再只靠 4 行），但单次回复也要给够
+    args.chunk = args.chunk or (160 if args.api else 40)
+    args.max_tokens = args.max_tokens or (3000 if args.api else 1200)
+    if args.probe:
+        args.limit = args.probe
+        args.show_log = args.show_log or 40
 
     if args.shard:
         worker_shard(args.shard, args)
@@ -369,7 +505,8 @@ def main():
     if args.limit:
         # 限流要作用在「待修」上：先截 items 的话，后续每轮会反复拿到已修完的前 N 章空转
         todo = todo[:args.limit]
-    print(f"共 {len(items)} 章，待修 {len(todo)} 章，模型 {os.path.basename(MODEL_DIR)}", flush=True)
+    print(f"共 {len(items)} 章，待修 {len(todo)} 章，模型 {LLM_NAME}"
+          + ("（云端）" if args.api else "（本地）"), flush=True)
     if args.check:
         return
     if not todo and not args.dry_run:
@@ -385,7 +522,10 @@ def main():
                            [(i, l[2]) for i, l in enumerate(lines[:args.chunk])], 0))
         return
 
-    spawn_workers(todo, args)
+    if args.api:
+        run_api(todo, args)
+    else:
+        spawn_workers(todo, args)
 
 
 if __name__ == "__main__":

@@ -9,8 +9,10 @@
 # 用法：
 #   caffeinate -is ./tools/subtitle-autopilot.sh > .tmp-adcheck/subtitle-autopilot.log 2>&1 &
 # 可调环境变量：
-#   ASR_BATCH=120   每轮转写多少章    FIX_BATCH=60   每轮纠错多少章
-#   SKIP_FIX=1      只转写不纠错
+#   ASR_BATCH=120   每轮转写多少章    FIX_BATCH=60   每轮校对多少章
+#   SKIP_FIX=1      只转写不校对
+#   DASHSCOPE_API_KEY 或 ~/.config/sonux/llm-key   有密钥就用云端模型校对，没有用本地 14B
+#   SONUX_LLM_MODEL=qwen-plus   云端模型名
 # 进度随时可看：cat .tmp-adcheck/subtitle-status
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -30,6 +32,10 @@ FIX_PY=tools/.venv-mlx/bin/python3      # mlx-lm 只装在这个 venv 里
 STATUS=.tmp-adcheck/subtitle-status
 
 say() { echo "[$(date '+%F %T')] $*"; }
+have_key() {
+  [ -n "${DASHSCOPE_API_KEY:-}" ] || [ -n "${SONUX_LLM_API_KEY:-}" ] \
+    || [ -f "${HOME}/.config/sonux/llm-key" ]
+}
 free_gb() { python3 -c 'import sys; sys.path.insert(0,"tools"); import transcribe as T; print(round(T.free_memory_gb()))' 2>/dev/null || echo "?"; }
 count() {   # count <已做> <总数>：从 --status 里抓「已转写 N/M」
   python3 tools/transcribe.py --status 2>/dev/null | grep -oE "[0-9]+/[0-9]+ 章" | head -1; }
@@ -37,7 +43,16 @@ count() {   # count <已做> <总数>：从 --status 里抓「已转写 N/M」
 round=0
 while true; do
   round=$((round+1))
-  say "===== 第 ${round} 轮 · 可用内存 $(free_gb)GB · 转写进度 $(count)"
+  # 每轮重新判断后端：中途把密钥文件放进来，下一轮就自动切云端，不必重启流水线
+  if have_key; then
+    FIX_MODE=api
+    # 不带引号是有意的：靠空白分词把参数传下去，这些参数里没有空格
+    FIXARGS="--api --workers 8 --llm-model ${SONUX_LLM_MODEL:-qwen-plus}"
+  else
+    FIX_MODE=local
+    FIXARGS=""
+  fi
+  say "===== 第 ${round} 轮 · 可用内存 $(free_gb)GB · 校对后端 $FIX_MODE · 转写进度 $(count)"
 
   # ---------- 1. 转写（whisper large-v3-turbo，GPU）----------
   say "→ 转写一批（≤${ASR_BATCH} 章）"
@@ -49,21 +64,23 @@ while true; do
   python3 tools/transcribe.py --pack-only 2>&1 | tail -1
   ./sync-transcripts.sh --sim-only 2>&1 | tail -1
 
-  # ---------- 3. 大模型纠错（Qwen，CPU/GPU）----------
+  # ---------- 3. 大模型校对（云端 API 优先，兜底本地 Qwen）----------
   if [ "${SKIP_FIX:-0}" = "1" ]; then
-    say "→ 按 SKIP_FIX 跳过纠错"
-  elif [ ! -f "$QWEN/model-00001-of-00002.safetensors" ] && [ ! -f "$QWEN/model.safetensors" ]; then
-    say "→ 纠错模型未就绪（$QWEN 还没下完），本轮跳过"
+    say "→ 按 SKIP_FIX 跳过校对"
+  elif [ "$FIX_MODE" = local ] && [ ! -f "$QWEN/model-00001-of-00002.safetensors" ] \
+       && [ ! -f "$QWEN/model.safetensors" ]; then
+    say "→ 本地校对模型未就绪（$QWEN 还没下完），本轮跳过"
   else
-    say "→ 纠错一批（≤${FIX_BATCH} 章）"
-    "$FIX_PY" tools/subtitle-fix.py --all --limit "$FIX_BATCH" 2>&1 | tail -3
+    say "→ 校对一批（$FIX_MODE 后端，≤${FIX_BATCH} 章）"
+    "$FIX_PY" tools/subtitle-fix.py --all --limit "$FIX_BATCH" $FIXARGS 2>&1 | tail -3
     python3 tools/transcribe.py --pack-only 2>&1 | tail -1
     ./sync-transcripts.sh --sim-only 2>&1 | tail -1
   fi
 
   fixed=$(ls tools/transcripts-fix/*/*.json 2>/dev/null | wc -l | tr -d ' ')
-  # --check 只统计不加载模型（否则探一次进度就白吃 9GB 内存）
-  fix_todo=$("$FIX_PY" tools/subtitle-fix.py --all --check 2>/dev/null | grep -oE "待修 [0-9]+" | grep -oE "[0-9]+" || echo "?")
+  # --check 只统计不加载模型（否则探一次进度就白吃 9GB 内存）；
+  # 必须带同一套后端参数：结果标签里含模型名，不带 --api 探到的是本地版的待修数
+  fix_todo=$("$FIX_PY" tools/subtitle-fix.py --all --check $FIXARGS 2>/dev/null | grep -oE "待修 [0-9]+" | grep -oE "[0-9]+" || echo "?")
   echo "$(date '+%F %T') 转写 ${left}/${total} · 已纠错 ${fixed} 章 · 待纠错 ${fix_todo} 章" > "$STATUS"
   say "本轮结束：转写 ${left}/${total}，已纠错 ${fixed} 章，待纠错 ${fix_todo} 章"
 
