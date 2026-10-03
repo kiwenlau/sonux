@@ -14,6 +14,11 @@
 # 进度随时可看：cat .tmp-adcheck/subtitle-status
 set -uo pipefail
 cd "$(dirname "$0")/.."
+# 非 UTF-8 locale 下 bash 会把紧跟变量的全角标点当成变量名的一部分（set -u 直接炸），
+# 这里显式要一个 UTF-8 locale。必须分两行写：export 的所有参数会先展开再赋值，
+# 写成 `export LC_ALL=... LANG="$LC_ALL"` 会在赋值前读到未定义的 $LC_ALL
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+export LANG="$LC_ALL"
 
 ASR_BATCH=${ASR_BATCH:-120}
 FIX_BATCH=${FIX_BATCH:-60}
@@ -32,7 +37,7 @@ count() {   # count <已做> <总数>：从 --status 里抓「已转写 N/M」
 round=0
 while true; do
   round=$((round+1))
-  say "===== 第 $round 轮 · 可用内存 $(free_gb)GB · 转写进度 $(count)"
+  say "===== 第 ${round} 轮 · 可用内存 $(free_gb)GB · 转写进度 $(count)"
 
   # ---------- 1. 转写（whisper large-v3-turbo，GPU）----------
   say "→ 转写一批（≤${ASR_BATCH} 章）"
@@ -59,8 +64,8 @@ while true; do
   fixed=$(ls tools/transcripts-fix/*/*.json 2>/dev/null | wc -l | tr -d ' ')
   # --check 只统计不加载模型（否则探一次进度就白吃 9GB 内存）
   fix_todo=$("$FIX_PY" tools/subtitle-fix.py --all --check 2>/dev/null | grep -oE "待修 [0-9]+" | grep -oE "[0-9]+" || echo "?")
-  echo "$(date '+%F %T') 转写 $left/$total · 已纠错 $fixed 章 · 待纠错 $fix_todo 章" > "$STATUS"
-  say "本轮结束：转写 $left/$total，已纠错 $fixed 章，待纠错 $fix_todo 章"
+  echo "$(date '+%F %T') 转写 ${left}/${total} · 已纠错 ${fixed} 章 · 待纠错 ${fix_todo} 章" > "$STATUS"
+  say "本轮结束：转写 ${left}/${total}，已纠错 ${fixed} 章，待纠错 ${fix_todo} 章"
 
   # ---------- 4. 两件事都做完了就收工 ----------
   if [ "${asr_all:-0}" = "1" ] && [ "$fix_todo" = "0" ]; then
