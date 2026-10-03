@@ -27,6 +27,17 @@ struct PlayerView: View {
     /// 左上返回与右上章节入口圆底共用的直径，取自详情页导航栏返回按钮的实测尺寸
     private static let circleButtonDiameter: CGFloat = 45
 
+    // 间距一律取自 8 的倍数刻度，全页节奏统一；
+    // 松紧也表达分组关系：同一功能组内部间距小，组与组之间间距大；
+    // 封面与播放组之间取 32：封面阴影向下扩散约 24pt，必须留出净距才不会压到章节名
+    static let gapHeaderToText: CGFloat = 16
+    static let gapCoverToChapter: CGFloat = 32
+    static let gapChapterToProgress: CGFloat = 16
+    static let gapProgressToControls: CGFloat = 24
+
+    /// 封面宽度硬上限：大屏上多余空间交给上下空隙，不把封面无限放大
+    private static let coverMaxWidth: CGFloat = 340
+
     private var book: Book? { player.currentBook }
 
     private var palette: CoverPalette {
@@ -64,39 +75,29 @@ struct PlayerView: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            // 先给文字与控件留出 380pt，剩下的都给封面；小屏时封面缩小而不是挤坏控件
-            let boxHeight = min(380, max(160, geo.size.height - 380))
+        ZStack {
+            // 主色渐变铺满整页，包括状态栏后面，避免顶部出现突兀的边界
+            palette.gradient
+                .ignoresSafeArea()
 
-            ZStack {
-                // 主色渐变铺满整页，包括状态栏后面，避免顶部出现突兀的边界
-                palette.gradient
-                    .ignoresSafeArea()
+            // 三段式构图：顶部身份信息、封面主体、底部播放组。
+            // 每块高度都由 Layout 实测，封面只拿实测后的剩余空间，
+            // 多余空间按 2:3 分到封面上下两侧，任何机型都不会重叠或溢出
+            PlayerLayout(coverIndex: 2, ratio: artworkRatio, coverMaxWidth: Self.coverMaxWidth) {
+                header
 
-                VStack(spacing: 0) {
-                    header
+                // 书名、作者贴顶
+                metadata
+                    .padding(.top, Self.gapHeaderToText)
 
-                    Spacer(minLength: 8)
+                artwork
 
-                    artwork(boxHeight: boxHeight)
-
-                    Spacer(minLength: 12)
-
-                    metadata
-
-                    progress
-                        .padding(.top, 22)
-
-                    controls
-                        .padding(.top, 22)
-
-                    Spacer(minLength: 8)
-                }
-                .padding(.horizontal, 24)
+                playbackGroup
             }
-            // 换书时背景主色平滑过渡，而不是整页颜色突变
-            .animation(.easeInOut(duration: 0.5), value: book?.id ?? "")
+            .padding(.horizontal, 24)
         }
+        // 换书时背景主色平滑过渡，而不是整页颜色突变
+        .animation(.easeInOut(duration: 0.5), value: book?.id ?? "")
         // 下滑关闭（进度条等控件自己消费手势，不受影响）
         .gesture(
             DragGesture()
@@ -179,10 +180,8 @@ struct PlayerView: View {
 
     // MARK: - 封面
 
-    @ViewBuilder
-    private func artwork(boxHeight: CGFloat) -> some View {
-        let ratio = artworkRatio
-        let width = min(330, boxHeight * ratio)
+    /// 尺寸由 PlayerLayout 按剩余空间与宽度上限算好后下发，这里只负责呈现
+    private var artwork: some View {
         ZStack {
             if let cover = artworkImage {
                 Image(uiImage: cover)
@@ -197,40 +196,70 @@ struct PlayerView: View {
                     .foregroundStyle(.white.opacity(0.9))
             }
         }
-        .frame(width: width, height: width / ratio)
+        .layoutPriority(1)
+        // 按书籍封面自身比例锁定尺寸，填满 PlayerLayout 下发的提案
+        .aspectRatio(artworkRatio, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.35), radius: 22, y: 14)
-        .padding(.horizontal, 8)
+        // 阴影扩散控在 ±24pt 内，不侵入下方章节名的 32pt 安全间距
+        .shadow(color: .black.opacity(0.32), radius: 12, y: 10)
     }
 
-    // MARK: - 章节名 / 作者 / 书名（Apple Music 式左对齐）
+    // MARK: - 书名 / 作者（Apple Music 式左对齐）
 
     private var metadata: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(player.currentChapter?.title ?? L("Not Playing"))
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+        VStack(alignment: .leading, spacing: 6) {
+            // 书名放最上面，最醒目
+            Text(book?.title ?? L("Not Playing"))
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
-                if let author = book?.author, !author.isEmpty {
-                    // 作者名可点：收起播放页并跳该作者的作品页
-                    Button { openAuthor(author) } label: {
-                        Text(author)
-                            .font(.title3)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(LF("View All Books by \"%@\"", author))
+            if let author = book?.author, !author.isEmpty {
+                // 作者名紧跟书名，可点：收起播放页并跳该作者的作品页
+                Button { openAuthor(author) } label: {
+                    Text(author)
+                        .font(.title3)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(LF("View All Books by \"%@\"", author))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
+    }
+
+    // MARK: - 章节名（紧贴封面下方）
+
+    /// 章节名是封面的图注，与封面只用小间距，与进度条同属一个播放组
+    private var chapterText: some View {
+        Text(player.currentChapter?.title ?? L("Not Playing"))
+            .font(.subheadline)
+            .foregroundStyle(.white.opacity(0.6))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+    }
+
+    // MARK: - 底部播放组
+
+    /// 章节名、进度条、控制排是一个功能整体，用统一的组内间距成组贴底，
+    /// 与封面的间距大于组内间距，突出「图注+操作」这一组
+    private var playbackGroup: some View {
+        VStack(spacing: 0) {
+            chapterText
+
+            progress
+                .padding(.top, Self.gapChapterToProgress)
+
+            controls
+                .padding(.top, Self.gapProgressToControls)
+        }
     }
 
     // MARK: - 进度
@@ -315,6 +344,90 @@ struct PlayerView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.white)
         .padding(.horizontal, 8)
+    }
+}
+
+/// 播放页专用竖向布局：除封面外每块高度全部实测（不预估魔法数字，
+/// 字体缩放/多语言/不同机型都自适应），剩余空间先给封面（受宽度上限与
+/// 可用高度双重限制），吸收不掉的多余空间按 topWeight:bottomWeight 分到
+/// 封面上下两侧，保证任何屏幕尺寸都不重叠、不溢出、不留大块死空白
+struct PlayerLayout: Layout {
+    /// 封面在子视图中的下标
+    let coverIndex: Int
+    /// 封面宽高比（跟随封面图自身比例）
+    let ratio: CGFloat
+    /// 封面宽度硬上限
+    let coverMaxWidth: CGFloat
+    /// 固定间距：顶部块与封面之间、封面与底部组之间（含封面阴影的安全净距）
+    var topGap: CGFloat = 16
+    var bottomGap: CGFloat = 32
+    /// 剩余空间分配比例：封面上侧 vs 封面下侧（下侧略大让播放组自然靠底）
+    var topWeight: CGFloat = 2
+    var bottomWeight: CGFloat = 3
+
+    struct LayoutData {
+        var size: CGSize
+        var isCover: Bool
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        CGSize(width: proposal.width ?? 0, height: proposal.height ?? 0)
+    }
+
+    private func measure(_ subviews: Subviews, width: CGFloat) -> [LayoutData] {
+        subviews.enumerated().map { index, subview in
+            // 宽度按可用宽实测，高度不限制（传 nil 取理想高度）
+            let size = subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
+            return LayoutData(size: size, isCover: index == coverIndex)
+        }
+    }
+
+    /// 算出封面实际尺寸与上下两侧弹性空隙；供 sizeThatFits 与 placeSubviews 共用，保证两处一致
+    private func solve(_ proposal: ProposedViewSize, _ data: [LayoutData])
+        -> (cover: CGSize, extraTop: CGFloat, extraBottom: CGFloat) {
+        let availWidth = proposal.width ?? 390
+        let availHeight = proposal.height ?? 800
+        let fixed = data.enumerated()
+            .filter { $0.offset != coverIndex }
+            .reduce(CGFloat(0)) { $0 + $1.element.size.height }
+        let slack = max(0, availHeight - fixed - topGap - bottomGap)
+
+        // 封面先按宽度上限取宽，高度超预算时再回缩
+        let coverWidth = min(coverMaxWidth, availWidth, slack * ratio)
+        let coverHeight = coverWidth / ratio
+        let leftover = max(0, slack - coverHeight)
+        let totalWeight = topWeight + bottomWeight
+        return (
+            CGSize(width: coverWidth, height: coverHeight),
+            leftover * topWeight / totalWeight,
+            leftover * bottomWeight / totalWeight
+        )
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let data = measure(subviews, width: bounds.width)
+        let solved = solve(proposal, data)
+
+        var y = bounds.minY
+        for (index, item) in data.enumerated() {
+            if index == coverIndex {
+                y += topGap + solved.extraTop
+                // 封面水平居中
+                subviews[index].place(
+                    at: CGPoint(x: bounds.midX - solved.cover.width / 2, y: y),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(solved.cover)
+                )
+                y += solved.cover.height + bottomGap + solved.extraBottom
+            } else {
+                subviews[index].place(
+                    at: CGPoint(x: bounds.minX, y: y),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(width: bounds.width, height: item.size.height)
+                )
+                y += item.size.height
+            }
+        }
     }
 }
 
