@@ -36,10 +36,15 @@ ROOT = T.ROOT
 FIX_DIR = os.path.join(ROOT, "tools", "transcripts-fix")
 MODEL_DIR = os.environ.get(
     "SONUX_FIX_MODEL", os.path.join(ROOT, "tools", "models", "Qwen2.5-14B-Instruct-4bit"))
-FIX_TAG = f"fix:{os.path.basename(MODEL_DIR)}"
 MIN_PINYIN_SIM = 0.85      # 整行拼音相似度低于此就认定模型改的不是同一个读音，驳回
-MIN_PAIR_SIM = 0.6         # 单个替换词的拼音相似度下限（整行比例会放过「声→岁」这种）
+# 单个替换词的拼音相似度下限。0.6 是实测定的：挡得住「一声→一岁」(0.50)、
+# 「窃→谴」(0.57)、「魁丑→丑魁」(0.57) 这类错改，又留得住「虹口→湖口」(0.67)、
+# 「大主→大辱」(0.67) 这类对改；抬到 0.7 就会把后面这两个好改动一起打掉
+MIN_PAIR_SIM = 0.6
+# 规则版本：改提示词或阈值时递增，旧结果会自动重跑（逐章文件里记着这个标签）
+RULES_VER = "v2"
 LEN_SLACK = 2              # 允许字数增减（补漏字/删赘字），再多就视为改写
+FIX_TAG = f"fix:{os.path.basename(MODEL_DIR)}:{RULES_VER}"
 
 SYSTEM = (
     "你在校对中文有声书的自动转写字幕。字幕来自语音识别，声学上没错，"
@@ -50,7 +55,7 @@ RULES = (
     "规则：\n"
     "1. 只改词，不改句：不许重写、不许润色、不许增删信息，句子的说法必须保持原样。\n"
     "2. 只能改成与原字同音或近音的字（声调可以不同）。做不到就不提这一行。\n"
-    "3. 宁缺毋滥：没把握就留着不改；一行最多提两处替换；不要为了句子通顺而改。\n"
+    "3. 一行最多提四处替换；只补同音字，不要把句子改得更通顺。\n"
     "4. 只输出你确实要改的行，每行一个 JSON 对象："
     '{"i":行号,"w":[["原词","新词"],…]}。' 
     "「原词」必须该行里一字不差出现过的写法，程序会直接拿它去替换。\n"
@@ -334,7 +339,7 @@ def main():
     args = ap.parse_args()
 
     MODEL_DIR = args.model
-    FIX_TAG = f"fix:{os.path.basename(MODEL_DIR)}"
+    FIX_TAG = f"fix:{os.path.basename(MODEL_DIR)}:{RULES_VER}"
 
     if args.shard:
         worker_shard(args.shard, args)
