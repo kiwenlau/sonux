@@ -71,7 +71,7 @@ private struct HistoryCard: View {
                 // 书名行：独立 Button 才能保住自己的点击不被父层整卡手势合并，点它进详情页
                 Button(action: onOpenBook) {
                     Text(entry.book.title)
-                        .font(.subheadline)
+                        .font(.footnote)
                         .foregroundStyle(isNowPlaying ? Color.indigo : Color.secondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -83,17 +83,17 @@ private struct HistoryCard: View {
                 .accessibilityAction(named: LF("Open Details for \"%@\"", entry.book.title)) { onOpenBook() }
 
                 Text(entry.chapter?.title ?? entry.book.title)
-                    .font(.title3.bold())
+                    .font(.headline)
                     .foregroundStyle(isNowPlaying ? Color.indigo : Color.primary)
                     .lineLimit(2)
 
                 Text(progressText)
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundStyle(Color.secondary)
                     .lineLimit(1)
 
                 Text(relativeDay(entry.lastPlayed))
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(Color.secondary.opacity(0.7))
                     .padding(.top, 2)
             }
