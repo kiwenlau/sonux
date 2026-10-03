@@ -298,8 +298,9 @@ struct PlayerView: View {
             Spacer()
             Button { showingSleepSheet = true } label: {
                 VStack(spacing: 2) {
+                    // 与同排快退/快进图标同字号，避免比左侧语速胶囊明显偏小
                     Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
-                        .font(.body)
+                        .font(.system(size: 24))
                     if player.sleepMode != .off {
                         // 本章结束后关闭没有倒计时，直接标「本章」，避免把静止的数字误当成定时剩余
                         Text(player.sleepMode == .endOfChapter ? L("This Chapter") : TimeFormat.time(player.sleepRemaining))
