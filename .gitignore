@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Python 导入工具模块产生的缓存
+__pycache__/
+
 # Xcode 构建产物
 build/
 DerivedData/
