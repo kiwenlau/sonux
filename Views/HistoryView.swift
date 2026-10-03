@@ -68,18 +68,14 @@ private struct HistoryCard: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                // 书名行：独立 Button 才能保住自己的点击不被父层整卡手势合并，点它进详情页，末尾小箭头提示可点
+                // 书名行：独立 Button 才能保住自己的点击不被父层整卡手势合并，点它进详情页
                 Button(action: onOpenBook) {
-                    HStack(spacing: 2) {
-                        Text(entry.book.title)
-                            .font(.subheadline)
-                            .foregroundStyle(isNowPlaying ? Color.indigo : Color.secondary)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.forward")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.secondary.opacity(0.6))
-                    }
-                    .contentShape(Rectangle())
+                    Text(entry.book.title)
+                        .font(.subheadline)
+                        .foregroundStyle(isNowPlaying ? Color.indigo : Color.secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("history-book-\(entry.book.id)")
@@ -125,25 +121,31 @@ private struct HistoryCard: View {
         )
     }
 
-    /// 进度文案：收听到 章节内位置 / 章节总时长
+    /// 进度文案：章节内位置 / 章节总时长
     private var progressText: String {
         guard let position = entry.position, let chapter = entry.chapter else { return "未开始" }
         if ProgressPolicy.isFinished(time: position.time, duration: chapter.duration) {
             return "已听完「\(chapter.title)」"
         }
-        return "收听到 \(TimeFormat.time(position.time)) / \(TimeFormat.time(chapter.duration))"
+        return "\(TimeFormat.time(position.time)) / \(TimeFormat.time(chapter.duration))"
     }
 
-    /// 最后播放时间的口语化表达：今天/昨天/星期X 加时刻，更早只给日期
+    /// 界面文案统一中文，日期与星期固定按简体中文格式渲染
+    private static let chineseLocale = Locale(identifier: "zh_CN")
+
+    /// 最后播放时间：今天/昨天/前天 加时刻，更早只给月日
     private func relativeDay(_ date: Date) -> String {
         let calendar = Calendar.current
-        let time = date.formatted(date: .omitted, time: .shortened)
-        if calendar.isDateInToday(date) { return "今天 \(time)" }
-        if calendar.isDateInYesterday(date) { return "昨天 \(time)" }
-        if let days = try? calendar.dateComponents([.day], from: date, to: Date()).day, days < 7 {
-            let weekday = date.formatted(.dateTime.weekday(.wide))
-            return "\(weekday) \(time)"
+        let locale = Self.chineseLocale
+        let time = date.formatted(.dateTime.hour().minute().locale(locale))
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: Date())).day ?? 0
+        switch days {
+        case 0: return "今天 \(time)"
+        case 1: return "昨天 \(time)"
+        case 2: return "前天 \(time)"
+        default:
+            let monthDay = date.formatted(.dateTime.month().day().locale(locale))
+            return "\(monthDay) \(time)"
         }
-        return date.formatted(date: .abbreviated, time: .shortened)
     }
 }
