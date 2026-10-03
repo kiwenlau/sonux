@@ -24,8 +24,8 @@ struct PlayerView: View {
     /// 竖版封面在没有真实封面时的占位比例
     private static let placeholderRatio: CGFloat = 0.8
 
-    /// 左上返回按钮圆底直径，取自详情页导航栏返回按钮的实测尺寸
-    private static let backButtonDiameter: CGFloat = 45
+    /// 左上返回与右上章节入口圆底共用的直径，取自详情页导航栏返回按钮的实测尺寸
+    private static let circleButtonDiameter: CGFloat = 45
 
     private var book: Book? { player.currentBook }
 
@@ -90,9 +90,6 @@ struct PlayerView: View {
                     controls
                         .padding(.top, 22)
 
-                    secondaryControls
-                        .padding(.top, 18)
-
                     Spacer(minLength: 8)
                 }
                 .padding(.horizontal, 24)
@@ -129,11 +126,12 @@ struct PlayerView: View {
 
     // MARK: - 顶部栏
 
-    /// 与书籍详情页导航栏返回按钮保持一致：同样的圆形底 + 左向尖号，同一尺寸与位置
+    /// 左侧返回，右侧章节入口
     private var header: some View {
         HStack {
             backButton
             Spacer()
+            chaptersButton
         }
         // 详情页返回按钮圆底左边缘在屏幕算起 19.3pt 处，外层内容已带 24pt 横内边距，这里回退对齐
         .padding(.leading, -4.7)
@@ -143,26 +141,39 @@ struct PlayerView: View {
     /// iOS 26 用系统玻璃圆底（与导航栏返回按钮同材质），更早系统用超细材质圆底近似
     @ViewBuilder
     private var backButton: some View {
-        let glyph = Image(systemName: "chevron.left")
+        circleButton(glyph: "chevron.left", action: closePlayer)
+            .accessibilityLabel(L("Back"))
+    }
+
+    /// 右上角章节入口：与返回按钮同尺寸同材质的玻璃圆底，点开弹出章节列表快捷切章
+    @ViewBuilder
+    private var chaptersButton: some View {
+        circleButton(glyph: "list.bullet", action: { showingChaptersSheet = true })
+            .accessibilityIdentifier("chaptersButton")
+            .accessibilityLabel(LF("%d Chapters", book?.chapters.count ?? 0))
+    }
+
+    /// 圆底图标按钮：尺寸与材质与详情页导航栏返回按钮一致
+    @ViewBuilder
+    private func circleButton(glyph name: String, action: @escaping () -> Void) -> some View {
+        let glyph = Image(systemName: name)
             .font(.system(size: 21, weight: .semibold))
             .foregroundStyle(.white)
-            .frame(width: Self.backButtonDiameter, height: Self.backButtonDiameter)
+            .frame(width: Self.circleButtonDiameter, height: Self.circleButtonDiameter)
             .contentShape(Circle())
 
         if #available(iOS 26.0, *) {
-            Button(action: closePlayer) {
+            Button(action: action) {
                 glyph.glassEffect(.regular.interactive(), in: Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(L("Back"))
         } else {
-            Button(action: closePlayer) {
+            Button(action: action) {
                 glyph
                     .background(Circle().fill(.ultraThinMaterial))
                     .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(L("Back"))
         }
     }
 
@@ -252,13 +263,23 @@ struct PlayerView: View {
 
     // MARK: - 主控制
 
+    /// 控制排两端放语速与定时，占据原快退 15s / 快进 30s 的位置
     private var controls: some View {
         HStack {
             Spacer()
-            Button { player.skip(by: -15) } label: {
-                Image(systemName: "gobackward.15")
-                    .font(.system(size: 30))
+            // 点开语速面板，拖动滑杆连续调节
+            Button {
+                showingSpeedSheet = true
+            } label: {
+                Text("\(TimeFormat.speed(player.speed))x")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(.white.opacity(player.speed == 1.0 ? 0.15 : 0.28)))
+                    .foregroundStyle(.white)
             }
+            .buttonStyle(.plain)
             Spacer()
             Button { player.previousChapter() } label: {
                 Image(systemName: "backward.fill")
@@ -275,64 +296,23 @@ struct PlayerView: View {
                     .font(.system(size: 24))
             }
             Spacer()
-            Button { player.skip(by: 30) } label: {
-                Image(systemName: "goforward.30")
-                    .font(.system(size: 30))
+            Button { showingSleepSheet = true } label: {
+                VStack(spacing: 2) {
+                    Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
+                        .font(.body)
+                    if player.sleepMode != .off {
+                        // 本章结束后关闭没有倒计时，直接标「本章」，避免把静止的数字误当成定时剩余
+                        Text(player.sleepMode == .endOfChapter ? L("This Chapter") : TimeFormat.time(player.sleepRemaining))
+                            .font(.caption2.monospacedDigit())
+                    }
+                }
+                .foregroundStyle(.white.opacity(player.sleepMode == .off ? 0.7 : 1.0))
             }
+            .buttonStyle(.plain)
             Spacer()
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)
-        .padding(.horizontal, 8)
-    }
-
-    // MARK: - 次级控制
-
-    private var secondaryControls: some View {
-        ZStack {
-            // 参考微信读书的章节入口，点开弹出章节列表快捷切章；只留图标不带文字。
-            // 用 ZStack 钉在行正中：两侧元素宽度不等时 HStack 等分 Spacer 会把中间元素挤偏
-            Button { showingChaptersSheet = true } label: {
-                Image(systemName: "list.bullet")
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.7))
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("chaptersButton")
-            .accessibilityLabel(LF("%d Chapters", book?.chapters.count ?? 0))
-
-            HStack {
-                // 点开语速面板，拖动滑杆连续调节
-                Button {
-                    showingSpeedSheet = true
-                } label: {
-                    Text("\(TimeFormat.speed(player.speed))x")
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(.white.opacity(player.speed == 1.0 ? 0.15 : 0.28)))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button { showingSleepSheet = true } label: {
-                    VStack(spacing: 2) {
-                        Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
-                            .font(.body)
-                        if player.sleepMode != .off {
-                            // 本章结束后关闭没有倒计时，直接标「本章」，避免把静止的数字误当成定时剩余
-                            Text(player.sleepMode == .endOfChapter ? L("This Chapter") : TimeFormat.time(player.sleepRemaining))
-                                .font(.caption2.monospacedDigit())
-                        }
-                    }
-                    .foregroundStyle(.white.opacity(player.sleepMode == .off ? 0.7 : 1.0))
-                }
-                .buttonStyle(.plain)
-            }
-        }
         .padding(.horizontal, 8)
     }
 }
