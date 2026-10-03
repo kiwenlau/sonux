@@ -63,9 +63,9 @@ final class PlayerService: NSObject, ObservableObject {
         case 1:
             let minutes = UserDefaults.standard.integer(forKey: Self.lastSleepMinutesKey)
             return minutes > 0 ? .minutes(minutes) : nil
-        case 2:
-            return .endOfChapter
         default:
+            // 「本章结束后关闭」不跨播放沿用：当初那一章早就听完了，
+            // 沿用会让之后每次播放都在一章结束时停，分钟定时形同失效
             return nil
         }
     }
@@ -130,7 +130,11 @@ final class PlayerService: NSObject, ObservableObject {
             applyRememberedSleepTimerIfNeeded()
             updateNowPlaying()
         } catch {
-            self.isPlaying = false
+            // 跨章续播时新播放器创建失败（文件损坏或解码器占满）不能静默停在“看似还在播”的状态
+            NSLog("[sonux] play: 打开《%@》失败 %@", chapter.title, error.localizedDescription)
+            isPlaying = false
+            flushListening()
+            updateNowPlaying()
         }
     }
 
@@ -141,9 +145,7 @@ final class PlayerService: NSObject, ObservableObject {
         guard sleepMode == .off, player?.isPlaying == true else { return }
         if let mode = pendingSleepMode {
             pendingSleepMode = nil
-            if mode == .endOfChapter {
-                setSleepTimer(.endOfChapter)
-            } else if pendingSleepRemaining > 0 {
+            if pendingSleepRemaining > 0 {
                 resumeSleepTimer(mode: mode, remaining: pendingSleepRemaining)
             }
             pendingSleepRemaining = 0
@@ -280,26 +282,29 @@ final class PlayerService: NSObject, ObservableObject {
         toggleOffIfPlaying()
     }
 
-    /// 定时到达：暂停播放并清除定时器
+    /// 定时到达或本章播完：暂停播放并清除定时器
     private func toggleOffIfPlaying() {
         player?.pause()
         isPlaying = false
         if case .minutes = sleepMode {
             // 倒计时真正走完：下次播放时记忆的默认时长才会生效
             sleepTimerDidExpire = true
+            cancelSleepTimer()
+        } else {
+            // 「本章结束后关闭」是一次性的：本章已播完就是兑现，
+            // 不能再留给下次播放，否则它会变成“每章结束都关闭”永远摘不掉
+            clearSleepTimer()
         }
-        cancelSleepTimer()
         updateNowPlaying()
     }
 
-    /// 暂停/停止时调用：保留未走完的定时，恢复播放时从剩余时间接着走
+    /// 暂停/停止时调用：保留未走完的分钟定时，恢复播放时从剩余时间接着走
+    /// 「本章结束后关闭」不保留：它只对应当时那一章，换个章节再沿用就成了“每章都关”
     private func cancelSleepTimer() {
         guard sleepMode != .off else { return }
         if case .minutes = sleepMode, sleepRemaining > 0 {
             pendingSleepMode = sleepMode
             pendingSleepRemaining = sleepRemaining
-        } else if sleepMode == .endOfChapter {
-            pendingSleepMode = sleepMode
         }
         clearSleepTimer()
     }
@@ -542,7 +547,15 @@ final class PlayerService: NSObject, ObservableObject {
 extension PlayerService: AVAudioPlayerDelegate {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in
-            guard flag, let chapter = self.currentChapter, let book = self.currentBook else { return }
+            guard let chapter = self.currentChapter, let book = self.currentBook else { return }
+            // 本章是否真的播完：系统给的 flag 在倍速、路由切换等情况下会报 false，
+            // 不能让它把“播完一章”误当成“播放被取消”，否则定时未走完就再也听不到下一章
+            guard flag || player.currentTime >= chapter.duration - 1.0 else {
+                NSLog("[sonux] didFinish: 未播完就结束（%.0f/%.0f），不续播", player.currentTime, chapter.duration)
+                self.isPlaying = false
+                self.updateNowPlaying()
+                return
+            }
             // 记录本章完成位置
             self.currentTime = chapter.duration
             self.reportPosition()
@@ -564,6 +577,7 @@ extension PlayerService: AVAudioPlayerDelegate {
             let chapter = book.chapters[next]
             play(chapter: chapter, book: book, fromTime: resumeTime(for: chapter))
         } else {
+            NSLog("[sonux] advance: 《%@》已播到最后一章", book.title)
             isPlaying = false
             updateNowPlaying()
         }

@@ -305,7 +305,8 @@ struct PlayerView: View {
                     Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
                         .font(.body)
                     if player.sleepMode != .off {
-                        Text(TimeFormat.time(player.sleepRemaining))
+                        // 本章结束后关闭没有倒计时，直接标“本章”，避免把静止的数字误当成定时剩余
+                        Text(player.sleepMode == .endOfChapter ? "本章" : TimeFormat.time(player.sleepRemaining))
                             .font(.caption2.monospacedDigit())
                     }
                 }
@@ -487,9 +488,9 @@ struct SleepTimerSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(minutes > 0 ? "播放 \(Int(minutes)) 分钟后关闭" : "定时关闭")
+            Text(sheetTitle)
                 .font(.headline)
-                .foregroundStyle(minutes > 0 ? Color.indigo : Color.primary)
+                .foregroundStyle(player.sleepMode == .off ? Color.primary : Color.indigo)
 
             StepSlider(value: minutesBinding,
                        range: SleepTimerMode.range,
@@ -512,6 +513,18 @@ struct SleepTimerSheet: View {
         .padding(.top, 24)
         .presentationDetents([.height(220)])
         .presentationDragIndicator(.visible)
+    }
+
+    /// 标题直接说出当前生效的是哪一种定时，不让“本章结束后关闭”看起来像分钟定时
+    private var sheetTitle: String {
+        switch player.sleepMode {
+        case .endOfChapter:
+            return "本章结束后关闭"
+        case .minutes(let value) where value > 0:
+            return "播放 \(value) 分钟后关闭"
+        case .off, .minutes:
+            return "定时关闭"
+        }
     }
 
     /// 滑动即时生效：0 分钟即关闭定时
