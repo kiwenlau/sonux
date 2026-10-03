@@ -15,6 +15,10 @@ DerivedData/
 .tmp-adcheck/
 tools/models/
 tools/adcheck-cache/
+tools/.mlx-shard-*.json
+
+# MLX 转写环境（GPU 大模型后端，体积大，可由 tools/transcribe.py 头部说明重建）
+tools/.venv-mlx/
 
 # 广告切除流水线的运行产物（都能由脚本重算，不入库）
 tools/adcheck.jsonl

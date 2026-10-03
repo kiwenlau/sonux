@@ -5,21 +5,30 @@
 与 adcheck.py 的区别：adcheck 只转片头/片尾/声纹离群区（找广告够用），
 这里要整篇转写并切成适合当字幕显示的短句，产出给 App 读的字幕包。
 
+两个转写后端（结果不互通，换后端会把全库重转一遍）：
+- ct2：faster-whisper + CPU int8，装在系统 python3 里，小模型精度一般（错字多）
+- mlx：MLX + GPU（Apple Silicon），默认 large-v3-turbo，精度高一档，装在
+  tools/.venv-mlx（装法：python3.12 -m venv tools/.venv-mlx &&
+  tools/.venv-mlx/bin/pip install -i https://mirrors.aliyun.com/pypi/simple/ mlx-whisper）
+  模型拉到 tools/models/huggingface 缓存（下完一次就离线可用）；拉不动时
+  先跑 tools/pull_mlx_model.py 分块续传到 tools/models/whisper-large-v3-turbo/
+
 三段式，全程幂等，断电重跑即从断点继续：
-1. 逐章转写 → tools/transcripts-parts/<书>/<章>.json（{sig,dur,lines:[[起,止,文]]}）
-   sig 是音频字节数：文件被切除广告后 sig 变了，该章会自动重转，字幕时间轴不会错位。
+1. 逐章转写 → tools/transcripts-parts/<书>/<章>.json（{sig,asr,dur,lines:[[起,止,文]]}）
+   sig 是音频字节数：文件被切除广告后 sig 变了，该章会自动重转，字幕时间轴不会错位；
+   asr 记后端与模型名，换模型时旧结果自动失效。
 2. 按书打包 → transcripts/<书>.json（{"v":1,"chapters":{"章文件名":[[起,止,文]]}}）
    App 用 Documents/transcripts/<书目录名>.json 按 chapter 文件名取字幕。
 3. 同步：./sync-transcripts.sh（模拟器 rsync，真机 devicectl）
 
 用法：
-    python3 tools/transcribe.py --book 曾国藩的正面与侧面 --pack   # 单本（先出正在听的）
-    python3 tools/transcribe.py --all --jobs 6                     # 全库，最近听过的排前面
-    python3 tools/transcribe.py --pack-only                        # 只重新打包
-    python3 tools/transcribe.py --status                           # 进度与耗时估算
+    python3 tools/transcribe.py --all                        # 全库（有 MLX 环境就用 MLX）
+    python3 tools/transcribe.py --book 大败局 --backend ct2    # 指定后端
+    python3 tools/transcribe.py --pack-only                  # 只重新打包
+    python3 tools/transcribe.py --status                     # 进度与字幕包大小
 
-耗时：whisper-small CPU int8 单进程约 10x 实时，6 进程聚合约 40x；
-全库 368 小时音频一轮 8~10 小时。
+耗时：ct2 小模型 6 进程聚合约 40x 实时；MLX large-v3-turbo 单进程约 20~30x 实时。
+全库 368 小时音频：前者 8~10 小时，后者 6~10 小时（3 个并行 worker）。
 """
 
 import argparse
@@ -41,8 +50,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB = os.path.join(ROOT, "TestBooks")
 PARTS = os.path.join(ROOT, "tools", "transcripts-parts")
 OUT_DIR = os.path.join(ROOT, "transcripts")
+BOOKS_JSON = os.path.join(ROOT, "tools", "books.json")
+# ct2 后端：系统 python3 + 本地小模型
 MODEL_DIR = os.environ.get("SONUX_WHISPER_MODEL",
                            os.path.join(ROOT, "tools", "models", "whisper-small"))
+# mlx 后端：独立 venv（Python 3.12 + torch/mlx）与 GPU 大模型
+MLX_PY = os.path.join(ROOT, "tools", ".venv-mlx", "bin", "python3")
+MLX_MODEL = os.environ.get("SONUX_MLX_MODEL", "mlx-community/whisper-large-v3-turbo")
+# huggingface 默认直连；被墙时用 HF_ENDPOINT=https://hf-mirror.com 覆盖，
+# 模型落在仓库内的 tools/models 下，与 whisper-small 同待遇（已 gitignore）
+os.environ.setdefault("HF_HOME", os.path.join(ROOT, "tools", "models", "huggingface"))
 AUDIO_EXTS = (".mp3", ".m4a", ".m4b", ".aac", ".wav", ".wave")
 SR = 16000
 
@@ -53,21 +70,27 @@ MAX_GAP = 0.7
 # 打包时单行字幕的字数上限：播放页只留两行，一行约 20 字，再长就拆句
 SPLIT_MAX = 34
 
-# 转写提示：whisper 会跟着 prompt 的字形走，不给提示时繁简混杂（源书是港台配音）
+# 转写提示：whisper 会跟着 prompt 的字形与用词走，不给提示时繁简混杂（源书是港台配音）
 INITIAL_PROMPT = "以下是简体中文有声书朗读，请用简体中文书写，只使用简体中文汉字。"
-
-_MODEL = None
 
 
 def ffmpeg_path():
     p = os.popen("command -v ffmpeg 2>/dev/null").read().strip()
     if p:
         return p
-    import imageio_ffmpeg
-    return imageio_ffmpeg.get_ffmpeg_exe()
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:      # MLX worker 的 venv 里没这个包，由主进程把路径传进来
+        return None
 
 
 FF = ffmpeg_path()
+
+# 当前后端与模型（main 里按 --backend 定）；_MODEL 只在 ct2 worker 进程里加载
+ASR_BACKEND = "mlx"
+ASR_MODEL = MLX_MODEL
+_MODEL = None
 
 
 # ---------------------------------------------------------------- 章节枚举
@@ -228,7 +251,6 @@ def group(segs, max_chars=MAX_CHARS, max_span=MAX_SPAN, max_gap=MAX_GAP):
 
 def init_worker():
     global _MODEL
-    os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
     from faster_whisper import WhisperModel
     _MODEL = WhisperModel(MODEL_DIR, device="cpu", compute_type="int8",
                           cpu_threads=int(os.environ.get("TS_THREADS", "2")))
@@ -243,24 +265,98 @@ def part_valid(path, size):
         row = json.load(open(path))
     except Exception:
         return False
-    return row.get("sig") == size and isinstance(row.get("lines"), list)
+    return (row.get("sig") == size and isinstance(row.get("lines"), list)
+            and row.get("asr") == asr_tag())
 
 
-def transcribe(path):
-    """整章转写：mp3 → 16k 单声道 wav → whisper（临时文件名带 pid，并行不互踩）。"""
-    wav = os.path.join(tempfile.gettempdir(), f"transcribe-{os.getpid()}.wav")
-    subprocess.run([FF, "-hide_banner", "-loglevel", "error", "-y", "-i", path,
+def asr_tag():
+    """结果身份：后端 + 模型名。写进逐章结果，换模型时旧结果自动重转。"""
+    return f"{ASR_BACKEND}:{os.path.basename(ASR_MODEL.rstrip('/'))}"
+
+
+def mlx_model_path(model):
+    """本地已有模型目录就用它（离线、可控）；没有则当仓库名，由 huggingface_hub 下载。
+
+    这台机器拉 HF 大文件容易断，预先用 tools/pull_mlx_model.py 分块续传拉下来更靠谱。
+    """
+    local = os.path.join(ROOT, "tools", "models", model.split("/")[-1])
+    return local if os.path.exists(os.path.join(local, "weights.safetensors")) else model
+
+
+_AUTHORS = None
+
+
+def book_authors():
+    """从 tools/books.json 拿书名→作者（提示词用，拿不到就只给书名）。"""
+    global _AUTHORS
+    if _AUTHORS is None:
+        try:
+            data = json.load(open(BOOKS_JSON))
+            _AUTHORS = {b.get("title", t): (b.get("author") or "")
+                        for t, b in data.get("books", {}).items()}
+        except Exception:
+            _AUTHORS = {}
+    return _AUTHORS
+
+
+def chapter_title(name):
+    """章文件名去前导序号：'01.曾国藩一生的五次耻辱（1）.mp3' → '曾国藩一生的五次耻辱（1）'。"""
+    base = os.path.splitext(name)[0]
+    return re.sub(r"^\d+[\.\-−—\s]+", "", base).strip()
+
+
+def prompt_for(book, name, authors=None):
+    """本章的转写提示词：把书名、作者、章节名喂给模型当专名参考。
+
+    whisper 拿上下文提示词里的词当用词先验：不告诉它「曾国藩」「曾国荃」怎么写，
+    它就给你同音的「曾国权」。只影响用词，不会把提示词本身吐进正文。
+    """
+    if authors is None:
+        authors = book_authors()
+    author = authors.get(book, "")
+    head = f"{INITIAL_PROMPT}《{book}》"
+    if author:
+        head += f"，作者{author}"
+    return f"{head}，本章《{chapter_title(name)}》。"
+
+
+def decode_to_wav(path, wav):
+    """mp3 → 16k 单声道 wav（临时文件名带 pid，并行不互踩）。"""
+    ff = FF or os.environ.get("SONUX_FFMPEG")
+    if not ff:
+        raise RuntimeError("找不到 ffmpeg（可用 SONUX_FFMPEG 指定路径）")
+    subprocess.run([ff, "-hide_banner", "-loglevel", "error", "-y", "-i", path,
                     "-vn", "-ac", "1", "-ar", str(SR), wav], capture_output=True, check=True)
-    dur = os.path.getsize(wav) / 2.0 / SR
+    return os.path.getsize(wav) / 2.0 / SR
+
+
+def transcribe(path, prompt=None):
+    """ct2 后端整章转写。"""
+    wav = os.path.join(tempfile.gettempdir(), f"transcribe-{os.getpid()}.wav")
+    dur = decode_to_wav(path, wav)
     try:
         result = _MODEL.transcribe(wav, language="zh", beam_size=1, vad_filter=False,
                                    condition_on_previous_text=False,
-                                   initial_prompt=INITIAL_PROMPT)
+                                   initial_prompt=prompt or INITIAL_PROMPT)
         segs = [{"b": s.start, "e": s.end, "t": s.text.strip()} for s in result[0]]
     finally:
         if os.path.exists(wav):
             os.remove(wav)
     return dur, segs
+
+
+def write_part(book, name, size, dur, segs):
+    """逐章结果落盘（原子 rename，并发只靠每章一个文件不互踩）。"""
+    lines = group(segs)
+    p = part_path(book, name)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    tmp = p + f".{os.getpid()}.tmp"
+    with open(tmp, "w") as fh:
+        json.dump({"sig": size, "asr": asr_tag(), "dur": round(dur, 1),
+                   "nchar": sum(len(l[2]) for l in lines), "lines": lines},
+                  fh, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, p)
+    return lines
 
 
 def job(item):
@@ -272,19 +368,134 @@ def job(item):
         return dict(file=rel, skipped=True)
     t0 = time.time()
     try:
-        dur, segs = transcribe(path)
+        dur, segs = transcribe(path, prompt_for(book, name))
     except Exception as ex:                # 单章失败不拖垮整轮
         return dict(file=rel, error=str(ex)[:200])
-    lines = group(segs)
-    os.makedirs(os.path.dirname(p), exist_ok=True)
-    tmp = p + f".{os.getpid()}.tmp"
-    with open(tmp, "w") as fh:
-        json.dump({"sig": size, "dur": round(dur, 1),
-                   "nchar": sum(len(l[2]) for l in lines), "lines": lines},
-                  fh, ensure_ascii=False, separators=(",", ":"))
-    os.replace(tmp, p)
+    lines = write_part(book, name, size, dur, segs)
     return dict(file=rel, dur=dur, n=len(lines), nchar=sum(len(l[2]) for l in lines),
                 sec=round(time.time() - t0, 1))
+
+
+# ---------------------------------------------------------------- MLX 后端
+
+
+def read_wav_pcm(path):
+    """把 decode_to_wav 出的 16k 单声道 wav 读成 float32 采样数组。"""
+    import wave
+    import numpy as np
+    with wave.open(path, "rb") as w:
+        raw = w.readframes(w.getnframes())
+    return np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+
+
+def transcribe_mlx(path, model, prompt=None):
+    """MLX + GPU 整章转写（只在 tools/.venv-mlx 的 Python 里跑）。
+
+    不关 condition_on_previous_text：mlx_whisper 走的是 OpenAI 的算法，一关掉，
+    首句之后 prompt 就被清空（transcribe.py 里 prompt_reset_since = len(all_tokens)），
+    书名与人名这些提示词只对第一段生效。留着它：第一段按提示词里的写法开头，之后
+    这些词在「上一句文本」里不断重现，全章用词就稳住了。代价是容易自我循环，
+    由 group() 的重复句剔除与温度回退兜住。
+    """
+    import mlx_whisper
+    wav = os.path.join(tempfile.gettempdir(), f"transcribe-mlx-{os.getpid()}.wav")
+    dur = decode_to_wav(path, wav)
+    try:
+        # 传采样数组而不是文件路径：mlx_whisper 拿到路径会自己 shell 调 ffmpeg，
+        # 而这台机器上 ffmpeg 只在另一个 python 环境里（imageio_ffmpeg 带的二进制）
+        samples = read_wav_pcm(wav)
+        result = mlx_whisper.transcribe(
+            samples, path_or_hf_repo=model, language="zh",
+            initial_prompt=prompt or INITIAL_PROMPT, verbose=None)
+        segs = [{"b": s["start"], "e": s["end"], "t": s["text"].strip()}
+                for s in result["segments"]]
+    finally:
+        if os.path.exists(wav):
+            os.remove(wav)
+    return dur, segs
+
+
+def worker_mlx(shard, model):
+    """一个 MLX worker：模型只加载一次，跑完自己那份分片，逐章往 stdout 报一行 JSON。
+
+    分片之间不共享任务队列：多进程抢同一批任务要加锁，而每章耗时分钟级，
+    静态平分足够均匀，不值得为此引入队列。
+    """
+    global ASR_BACKEND, ASR_MODEL
+    ASR_BACKEND, ASR_MODEL = "mlx", model
+    items = json.load(open(shard))
+    for path, book, name in items:
+        rel = os.path.relpath(path, ROOT)
+        size = os.path.getsize(path)
+        if part_valid(part_path(book, name), size):
+            print(json.dumps({"file": rel, "skipped": True}), flush=True)
+            continue
+        t0 = time.time()
+        try:
+            dur, segs = transcribe_mlx(path, model, prompt_for(book, name))
+            lines = write_part(book, name, size, dur, segs)
+        except Exception as ex:                # 单章失败不拖垮整轮
+            print(json.dumps({"file": rel, "error": str(ex)[:200]}), flush=True)
+            continue
+        print(json.dumps({"file": rel, "dur": round(dur, 1), "n": len(lines),
+                          "nchar": sum(len(l[2]) for l in lines),
+                          "sec": round(time.time() - t0, 1)}), flush=True)
+
+
+def spawn_mlx(items, model, jobs, pack_every=60):
+    """主进程侧：把待转章分片，开 jobs 个 MLX worker，收它们报的进度的行。"""
+    import queue
+    import threading
+    if not os.path.exists(MLX_PY):
+        sys.exit(f"找不到 MLX 环境 {MLX_PY}\n"
+                 f"装法：python3.12 -m venv {MLX_PY.rsplit('/bin', 1)[0]} && "
+                 f".../bin/pip install -i https://mirrors.aliyun.com/pypi/simple/ mlx-whisper")
+    shards = [items[i::jobs] for i in range(jobs)]
+    procs, lines_q = [], queue.Queue()
+    for i, shard in enumerate(shards):
+        if not shard:
+            continue
+        shard_file = os.path.join(ROOT, "tools", f".mlx-shard-{i}-{os.getpid()}.json")
+        with open(shard_file, "w") as fh:
+            json.dump(shard, fh, ensure_ascii=False)
+        env = dict(os.environ, SONUX_FFMPEG=FF or "")
+        proc = subprocess.Popen(
+            [MLX_PY, os.path.abspath(__file__), "--mlx-worker", shard_file,
+             "--model", model], cwd=ROOT, env=env,
+            stdout=subprocess.PIPE, stderr=sys.stderr, text=True, bufsize=1)
+        procs.append((proc, shard_file))
+        threading.Thread(target=lambda p=proc: [lines_q.put(l) for l in p.stdout],
+                         daemon=True).start()
+    t0, done, n = time.time(), 0, 0
+    alive = len(procs)
+    while alive:
+        try:
+            line = lines_q.get(timeout=5)
+        except queue.Empty:
+            alive = sum(1 for p, _ in procs if p.poll() is None)
+            continue
+        try:
+            r = json.loads(line)
+        except Exception:
+            continue
+        n += 1
+        if r.get("error"):
+            print(f"  失败 {r['file'][-46:]} {r['error'][:80]}", flush=True)
+        elif not r.get("skipped"):
+            done += 1
+            el = time.time() - t0
+            print(f"  {n}/{len(items)} {r['file'][-46:]:48s} {r['n']:3d} 句 "
+                  f"{r['sec']:5.0f}s 已用 {el/60:.0f} 分 预计还剩 "
+                  f"{el/done*(len(items)-n)/60:.0f} 分", flush=True)
+        if pack_every and n % pack_every == 0:
+            pack()
+        alive = sum(1 for p, _ in procs if p.poll() is None)
+    for p, shard_file in procs:
+        p.wait()
+        if p.returncode:
+            print(f"  worker 退出码 {p.returncode}（分片 {os.path.basename(shard_file)} 未跑完，重跑即可续上）")
+        os.remove(shard_file)
+    print(f"完成 {done} 章，用时 {(time.time()-t0)/60:.1f} 分")
 
 
 # ---------------------------------------------------------------- 打包
@@ -315,7 +526,8 @@ def pack(books=None):
                 row = json.load(open(os.path.join(d, f)))
             except Exception:
                 continue
-            if isinstance(row.get("lines"), list):
+            if isinstance(row.get("lines"), list) and row.get("asr") == asr_tag():
+                # 只收当前模型的章：混着旧小模型的结果打包，一本里会一半准一半不准
                 packed = []
                 for l in row["lines"]:
                     if len(l) == 3 and l[2]:
@@ -341,6 +553,7 @@ def pack(books=None):
 def status(root=LIB):
     all_ch = chapters(root)
     have = sum(1 for p, b, n in all_ch if part_valid(part_path(b, n), os.path.getsize(p)))
+    print(f"当前转写后端：{asr_tag()}")
     print(f"已转写 {have}/{len(all_ch)} 章（{100*have/max(len(all_ch),1):.0f}%）")
     nchar = 0
     for dirpath, _, files in os.walk(PARTS):
@@ -363,19 +576,41 @@ def status(root=LIB):
 
 
 def main():
+    global ASR_BACKEND, ASR_MODEL
     ap = argparse.ArgumentParser(description="整章音频 → 带时间轴字幕")
     ap.add_argument("--root", default=LIB)
     ap.add_argument("--book", action="append", help="书名（可重复）")
     ap.add_argument("--files", nargs="*")
     ap.add_argument("--all", action="store_true")
-    ap.add_argument("--jobs", type=int, default=6)
+    ap.add_argument("--jobs", type=int, default=0, help="并行数（默认 mlx 3 个、ct2 6 个）")
+    ap.add_argument("--backend", choices=("auto", "mlx", "ct2"), default="auto",
+                    help="auto：有 tools/.venv-mlx 就走 GPU 大模型")
+    ap.add_argument("--model", help="ct2 为本地模型目录，mlx 为 huggingface 仓库名")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--fresh", action="store_true", help="已转写的章也重跑")
     ap.add_argument("--pack-only", action="store_true")
     ap.add_argument("--pack", action="store_true", help="转写结束后打包")
     ap.add_argument("--pack-every", type=int, default=60, help="每 N 章打包一次，让字幕逐本可用")
     ap.add_argument("--status", action="store_true")
+    ap.add_argument("--mlx-worker", help=argparse.SUPPRESS)   # 内部：跑在 MLX venv 里的子进程
     args = ap.parse_args()
+
+    ASR_MODEL = args.model or MLX_MODEL
+    if args.backend == "ct2":
+        ASR_BACKEND = "ct2"
+        ASR_MODEL = args.model or MODEL_DIR
+    elif args.backend == "auto":
+        ASR_BACKEND = "mlx" if os.path.exists(MLX_PY) else "ct2"
+        if ASR_BACKEND == "ct2":
+            ASR_MODEL = args.model or MODEL_DIR
+    if ASR_BACKEND == "mlx":
+        ASR_MODEL = mlx_model_path(ASR_MODEL)
+    jobs = args.jobs or (3 if ASR_BACKEND == "mlx" else 6)
+
+    # worker 子进程：在 MLX venv 里只跑转写，不碰 argparse 以外的逻辑
+    if args.mlx_worker:
+        worker_mlx(args.mlx_worker, ASR_MODEL)
+        return
 
     if args.status:
         status(args.root)
@@ -417,9 +652,15 @@ def main():
         pack(args.book)
         return
 
-    print(f"本轮 {len(items)} 章，并行 {args.jobs}，模型 {os.path.basename(MODEL_DIR)}", flush=True)
+    print(f"本轮 {len(items)} 章，后端 {ASR_BACKEND}，模型 {os.path.basename(ASR_MODEL)}，"
+          f"并行 {jobs}", flush=True)
+    if ASR_BACKEND == "mlx":
+        spawn_mlx(items, ASR_MODEL, jobs, args.pack_every)
+        pack(args.book)
+        return
+
     import multiprocessing as mp
-    pool = mp.Pool(args.jobs, initializer=init_worker)
+    pool = mp.Pool(jobs, initializer=init_worker)
     t0 = time.time()
     n = done = 0
     errs = []
