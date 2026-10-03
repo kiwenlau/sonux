@@ -420,7 +420,7 @@ struct BookGridCard: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("从上次位置播放《\(book.title)》")
+                .accessibilityLabel(LF("Play \"%@\" from Where You Left Off", book.title))
                 .accessibilityIdentifier("book-card-play-\(book.id)")
             }
 
@@ -439,7 +439,7 @@ struct BookGridCard: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         // 只给「打开详情」的命名操作，不占默认操作，否则封面中央的播放按钮会被父层合并抢走
-        .accessibilityAction(named: "打开《\(book.title)》详情") { onOpen() }
+        .accessibilityAction(named: LF("Open Details for \"%@\"", book.title)) { onOpen() }
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(isNowPlaying ? Color.indigo.opacity(0.1) : Color(.secondarySystemGroupedBackground))

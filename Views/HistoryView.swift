@@ -13,7 +13,7 @@ struct HistoryView: View {
         Group {
             if entries.isEmpty {
                 ContentUnavailableWrapper(
-                    title: "还没有播放记录",
+                    title: L("No Listening History Yet"),
                     systemImage: "clock.arrow.circlepath"
                 ) { EmptyView() }
             } else {
@@ -32,7 +32,7 @@ struct HistoryView: View {
                                     NSLog("[sonux] ui: 长按菜单从历史移除《%@》", entry.book.title)
                                     library.removeFromHistory(bookId: entry.book.id)
                                 } label: {
-                                    Label("从历史中移除", systemImage: "trash")
+                                    Label(L("Remove from History"), systemImage: "trash")
                                 }
                             }
                             .accessibilityIdentifier("history-card-\(entry.book.id)")
@@ -45,7 +45,7 @@ struct HistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("历史")
+        .navigationTitle(L("History"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -80,7 +80,7 @@ private struct HistoryCard: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("history-book-\(entry.book.id)")
                 // 整卡是合并无障碍元素，AXPress 只会触发默认操作（续播）；给书名行单独挂命名操作
-                .accessibilityAction(named: "打开《\(entry.book.title)》详情") { onOpenBook() }
+                .accessibilityAction(named: LF("Open Details for \"%@\"", entry.book.title)) { onOpenBook() }
 
                 Text(entry.chapter?.title ?? entry.book.title)
                     .font(.title3.bold())
@@ -114,7 +114,7 @@ private struct HistoryCard: View {
         .contentShape(Rectangle())
         // 点卡片空白区域 = 从上次位置续播（书名行与封面自带手势，优先于父层）
         .onTapGesture(perform: onPlay)
-        .accessibilityAction(named: "从上次位置播放《\(entry.book.title)》") { onPlay() }
+        .accessibilityAction(named: LF("Play \"%@\" from Where You Left Off", entry.book.title)) { onPlay() }
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(isNowPlaying ? Color.indigo.opacity(0.1) : Color(.secondarySystemGroupedBackground))
@@ -123,28 +123,24 @@ private struct HistoryCard: View {
 
     /// 进度文案：章节内位置 / 章节总时长
     private var progressText: String {
-        guard let position = entry.position, let chapter = entry.chapter else { return "未开始" }
+        guard let position = entry.position, let chapter = entry.chapter else { return L("Not Started") }
         if ProgressPolicy.isFinished(time: position.time, duration: chapter.duration) {
-            return "已听完「\(chapter.title)」"
+            return LF("Finished \"%@\"", chapter.title)
         }
         return "\(TimeFormat.time(position.time)) / \(TimeFormat.time(chapter.duration))"
     }
 
-    /// 界面文案统一中文，日期与星期固定按简体中文格式渲染
-    private static let chineseLocale = Locale(identifier: "zh_CN")
-
-    /// 最后播放时间：今天/昨天/前天 加时刻，更早只给月日
+    /// 最后播放时间：今天/昨天/前天 加时刻，更早只给月日；日期格式跟随当前语言
     private func relativeDay(_ date: Date) -> String {
         let calendar = Calendar.current
-        let locale = Self.chineseLocale
-        let time = date.formatted(.dateTime.hour().minute().locale(locale))
+        let time = date.formatted(.dateTime.hour().minute())
         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: Date())).day ?? 0
         switch days {
-        case 0: return "今天 \(time)"
-        case 1: return "昨天 \(time)"
-        case 2: return "前天 \(time)"
+        case 0: return LF("Today %@", time)
+        case 1: return LF("Yesterday %@", time)
+        case 2: return LF("Day Before Yesterday %@", time)
         default:
-            let monthDay = date.formatted(.dateTime.month().day().locale(locale))
+            let monthDay = date.formatted(.dateTime.month().day())
             return "\(monthDay) \(time)"
         }
     }

@@ -30,7 +30,7 @@ struct BookDetailView: View {
                     position: library.position(forChapter: chapter.id)
                 )
                 .swipeActions {
-                    Button("重置进度") {
+                    Button(L("Reset Progress")) {
                         library.resetChapterProgress(chapterId: chapter.id)
                     }
                     .tint(.orange)
@@ -103,7 +103,7 @@ private struct BookInfoHeader: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("查看作者「\(author)」的全部书籍")
+                .accessibilityLabel(LF("View All Books by \"%@\"", author))
             }
 
             Spacer().frame(height: 8)
@@ -145,7 +145,7 @@ private struct ChapterRow: View {
 
     private var stateText: String {
         if ProgressPolicy.isFinished(time: chapterTime, duration: chapter.duration) {
-            return "已听完"
+            return L("Finished")
         }
         if ProgressPolicy.isStarted(chapterTime) {
             return "\(TimeFormat.time(chapterTime)) / \(TimeFormat.time(chapter.duration))"
@@ -174,7 +174,7 @@ private struct ChapterRow: View {
             if isCurrent {
                 // 与书库卡片/列表行用同一套音柱标记，播放时跳动、暂停时静止
                 NowPlayingBars(height: 16, isPlaying: isPlaying)
-                    .accessibilityLabel("正在播放")
+                    .accessibilityLabel(L("Now Playing"))
             }
         }
         .padding(.leading, 6)

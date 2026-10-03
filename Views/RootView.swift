@@ -17,9 +17,9 @@ enum AppTab: Hashable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .library: return "音频"
-        case .history: return "历史"
-        case .me: return "我的"
+        case .library: return L("Audio")
+        case .history: return L("History")
+        case .me: return L("Me")
         }
     }
 

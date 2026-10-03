@@ -50,7 +50,7 @@ struct LibraryView: View {
                 if author != nil {
                     // 作者页只在书被删空时走到这里，不给导入入口
                     ContentUnavailableWrapper(
-                        title: "「\(pageTitle)」的作品已不在书库",
+                        title: LF("Works by \"%@\" Are No Longer in the Library", pageTitle),
                         systemImage: "person"
                     ) { EmptyView() }
                 } else if library.hasFinishedFirstScan {
@@ -82,7 +82,7 @@ struct LibraryView: View {
                                 NSLog("[sonux] ui: 点击滑动删除按钮《%@》", book.title)
                                 bookToDelete = book
                             } label: {
-                                Label("删除", systemImage: "trash")
+                                Label(L("Delete"), systemImage: "trash")
                             }
                         }
                         .contextMenu {
@@ -90,7 +90,7 @@ struct LibraryView: View {
                                 NSLog("[sonux] ui: 点击长按菜单删除《%@》", book.title)
                                 bookToDelete = book
                             } label: {
-                                Label("删除", systemImage: "trash")
+                                Label(L("Delete"), systemImage: "trash")
                             }
                         }
                         .accessibilityIdentifier("book-row-\(book.id)")
@@ -147,20 +147,20 @@ struct LibraryView: View {
         ) { result in
             handleImport(result)
         }
-        .alert("导入完成", isPresented: Binding(
+        .alert(L("Import Finished"), isPresented: Binding(
             get: { importMessage != nil },
             set: { if !$0 { importMessage = nil } }
         )) {
-            Button("好", role: .cancel) { importMessage = nil }
+            Button(L("OK"), role: .cancel) { importMessage = nil }
         } message: {
             Text(importMessage ?? "")
         }
-        .alert("删除「\(bookToDelete?.title ?? "")」", isPresented: Binding(
+        .alert(LF("Delete \"%@\"", bookToDelete?.title ?? ""), isPresented: Binding(
             get: { bookToDelete != nil },
             set: { if !$0 { bookToDelete = nil } }
         )) {
-            Button("取消", role: .cancel) { bookToDelete = nil }
-            Button("删除", role: .destructive) {
+            Button(L("Cancel"), role: .cancel) { bookToDelete = nil }
+            Button(L("Delete"), role: .destructive) {
                 NSLog("[sonux] ui: 确认弹窗点了删除《%@》", bookToDelete?.title ?? "?")
                 if let book = bookToDelete {
                     do {
@@ -177,13 +177,13 @@ struct LibraryView: View {
                 bookToDelete = nil
             }
         } message: {
-            Text("将从书库中移除该音频文件，此操作不可撤销。")
+            Text(L("This will remove the audio files from your library. This action can't be undone."))
         }
-        .alert("删除失败", isPresented: Binding(
+        .alert(L("Delete Failed"), isPresented: Binding(
             get: { deleteErrorMessage != nil },
             set: { if !$0 { deleteErrorMessage = nil } }
         )) {
-            Button("好", role: .cancel) { deleteErrorMessage = nil }
+            Button(L("OK"), role: .cancel) { deleteErrorMessage = nil }
         } message: {
             Text(deleteErrorMessage ?? "")
         }
@@ -201,12 +201,12 @@ struct LibraryView: View {
         case .success(let urls):
             let count = library.importItems(from: urls)
             if count == 0 {
-                importMessage = "没有可导入的音频（支持 m4a / m4b / mp3 / aac / wav 或含这些文件的文件夹）"
+                importMessage = L("Nothing to import (supports m4a / m4b / mp3 / aac / wav, or folders containing these files)")
             } else {
-                importMessage = "已导入 \(count) 项"
+                importMessage = LF("Imported %d items", count)
             }
         case .failure:
-            importMessage = "导入失败，请重试"
+            importMessage = L("Import Failed, Please Try Again")
         }
     }
 }
@@ -253,13 +253,13 @@ private struct BookRow: View {
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("从上次位置播放《\(book.title)》")
+            .accessibilityLabel(LF("Play \"%@\" from Where You Left Off", book.title))
             .accessibilityIdentifier("book-play-\(book.id)")
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         // 只给「打开详情」的命名操作，不占默认操作，否则行内播放按钮会被父层合并抢走
-        .accessibilityAction(named: "打开《\(book.title)》详情") { onOpen() }
+        .accessibilityAction(named: LF("Open Details for \"%@\"", book.title)) { onOpen() }
         .padding(.vertical, 4)
     }
 }
@@ -296,7 +296,7 @@ private struct BookGridView: View {
                             NSLog("[sonux] ui: 卡片长按菜单删除《%@》", book.title)
                             deleteBook(book)
                         } label: {
-                            Label("删除", systemImage: "trash")
+                            Label(L("Delete"), systemImage: "trash")
                         }
                     }
                     .accessibilityIdentifier("book-card-\(book.id)")
@@ -335,7 +335,7 @@ private struct LibrarySearchBar: View {
                     focused = false
                     apply()
                 }
-                .accessibilityLabel("搜索书库")
+                .accessibilityLabel(L("Search Library"))
                 .accessibilityIdentifier("library-search")
 
             if !text.isEmpty {
@@ -349,7 +349,7 @@ private struct LibrarySearchBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("清空搜索关键词")
+                .accessibilityLabel(L("Clear Search Keywords"))
                 .accessibilityIdentifier("library-search-clear")
             }
         }
@@ -380,7 +380,7 @@ private struct NoSearchResultView: View {
 
     var body: some View {
         ContentUnavailableWrapper(
-            title: "没有找到「\(searchText.trimmingCharacters(in: .whitespacesAndNewlines))」",
+            title: LF("No Results for \"%@\"", searchText.trimmingCharacters(in: .whitespacesAndNewlines)),
             systemImage: "magnifyingglass"
         ) { EmptyView() }
     }
@@ -393,7 +393,7 @@ private struct LoadingLibraryView: View {
             .controlSize(.large)
             .tint(.indigo)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityLabel("正在载入书库")
+            .accessibilityLabel(L("Loading Library"))
     }
 }
 
@@ -403,16 +403,16 @@ private struct EmptyLibraryView: View {
 
     var body: some View {
         ContentUnavailableWrapper(
-            title: "书库是空的",
+            title: L("Library Is Empty"),
             action: {
                 Button {
                     onImport()
                 } label: {
-                    Label("导入音频", systemImage: "plus")
+                    Label(L("Import Audio"), systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
 
-                Button("重新扫描") { library.rescan() }
+                Button(L("Rescan")) { library.rescan() }
                     .buttonStyle(.bordered)
             }
         )

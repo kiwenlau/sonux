@@ -4,6 +4,7 @@ options:
   deploymentTarget:
     iOS: "16.4"
   createIntermediateGroups: true
+  developmentLanguage: en
 settings:
   base:
     SWIFT_VERSION: "5.9"
@@ -19,10 +20,12 @@ targets:
       - Models
       - Services
       - Views
+      - Support/Localizable.xcstrings
     info:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: Sonux
+        CFBundleLocalizations: [en, zh-Hans, zh-Hant, ja, ko, fr, de, es, pt-BR, pt-PT, it, ru, ar, nl, sv, da, fi, nb, pl, tr, cs, sk, hu, el, he, hi, id, ms, ro, uk, th, vi, ca, hr]
         UILaunchScreen: {}
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: false

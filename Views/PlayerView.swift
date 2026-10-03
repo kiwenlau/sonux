@@ -148,7 +148,7 @@ struct PlayerView: View {
                 glyph.glassEffect(.regular.interactive(), in: Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("返回")
+            .accessibilityLabel(L("Back"))
         } else {
             Button(action: closePlayer) {
                 glyph
@@ -156,7 +156,7 @@ struct PlayerView: View {
                     .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("返回")
+            .accessibilityLabel(L("Back"))
         }
     }
 
@@ -191,7 +191,7 @@ struct PlayerView: View {
     private var metadata: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(player.currentChapter?.title ?? "未在播放")
+                Text(player.currentChapter?.title ?? L("Not Playing"))
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
@@ -208,7 +208,7 @@ struct PlayerView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("查看作者「\(author)」的全部书籍")
+                    .accessibilityLabel(LF("View All Books by \"%@\"", author))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -305,8 +305,8 @@ struct PlayerView: View {
                     Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
                         .font(.body)
                     if player.sleepMode != .off {
-                        // 本章结束后关闭没有倒计时，直接标“本章”，避免把静止的数字误当成定时剩余
-                        Text(player.sleepMode == .endOfChapter ? "本章" : TimeFormat.time(player.sleepRemaining))
+                        // 本章结束后关闭没有倒计时，直接标「本章」，避免把静止的数字误当成定时剩余
+                        Text(player.sleepMode == .endOfChapter ? L("This Chapter") : TimeFormat.time(player.sleepRemaining))
                             .font(.caption2.monospacedDigit())
                     }
                 }
@@ -403,7 +403,7 @@ struct SpeedSliderSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
-                Text("语速设置")
+                Text(L("Playback Speed"))
                     .font(.headline)
                 Spacer()
                 Text("\(TimeFormat.speed(player.speed))x")
@@ -499,10 +499,10 @@ struct SleepTimerSheet: View {
             ruler
 
             HStack(spacing: 12) {
-                modeButton("本章结束后关闭", active: player.sleepMode == .endOfChapter) {
+                modeButton(L("Off After This Chapter"), active: player.sleepMode == .endOfChapter) {
                     player.setSleepTimer(player.sleepMode == .endOfChapter ? .off : .endOfChapter)
                 }
-                modeButton("不设置", active: false) {
+                modeButton(L("No Timer"), active: false) {
                     player.setSleepTimer(.off)
                 }
             }
@@ -519,11 +519,11 @@ struct SleepTimerSheet: View {
     private var sheetTitle: String {
         switch player.sleepMode {
         case .endOfChapter:
-            return "本章结束后关闭"
+            return L("Off After This Chapter")
         case .minutes(let value) where value > 0:
-            return "播放 \(value) 分钟后关闭"
+            return LF("Off After %d Minutes", value)
         case .off, .minutes:
-            return "定时关闭"
+            return L("Sleep Timer")
         }
     }
 
@@ -548,7 +548,7 @@ struct SleepTimerSheet: View {
                         .offset(x: xPosition(for: value, in: width))
                 }
                 ForEach(majorValues, id: \.self) { value in
-                    Text(value == 0 ? "关" : "\(Int(value))")
+                    Text(value == 0 ? L("Off") : "\(Int(value))")
                         .font(.caption2)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)

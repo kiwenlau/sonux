@@ -7,24 +7,53 @@ struct MeView: View {
 
     var body: some View {
         let summary = library.listeningSummary()
-        Group {
+        VStack(spacing: 0) {
             if summary.isEmpty {
                 ContentUnavailableWrapper(
-                    title: "还没有收听记录",
+                    title: L("No Listening Records Yet"),
                     systemImage: "person"
                 ) { EmptyView() }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     TotalCard(summary: summary)
                         .padding(14)
                 }
             }
+            // 设置卡片常驻底部，空态时也能进语言设置
+            SettingsCard()
+                .padding(.horizontal, 14)
+                .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("我的")
+        .navigationTitle(L("Me"))
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("me-page")
+    }
+}
+
+/// 设置卡片：目前只有语言一项，样式与累计时长卡片一致
+private struct SettingsCard: View {
+    var body: some View {
+        NavigationLink {
+            LanguageView()
+        } label: {
+            HStack {
+                Text(L("Language"))
+                Spacer()
+                Text(AppLanguageSetting.followsSystem
+                     ? L("System Default")
+                     : AppLanguageSetting.all.first { $0.code == AppLanguageSetting.effectiveCode }?.nativeName ?? AppLanguageSetting.effectiveCode)
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+        .accessibilityIdentifier("me-language-row")
     }
 }
 
@@ -34,7 +63,7 @@ private struct TotalCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("累计收听")
+            Text(L("Total Listening"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -44,9 +73,9 @@ private struct TotalCard: View {
                 .accessibilityIdentifier("me-total")
 
             HStack(spacing: 0) {
-                StatItem(title: "今天", value: TimeFormat.duration(summary.todaySeconds))
-                StatItem(title: "近 7 天", value: TimeFormat.duration(summary.last7Seconds))
-                StatItem(title: "连续收听", value: "\(summary.streakDays) 天")
+                StatItem(title: L("Today"), value: TimeFormat.duration(summary.todaySeconds))
+                StatItem(title: L("Last 7 Days"), value: TimeFormat.duration(summary.last7Seconds))
+                StatItem(title: L("Listening Streak"), value: LF("%d days", summary.streakDays))
             }
             .padding(.top, 4)
         }

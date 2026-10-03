@@ -21,6 +21,9 @@
 		40000000000000000000000C /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000C /* HistoryView.swift */; };
 		40000000000000000000000D /* ListeningStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000D /* ListeningStats.swift */; };
 		40000000000000000000000F /* MeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000F /* MeView.swift */; };
+		400000000000000000000010 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000010 /* Localization.swift */; };
+		400000000000000000000011 /* LanguageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000011 /* LanguageView.swift */; };
+		400000000000000000000012 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000012 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +42,9 @@
 		30000000000000000000000C /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		30000000000000000000000D /* ListeningStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningStats.swift; sourceTree = "<group>"; };
 		30000000000000000000000F /* MeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeView.swift; sourceTree = "<group>"; };
+		300000000000000000000010 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		300000000000000000000011 /* LanguageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageView.swift; sourceTree = "<group>"; };
+		300000000000000000000012 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +65,7 @@
 				500000000000000000000002 /* Models */,
 				500000000000000000000003 /* Services */,
 				500000000000000000000004 /* Views */,
+				500000000000000000000005 /* Support */,
 				1A0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -75,8 +82,17 @@
 			isa = PBXGroup;
 			children = (
 				300000000000000000000001 /* SonuxApp.swift */,
+				300000000000000000000010 /* Localization.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		500000000000000000000005 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000012 /* Localizable.xcstrings */,
+			);
+			path = Support;
 			sourceTree = "<group>";
 		};
 		500000000000000000000002 /* Models */ = {
@@ -109,6 +125,7 @@
 				30000000000000000000000B /* CoverStore.swift */,
 				30000000000000000000000C /* HistoryView.swift */,
 				30000000000000000000000F /* MeView.swift */,
+				300000000000000000000011 /* LanguageView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -155,6 +172,39 @@
 			knownRegions = (
 				en,
 				Base,
+				ar,
+				ca,
+				hr,
+				cs,
+				da,
+				nl,
+				fi,
+				fr,
+				de,
+				el,
+				he,
+				hi,
+				hu,
+				id,
+				it,
+				ja,
+				ko,
+				ms,
+				nb,
+				pl,
+				"pt-BR",
+				"pt-PT",
+				ro,
+				ru,
+				sk,
+				es,
+				sv,
+				th,
+				tr,
+				uk,
+				vi,
+				"zh-Hans",
+				"zh-Hant",
 			);
 			mainGroup = 1A0000000000000000000002;
 			productRefGroup = 1A0000000000000000000003 /* Products */;
@@ -171,6 +221,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				400000000000000000000012 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,6 +246,8 @@
 				40000000000000000000000C /* HistoryView.swift in Sources */,
 				40000000000000000000000D /* ListeningStats.swift in Sources */,
 				40000000000000000000000F /* MeView.swift in Sources */,
+				400000000000000000000010 /* Localization.swift in Sources */,
+				400000000000000000000011 /* LanguageView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

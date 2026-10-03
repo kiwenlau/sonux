@@ -8,7 +8,7 @@ enum LibraryError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .deleteFailed(let name, let underlying):
-            return "删除「\(name)」失败：\(underlying.localizedDescription)"
+            return LF("Failed to Delete \"%1$@\": %2$@", name, underlying.localizedDescription)
         }
     }
 }
