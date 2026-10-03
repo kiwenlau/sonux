@@ -92,7 +92,6 @@ final class PlayerService: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        configureAudioSession()
         setupRemoteCommands()
         observeInterruptions()
     }
@@ -108,6 +107,7 @@ final class PlayerService: NSObject, ObservableObject {
 
     /// 播放某一章节
     func play(chapter: Chapter, book: Book, fromTime: TimeInterval = 0) {
+        activateAudioSession()
         do {
             let player = try AVAudioPlayer(contentsOf: chapter.fileURL)
             player.prepareToPlay()
@@ -167,6 +167,7 @@ final class PlayerService: NSObject, ObservableObject {
             isPlaying = false
             NSLog("[sonux] togglePlayPause: paused %.1f ms", (CACurrentMediaTime() - t0) * 1000)
         } else {
+            activateAudioSession()
             player.play()
             player.rate = speed // 暂停期间调整的倍速需重新应用
             isPlaying = true
@@ -415,7 +416,9 @@ final class PlayerService: NSObject, ObservableObject {
         listeningAnchor = nil
     }
 
-    private func configureAudioSession() {
+    /// 激活音频会话：只在真正要出声的那一刻调用。
+    /// 早到 App 启动就激活，会抢走音频焦点，把用户正在别的 App 里听的音乐暂停掉。
+    private func activateAudioSession() {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .spokenAudio, options: [])
         try? session.setActive(true)
@@ -525,6 +528,7 @@ final class PlayerService: NSObject, ObservableObject {
     /// 锁屏“播放”：若已有暂停的播放器则继续，否则从头播放当前书
     @MainActor func resumePlayback() {
         if let player = player, !player.isPlaying {
+            activateAudioSession()
             player.play()
             isPlaying = true
             startProgressTimer()
@@ -614,12 +618,13 @@ extension PlayerService {
     }
 
     func handleInterruption(shouldResume: Bool) {
-        try? AVAudioSession.sharedInstance().setActive(true)
         guard let player = player else { return }
         if shouldResume {
+            activateAudioSession()
             player.play()
             isPlaying = true
         } else {
+            // 不打算续播就别重新占住会话，否则会把中断期间接着放音乐的用户再挤走
             player.pause()
             isPlaying = false
         }
