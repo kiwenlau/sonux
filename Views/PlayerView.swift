@@ -10,6 +10,7 @@ struct PlayerView: View {
     private var router: AppRouter { routers.active }
     @State private var showingSleepSheet = false
     @State private var showingSpeedSheet = false
+    @State private var showingChaptersSheet = false
     @State private var scrubTime: TimeInterval?
 
     /// 没提取到封面时的兜底背景：沿用原来的紫色系，明暗结构与主色色板一致
@@ -118,6 +119,11 @@ struct PlayerView: View {
         }
         .sheet(isPresented: $showingSpeedSheet) {
             SpeedSliderSheet()
+        }
+        .sheet(isPresented: $showingChaptersSheet) {
+            if let book {
+                ChaptersSheet(book: book)
+            }
         }
     }
 
@@ -283,36 +289,49 @@ struct PlayerView: View {
     // MARK: - 次级控制
 
     private var secondaryControls: some View {
-        HStack {
-            // 点开语速面板，拖动滑杆连续调节
-            Button {
-                showingSpeedSheet = true
-            } label: {
-                Text("\(TimeFormat.speed(player.speed))x")
-                    .font(.subheadline.weight(.semibold))
-                    .monospacedDigit()
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(.white.opacity(player.speed == 1.0 ? 0.15 : 0.28)))
-                    .foregroundStyle(.white)
+        ZStack {
+            // 参考微信读书的章节入口，点开弹出章节列表快捷切章；只留图标不带文字。
+            // 用 ZStack 钉在行正中：两侧元素宽度不等时 HStack 等分 Spacer 会把中间元素挤偏
+            Button { showingChaptersSheet = true } label: {
+                Image(systemName: "list.bullet")
+                    .font(.body)
+                    .foregroundStyle(.white.opacity(0.7))
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("chaptersButton")
+            .accessibilityLabel(LF("%d Chapters", book?.chapters.count ?? 0))
 
-            Spacer()
-
-            Button { showingSleepSheet = true } label: {
-                VStack(spacing: 2) {
-                    Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
-                        .font(.body)
-                    if player.sleepMode != .off {
-                        // 本章结束后关闭没有倒计时，直接标「本章」，避免把静止的数字误当成定时剩余
-                        Text(player.sleepMode == .endOfChapter ? L("This Chapter") : TimeFormat.time(player.sleepRemaining))
-                            .font(.caption2.monospacedDigit())
-                    }
+            HStack {
+                // 点开语速面板，拖动滑杆连续调节
+                Button {
+                    showingSpeedSheet = true
+                } label: {
+                    Text("\(TimeFormat.speed(player.speed))x")
+                        .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(.white.opacity(player.speed == 1.0 ? 0.15 : 0.28)))
+                        .foregroundStyle(.white)
                 }
-                .foregroundStyle(.white.opacity(player.sleepMode == .off ? 0.7 : 1.0))
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button { showingSleepSheet = true } label: {
+                    VStack(spacing: 2) {
+                        Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
+                            .font(.body)
+                        if player.sleepMode != .off {
+                            // 本章结束后关闭没有倒计时，直接标「本章」，避免把静止的数字误当成定时剩余
+                            Text(player.sleepMode == .endOfChapter ? L("This Chapter") : TimeFormat.time(player.sleepRemaining))
+                                .font(.caption2.monospacedDigit())
+                        }
+                    }
+                    .foregroundStyle(.white.opacity(player.sleepMode == .off ? 0.7 : 1.0))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 8)
     }
@@ -390,6 +409,23 @@ struct StepSlider: View {
             * (range.upperBound - range.lowerBound) + range.lowerBound
         let stepped = (raw / step).rounded() * step
         return min(max(stepped, range.lowerBound), range.upperBound)
+    }
+}
+
+/// 章节列表弹层：复用详情页的 ChapterList，点章节即切换播放，不另做一套列表
+struct ChaptersSheet: View {
+    let book: Book
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ChapterList(book: book)
+            }
+            .listStyle(.plain)
+            .navigationTitle(LF("%d Chapters", book.chapters.count))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
