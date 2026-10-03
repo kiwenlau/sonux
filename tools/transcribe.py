@@ -544,6 +544,15 @@ def pack(books=None):
         done.append((book, len(chapters_map), os.path.getsize(out)))
     for book, n, size in done:
         print(f"  {book[:28]:30s} {n:4d} 章  {size/1024:7.0f} KB")
+    # 删掉没有一本有效章的旧字幕包（换模型后它们会被上面的过滤排除），
+    # 不然 App 还会拿旧模型那版继续显示。只在全量打包时做：按书名打包时
+    # done 本来就只有那几本，拿它当保留名单会把别的书误删
+    keep = {book + ".json" for book, _, _ in done}
+    if not books:
+        for f in os.listdir(OUT_DIR):
+            if f.endswith(".json") and f not in keep:
+                os.remove(os.path.join(OUT_DIR, f))
+                print(f"  剔除旧字幕包 {f}")
     print(f"→ {OUT_DIR}（{len(done)} 本）")
 
 
