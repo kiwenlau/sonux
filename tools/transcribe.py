@@ -49,6 +49,7 @@ os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "2")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB = os.path.join(ROOT, "TestBooks")
 PARTS = os.path.join(ROOT, "tools", "transcripts-parts")
+FIX_DIR = os.path.join(ROOT, "tools", "transcripts-fix")
 OUT_DIR = os.path.join(ROOT, "transcripts")
 BOOKS_JSON = os.path.join(ROOT, "tools", "books.json")
 # ct2 后端：系统 python3 + 本地小模型
@@ -415,6 +416,36 @@ def transcribe_mlx(path, model, prompt=None):
     return dur, segs
 
 
+def free_memory_gb():
+    """可用内存（GB）。
+
+    只算 Pages free 会把 macOS 可回收的文件缓存当成已用（实际上一抽就是十几 GB），
+    错误地得出「内存不够」的结论；这里把 inactive 与 speculative 也计进去。
+    """
+    try:
+        out = subprocess.run(["vm_stat"], capture_output=True, text=True).stdout
+        page = float(re.search(r"page size of (\d+) bytes", out).group(1))
+        vals = dict(re.findall(r"^(\w[\w ]*\w):\s+(\d+)\.$", out, re.M))
+        pages = sum(int(vals.get(k, 0)) for k in
+                    ("Pages free", "Pages inactive", "Pages speculative"))
+        return pages * page / 2 ** 30
+    except Exception:
+        return 99.0
+
+
+def init_mlx_limits():
+    """封住 Metal 常驻显存上限。
+
+    不设的话每个 MLX 进程会把 GPU 常驻区一路撑大（默认能吃到全机内存的一大截），
+    5 个 worker 并行时直接把 48GB 机器逼到 OOM 被系统杀掉。
+    """
+    try:
+        import mlx.core as mx
+        mx.set_wired_limit(int(os.environ.get("SONUX_MLX_WIRED_GB", "4")) * 2 ** 30)
+    except Exception:
+        pass
+
+
 def worker_mlx(shard, model):
     """一个 MLX worker：模型只加载一次，跑完自己那份分片，逐章往 stdout 报一行 JSON。
 
@@ -423,6 +454,7 @@ def worker_mlx(shard, model):
     """
     global ASR_BACKEND, ASR_MODEL
     ASR_BACKEND, ASR_MODEL = "mlx", model
+    init_mlx_limits()
     items = json.load(open(shard))
     for path, book, name in items:
         rel = os.path.relpath(path, ROOT)
@@ -451,6 +483,14 @@ def spawn_mlx(items, model, jobs, pack_every=60):
                  f"装法：python3.12 -m venv {MLX_PY.rsplit('/bin', 1)[0]} && "
                  f".../bin/pip install -i https://mirrors.aliyun.com/pypi/simple/ mlx-whisper")
     shards = [items[i::jobs] for i in range(jobs)]
+    # 内存不够就降级并行：宁可跑慢，也不要跑到被系统杀掉（杀一次就白干几十章）
+    free = free_memory_gb()
+    max_jobs = max(1, min(jobs, int((free - 6) // 3)))   # 每 worker 约 3GB，给系统留 6GB
+    if max_jobs < jobs:
+        print(f"可用内存 {free:.0f}GB，并行数从 {jobs} 降到 {max_jobs}", flush=True)
+        jobs = max_jobs
+        shards = [items[i::jobs] for i in range(jobs)]
+    print(f"启动 {jobs} 个 MLX worker", flush=True)
     procs, lines_q = [], queue.Queue()
     for i, shard in enumerate(shards):
         if not shard:
@@ -501,6 +541,45 @@ def spawn_mlx(items, model, jobs, pack_every=60):
 # ---------------------------------------------------------------- 打包
 
 
+def chapter_result(book, name, dirs):
+    """取一章可用的字幕行：按 dirs 优先级找（纠错版 > ASR 版）。
+
+    两个条件：标签得对（纠错版以 fix: 开头，ASR 版必须是当前后端+模型），
+    以及 sig 得等于音频当前字节数（音频被切除广告后两边结果一起作废）。
+    """
+    audio = os.path.join(LIB, book, name)
+    size = os.path.getsize(audio) if os.path.exists(audio) else None
+    for base in dirs:
+        p = os.path.join(base, name + ".json")
+        if not os.path.exists(p):
+            continue
+        try:
+            row = json.load(open(p))
+        except Exception:
+            continue
+        if not isinstance(row.get("lines"), list):
+            continue
+        if size is not None and row.get("sig") != size:
+            continue
+        tag = str(row.get("asr", ""))
+        if tag.startswith("fix:") or tag == asr_tag():
+            return row["lines"]
+    return None
+
+
+def iter_book_chapters(book):
+    """逐章产出 (章文件名, 字幕行)，纠错版优先于 ASR 版。"""
+    dirs = [os.path.join(FIX_DIR, book), os.path.join(PARTS, book)]
+    names = set()
+    for d in dirs:
+        if os.path.isdir(d):
+            names |= {f[:-len(".json")] for f in os.listdir(d) if f.endswith(".json")}
+    for name in sorted(names, key=lsc):
+        lines = chapter_result(book, name, dirs)
+        if lines:
+            yield name, lines
+
+
 def pack(books=None):
     """把逐章 parts 按书合成 App 读的 transcripts/<书>.json。
 
@@ -519,20 +598,13 @@ def pack(books=None):
         if not os.path.isdir(d):
             continue
         chapters_map = {}
-        for f in sorted(os.listdir(d), key=lsc):
-            if not f.endswith(".json"):
-                continue
-            try:
-                row = json.load(open(os.path.join(d, f)))
-            except Exception:
-                continue
-            if isinstance(row.get("lines"), list) and row.get("asr") == asr_tag():
-                # 只收当前模型的章：混着旧小模型的结果打包，一本里会一半准一半不准
-                packed = []
-                for l in row["lines"]:
-                    if len(l) == 3 and l[2]:
-                        packed += split_line(l[0], l[1], normalize(l[2]))
-                chapters_map[f[:-len(".json")]] = packed
+        for name, lines in iter_book_chapters(book):
+            packed = []
+            for l in lines:
+                if len(l) == 3 and l[2]:
+                    packed += split_line(l[0], l[1], normalize(l[2]))
+            if packed:
+                chapters_map[name] = packed
         if not chapters_map:
             continue
         out = os.path.join(OUT_DIR, book + ".json")

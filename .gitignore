@@ -16,6 +16,7 @@ DerivedData/
 tools/models/
 tools/adcheck-cache/
 tools/.mlx-shard-*.json
+tools/.fix-shard-*.json
 
 # MLX 转写环境（GPU 大模型后端，体积大，可由 tools/transcribe.py 头部说明重建）
 tools/.venv-mlx/
@@ -31,6 +32,7 @@ tools/adcheck-removed.md
 
 # 字幕转写的逐章中间结果与字幕包（由 tools/transcribe.py 重算，体积大不入库）
 tools/transcripts-parts/
+tools/transcripts-fix/
 transcripts/
 
 # 测试用音频书库（体积大，不入库；元数据清单在 tools/books.json）
