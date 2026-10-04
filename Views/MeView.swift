@@ -7,7 +7,9 @@ struct MeView: View {
 
     var body: some View {
         let summary = library.listeningSummary()
-        VStack(spacing: 0) {
+        VStack(spacing: 14) {
+            // 设置卡片放最上方，空态时也能进语言设置
+            SettingsCard()
             if summary.isEmpty {
                 ContentUnavailableWrapper(
                     title: L("No Listening Records Yet"),
@@ -17,14 +19,10 @@ struct MeView: View {
             } else {
                 ScrollView {
                     TotalCard(summary: summary)
-                        .padding(14)
                 }
             }
-            // 设置卡片常驻底部，空态时也能进语言设置
-            SettingsCard()
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
         }
+        .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
         .navigationTitle(L("Me"))
@@ -49,6 +47,7 @@ private struct SettingsCard: View {
             }
             .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .padding(.vertical, 4)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
