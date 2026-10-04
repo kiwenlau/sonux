@@ -6,8 +6,9 @@
 # 上别的模型进程）。并行数由脚本按当时可用内存现算，崩了自动重启续跑。
 # 全程幂等：逐章结果都带 sig（音频字节数）与模型标记，重跑自动跳过已完成的章。
 #
-# 用法：
-#   caffeinate -is ./tools/subtitle-autopilot.sh > .tmp-adcheck/subtitle-autopilot.log 2>&1 &
+# 用法（正常都走外层看门狗，崩了会自动续跑）：
+#   nohup ./tools/subtitle-watchdog.sh > .tmp-adcheck/subtitle-watchdog.log 2>&1 &
+# 也可以直接跑本脚本：./tools/subtitle-autopilot.sh
 # 可调环境变量：
 #   ASR_BATCH=120   每轮转写多少章    FIX_BATCH=60   每轮校对多少章
 #   SKIP_FIX=1      只转写不校对

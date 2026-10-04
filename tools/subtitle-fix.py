@@ -266,13 +266,26 @@ class ApiLLM:
                     self.out_tokens += int(usage.get("completion_tokens") or 0)
                 return "".join(got)
             except Exception as ex:
-                # 密钥错、模型名错要当场看见；限流与 5xx 退避重试
-                last_err = ex
-                code = getattr(ex, "code", None)
-                if code in (400, 401, 403, 404):
-                    raise
+                # 密钥错、模型名错、被内容审查拒了都要看到具体原因，不能只剩
+                # 「HTTP Error 400」一句话（实际踩过：查不到原因只能猜）
+                body = ""
+                reader = getattr(ex, "read", None)
+                if reader:
+                    try:
+                        body = reader()[:300].decode("utf-8", "replace")
+                    except Exception:
+                        body = ""
+                last_err = f"{type(ex).__name__} {getattr(ex, 'code', '')} {body or ex}"
+                if getattr(ex, "code", None) in (400, 401, 403, 404):
+                    raise RuntimeError(last_err)
                 time.sleep(2 ** attempt)
-        raise RuntimeError(f"云端接口连续 5 次失败，最后一次：{type(last_err).__name__} {last_err}")
+        raise RuntimeError(f"云端接口连续 5 次失败，最后一次：{last_err}")
+
+
+def rejected_by_guard(err):
+    """这错是不是「输入被内容审查拦下」一类？这类重试没意义，只能把窗口切小。"""
+    text = str(err)
+    return "400" in text and ("data_inspection" in text or "inappropriate content" in text)
 
 
 def make_llm(args):
@@ -287,18 +300,30 @@ def make_llm(args):
 
 
 def fix_chapter(book, name, lines, author, chapter, llm, args, log):
-    """一章分若干窗口送模型校对，返回 (新 lines, 改动数, 驳回数)。"""
+    """一章分若干窗口送模型校对，返回 (新 lines, 改动数, 驳回数)。
+
+    窗口被内容审查拦下时递归对半切小重试：实测有章节 80 行被拒、40 行能过
+    （讲战争的内容容易触发 data_inspection_failed），不拆的话整章会永远卡住。
+    """
     texts = [l[2] for l in lines]
     new_texts = list(texts)
-    n_edit = n_reject = 0
-    step = args.chunk
-    for start in range(0, len(texts), step):
-        ctx_from = max(0, start - args.context)
-        window = [(i, texts[i]) for i in range(ctx_from, min(len(texts), start + step))]
-        editable = {i for i, _ in window if i >= start}
+    state = {"edit": 0, "reject": 0}
+
+    def apply_window(start, stop):
+        window = [(i, texts[i]) for i in range(max(0, start - args.context), stop)]
+        editable = {i for i in range(start, stop)}
         prompt = build_prompt(book, author, chapter, window, start)
-        raw = llm.chat([{"role": "system", "content": SYSTEM},
-                        {"role": "user", "content": prompt}], args.max_tokens)
+        try:
+            raw = llm.chat([{"role": "system", "content": SYSTEM},
+                            {"role": "user", "content": prompt}], args.max_tokens)
+        except Exception as ex:
+            if not rejected_by_guard(ex) or stop - start <= 8:
+                raise
+            mid = (start + stop) // 2
+            log.append(f"  窗口 {start}-{stop} 被内容审查拦下，拆成两半重试")
+            apply_window(start, mid)
+            apply_window(mid, stop)
+            return
         # 模型可能把同一行拆成多条输出，先归并再应用，否则后一条会从前一条的结果里丢掉
         grouped = {}
         for i, (kind, payload) in parse_model_out(raw, editable):
@@ -313,20 +338,24 @@ def fix_chapter(book, name, lines, author, chapter, llm, args, log):
         for i, (kind, payload) in sorted(grouped.items()):
             candidate, dropped = apply_edits(texts[i], kind, payload)
             for d in dropped:
-                n_reject += 1
+                state["reject"] += 1
                 log.append(f"  驳回 [{i}] {d}")
             ok, why = acceptable(texts[i], candidate)
             if ok:
                 new_texts[i] = candidate
-                n_edit += 1
+                state["edit"] += 1
                 log.append(f"  [{i}] {texts[i]}\n  [{i}] {candidate}    （{why}）")
             else:
-                n_reject += 1
+                state["reject"] += 1
                 log.append(f"  驳回 [{i}] {texts[i]} → {candidate}    （{why}）")
-        if args.limit_windows and (start // step + 1) >= args.limit_windows:
+
+    step = args.chunk
+    for idx, start in enumerate(range(0, len(texts), step)):
+        apply_window(start, min(len(texts), start + step))
+        if args.limit_windows and (idx + 1) >= args.limit_windows:
             break
     out = [[l[0], l[1], new_texts[i]] for i, l in enumerate(lines)]
-    return out, n_edit, n_reject
+    return out, state["edit"], state["reject"]
 
 
 def fix_one(item, llm, authors, args):
