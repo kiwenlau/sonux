@@ -347,14 +347,18 @@ private struct SampledPixels {
 /// 书库列表的封面缩略图：有内嵌封面显示封面，否则保持原来的图标占位
 struct BookCoverView: View {
     let book: Book
+    /// 封面框边长：底部迷你播放器用更小的一号
+    var size: CGFloat = 50
+    /// 背景填充色：传 nil 表示不铺底色，空余处直接露出所在容器的背景
+    var background: Color? = Color.gray.opacity(0.1)
     // 单例共享缓存，用 ObservedObject 避免多行各自持有独立副本
     @ObservedObject private var store = CoverStore.shared
 
     var body: some View {
-        // 固定 50×50 封面框：背景色填充，封面 scaledToFit 完整显示不裁切、无内边距
+        // 固定尺寸封面框：可选背景色填充，封面 scaledToFit 完整显示不裁切、无内边距
         RoundedRectangle(cornerRadius: 8)
-            .fill(Color.gray.opacity(0.1))
-            .frame(width: 50, height: 50)
+            .fill(background ?? Color.clear)
+            .frame(width: size, height: size)
             .overlay {
                 if let cover = store.image(for: book) {
                     Image(uiImage: cover)
@@ -363,6 +367,7 @@ struct BookCoverView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 } else {
                     Image(systemName: book.chapters.count > 1 ? "books.vertical.fill" : "music.note")
+                        .font(.system(size: size * 0.34))
                         .foregroundStyle(.indigo)
                 }
             }

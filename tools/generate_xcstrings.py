@@ -687,6 +687,22 @@ add("Skip Forward 15 Seconds",
     sv="Spola framåt 15 sekunder", th="ไปหน้า 15 วินาที", tr="15 saniye ileri sar",
     uk="Перемотати на 15 с уперед", vi="Tua tới 15 giây", zhhs="快进 15 秒", zhtt="快進 15 秒")
 
+add("Play",
+    ar="تشغيل", ca="Reprodueix", hr="Reproduciraj", cs="Přehrát", da="Afspil", nl="Afspelen",
+    fr="Lire", de="Wiedergeben", el="Αναπαραγωγή", he="נגן", hi="चलाएँ", hu="Lejátszás",
+    id="Putar", it="Riproduci", ja="再生", ko="재생", ms="Main", nb="Spill av", pl="Odtwórz",
+    ptbr="Reproduzir", ptpt="Reproduzir", ro="Redă", ru="Воспроизвести", sk="Prehrať",
+    es="Reproducir", sv="Spela upp", th="เล่น", tr="Oynat", uk="Відтворити", vi="Phát",
+    zhhs="播放", zhtt="播放")
+
+add("Pause",
+    ar="إيقاف مؤقت", ca="Pausa", hr="Pauza", cs="Pozastavit", da="Pause", nl="Pauzeren",
+    fr="Mettre en pause", de="Pause", el="Παύση", he="השהיה", hi="रोकें", hu="Szünet",
+    id="Jeda", it="Pausa", ja="一時停止", ko="일시정지", ms="Jeda", nb="Pause", pl="Wstrzymaj",
+    ptbr="Pausar", ptpt="Pausar", ro="Pauză", ru="Пауза", sk="Pozastaviť",
+    es="Pausar", sv="Pausa", th="หยุดชั่วคราว", tr="Duraklat", uk="Призупинити", vi="Tạm dừng",
+    zhhs="暂停", zhtt="暫停")
+
 # ---------------- 生成 ----------------
 
 LITERAL = re.compile(r'\bLF?\(\s*"((?:[^"\\]|\\.)*)"')
