@@ -12,7 +12,8 @@
 #   ASR_BATCH=120   每轮转写多少章    FIX_BATCH=60   每轮校对多少章
 #   SKIP_FIX=1      只转写不校对
 #   DASHSCOPE_API_KEY 或 ~/.config/sonux/llm-key   有密钥就用云端模型校对，没有用本地 14B
-#   SONUX_LLM_MODEL=qwen-plus   云端模型名
+#   SONUX_LLM_MODEL / SONUX_LLM_BASE_URL   云端校对模型与入口（默认 qwen3.8-max + Token Plan）
+#   FIX_WORKERS=8   云端校对并发（套餐有动态并发上限，触发 429 就调小）
 # 进度随时可看：cat .tmp-adcheck/subtitle-status
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -23,7 +24,7 @@ export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 export LANG="$LC_ALL"
 
 ASR_BATCH=${ASR_BATCH:-120}
-FIX_BATCH=${FIX_BATCH:-60}
+FIX_BATCH=${FIX_BATCH:-200}   # 云端校对每轮跑够多章，才追得上转写的速度
 # MLX 每个 worker 的 GPU 常驻区上限：whisper 模型才 1.6GB，给 2GB 足够。
 # 不封这个的话 RSS 看着只占 2GB，实际 GPU 常驻区能把 48GB 机器顶到 OOM
 export SONUX_MLX_WIRED_GB=${SONUX_MLX_WIRED_GB:-2}
@@ -44,10 +45,13 @@ round=0
 while true; do
   round=$((round+1))
   # 每轮重新判断后端：中途把密钥文件放进来，下一轮就自动切云端，不必重启流水线
+  # 云端校对走百炼 Token Plan 套餐（Base URL 与模型名用 subtitle-fix.py 的默认值）。
+  # 套餐里没包文件转写 ASR（实测 fun-asr / paraformer / *-filetrans 全部 Model not exist），
+  # 所以转写仍由本地 whisper 出时间轴，文字交给云端改
   if have_key; then
     FIX_MODE=api
     # 不带引号是有意的：靠空白分词把参数传下去，这些参数里没有空格
-    FIXARGS="--api --workers 8 --llm-model ${SONUX_LLM_MODEL:-qwen-plus}"
+    FIXARGS="--api --workers ${FIX_WORKERS:-8}"
   else
     FIX_MODE=local
     FIXARGS=""

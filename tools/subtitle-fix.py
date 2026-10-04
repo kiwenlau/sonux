@@ -47,9 +47,12 @@ ROOT = T.ROOT
 FIX_DIR = os.path.join(ROOT, "tools", "transcripts-fix")
 MODEL_DIR = os.environ.get(
     "SONUX_FIX_MODEL", os.path.join(ROOT, "tools", "models", "Qwen2.5-14B-Instruct-4bit"))
-# 云端后端默认阿里云百炼的 OpenAI 兼容入口；密钥只读环境变量
-API_BASE = os.environ.get("SONUX_LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-API_MODEL = os.environ.get("SONUX_LLM_MODEL", "qwen-plus")
+# 云端后端：用户买的是百炼 Token Plan 套餐，必须用套餐专属 Base URL 与 sk-sp- 开头的 Key，
+# 与按量付费的 dashscope.aliyuncs.com 完全不互通（混用会 401 或走成按量扣费）
+API_BASE = os.environ.get(
+    "SONUX_LLM_BASE_URL",
+    "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
+API_MODEL = os.environ.get("SONUX_LLM_MODEL", "qwen3.8-max")
 MIN_PINYIN_SIM = 0.85      # 整行拼音相似度低于此就认定模型改的不是同一个读音，驳回
 # 单个替换词的拼音相似度下限。0.6 是实测定的：挡得住「一声→一岁」(0.50)、
 # 「窃→谴」(0.57)、「魁丑→丑魁」(0.57) 这类错改，又留得住「虹口→湖口」(0.67)、
@@ -208,69 +211,78 @@ class LocalMLX:
 
 
 class ApiLLM:
-    """OpenAI 兼容接口的云端模型（默认阿里云百炼）。
+    """OpenAI 兼容接口的云端模型（默认百炼 Token Plan 套餐入口）。
 
     用 urllib 而不是官方 SDK：环境里没必要再多一个依赖，我们只用 chat/completions
     一个端点。线程安全：云端路径靠多线程并发提速，token 统计要累加。
+
+    两个实测出来的必要设置（qwen3.7/3.8 这类混合推理模型）：
+    - enable_thinking=false：不开的话模型先写一大段思考，一个 40 行窗口能烧到 240 秒
+      超时；关掉后 13 秒返回，质量不受影响；
+    - 流式读取：非流式要整段等完，套餐入口读超时很宽，流式能避开卡死的连接，
+      也能从最后一个块拿到 usage。
     """
 
-    def __init__(self, base, model, key):
-        import threading
+    def __init__(self, base, model, key, thinking=False):
         self.base, self.name, self.key = base.rstrip("/"), model, key
+        # 只有千问系列认 enable_thinking 这个参数，别的模型传了可能被拒
+        self.thinking = thinking and model.startswith("qwen")
         self.lock = threading.Lock()
         self.calls = self.in_tokens = self.out_tokens = 0
 
     def chat(self, messages, max_tokens):
-        body = json.dumps({"model": self.name, "messages": messages,
-                           "temperature": 0.0, "max_tokens": max_tokens}).encode()
+        body = {"model": self.name, "messages": messages, "max_tokens": max_tokens,
+                "temperature": 0.0, "stream": True,
+                "stream_options": {"include_usage": True}}
+        if self.name.startswith("qwen"):
+            body["enable_thinking"] = self.thinking
+        last_err = None
         for attempt in range(5):
-            req = urllib.request.Request(
-                f"{self.base}/chat/completions", data=body,
-                headers={"Content-Type": "application/json",
-                         "Authorization": "Bearer " + self.key})
+            got = []
+            usage = {}
             try:
-                with urllib.request.urlopen(req, timeout=180) as r:
-                    data = json.load(r)
-                usage = data.get("usage") or {}
+                req = urllib.request.Request(
+                    f"{self.base}/chat/completions", data=json.dumps(body).encode(),
+                    headers={"Content-Type": "application/json",
+                             "Authorization": "Bearer " + self.key,
+                             "Accept": "text/event-stream"})
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    for line in r:
+                        if not line.startswith(b"data:"):
+                            continue
+                        payload = line[5:].strip()
+                        if payload == b"[DONE]":
+                            break
+                        chunk = json.loads(payload)
+                        if chunk.get("usage"):
+                            usage = chunk["usage"]
+                        for choice in chunk.get("choices") or []:
+                            piece = (choice.get("delta") or {}).get("content")
+                            if piece:
+                                got.append(piece)
                 with self.lock:
                     self.calls += 1
                     self.in_tokens += int(usage.get("prompt_tokens") or 0)
                     self.out_tokens += int(usage.get("completion_tokens") or 0)
-                return data["choices"][0]["message"]["content"] or ""
+                return "".join(got)
             except Exception as ex:
-                # 密钥错、模型名错要立刻看见；限流与 5xx 退避重试
-                if getattr(ex, "code", None) in (400, 401, 403, 404):
+                # 密钥错、模型名错要当场看见；限流与 5xx 退避重试
+                last_err = ex
+                code = getattr(ex, "code", None)
+                if code in (400, 401, 403, 404):
                     raise
                 time.sleep(2 ** attempt)
-        raise RuntimeError("云端接口连续 5 次失败")
-
-
-def api_key():
-    """云端密钥：优先环境变量，其次读仓库外的密钥文件。
-
-    为什么多一个文件入口：流水线是看门狗后台跑的，不能要求每次都在 shell 里 export；
-    但密钥绝对不能进仓库。默认文件 ~/.config/sonux/llm-key（自己 chmod 600）。
-    """
-    key = os.environ.get("DASHSCOPE_API_KEY") or os.environ.get("SONUX_LLM_API_KEY")
-    if key:
-        return key.strip()
-    path = os.environ.get("SONUX_LLM_KEY_FILE",
-                          os.path.expanduser("~/.config/sonux/llm-key"))
-    try:
-        with open(path) as fh:
-            return fh.readline().strip() or None
-    except OSError:
-        return None
+        raise RuntimeError(f"云端接口连续 5 次失败，最后一次：{type(last_err).__name__} {last_err}")
 
 
 def make_llm(args):
     """按命令行返一个可调用的模型后端。"""
     if args.api:
-        key = api_key()
+        key = T.api_key()      # 环境变量或 ~/.config/sonux/llm-key，与转写工具共用一份实现
         if not key:
             sys.exit("走 --api 但没找到密钥：export DASHSCOPE_API_KEY=sk-...，"
                      "或者把密钥写进 ~/.config/sonux/llm-key（chmod 600）")
-        return ApiLLM(args.base_url, args.llm_model, key)
+        return ApiLLM(args.base_url, args.llm_model, key, thinking=args.thinking)
     return LocalMLX(MODEL_DIR)
 
 
@@ -459,6 +471,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="只打印提示词，不调模型")
     ap.add_argument("--check", action="store_true", help="只报待修章数就退出（给看门狗探进用）")
     ap.add_argument("--api", action="store_true", help="用云端 OpenAI 兼容接口，不跑本地模型")
+    ap.add_argument("--thinking", action="store_true",
+                    help="允许千问模型先思考（实测一个 40 行窗口会烧到 240 秒超时，默认关掉）")
     ap.add_argument("--base-url", default=API_BASE, help="OpenAI 兼容入口地址")
     ap.add_argument("--llm-model", default=API_MODEL, help="云端模型名（如 qwen-plus / qwen-max）")
     ap.add_argument("--workers", type=int, default=8, help="云端并发线程数")
@@ -471,8 +485,8 @@ def main():
     LLM_NAME = args.llm_model if args.api else os.path.basename(MODEL_DIR)
     FIX_TAG = f"fix:{LLM_NAME}:{RULES_VER}"
     # 云端窗口开大能大幅减少调用次数（上下文不再只靠 4 行），但单次回复也要给够
-    args.chunk = args.chunk or (160 if args.api else 40)
-    args.max_tokens = args.max_tokens or (3000 if args.api else 1200)
+    args.chunk = args.chunk or (80 if args.api else 40)
+    args.max_tokens = args.max_tokens or (4000 if args.api else 1200)
     if args.probe:
         args.limit = args.probe
         args.show_log = args.show_log or 40
@@ -491,8 +505,8 @@ def main():
         if args.book:
             wanted = set(args.book)
             items = [it for it in items if it[1] in wanted]
-        elif not args.all:
-            ap.error("需要 --all / --book 书名 / --files 文件列表 之一")
+        elif not (args.all or args.probe):
+            ap.error("需要 --all / --book 书名 / --files 文件列表 / --probe N 之一")
         items = [it for it in items if T.part_valid(T.part_path(it[1], it[2]), os.path.getsize(it[0]))]
         # 与转写同序：最近听过的书先修，你最先在自己正在听的那本上看到效果
         recent = {b: i for i, b in enumerate(T.recent_books())}

@@ -75,6 +75,24 @@ SPLIT_MAX = 34
 INITIAL_PROMPT = "以下是简体中文有声书朗读，请用简体中文书写，只使用简体中文汉字。"
 
 
+def api_key():
+    """百炼密钥：优先环境变量，其次读仓库外的密钥文件。
+
+    转写与校对两个工具共用。流水线是后台跑的，不能要求每次 export；
+    但密钥绝对不能进仓库，所以默认文件在 ~/.config/sonux/llm-key（chmod 600）。
+    """
+    key = os.environ.get("DASHSCOPE_API_KEY") or os.environ.get("SONUX_LLM_API_KEY")
+    if key:
+        return key.strip()
+    path = os.environ.get("SONUX_LLM_KEY_FILE",
+                          os.path.expanduser("~/.config/sonux/llm-key"))
+    try:
+        with open(path) as fh:
+            return fh.readline().strip() or None
+    except OSError:
+        return None
+
+
 def ffmpeg_path():
     p = os.popen("command -v ffmpeg 2>/dev/null").read().strip()
     if p:
@@ -664,8 +682,8 @@ def main():
     ap.add_argument("--files", nargs="*")
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--jobs", type=int, default=0, help="并行数（默认 mlx 3 个、ct2 6 个）")
-    ap.add_argument("--backend", choices=("auto", "mlx", "ct2"), default="auto",
-                    help="auto：有 tools/.venv-mlx 就走 GPU 大模型")
+    ap.add_argument("--backend", choices=("auto", "mlx", "ct2", "dashscope"), default="auto",
+                    help="auto：有 tools/.venv-mlx 就走 GPU 大模型；dashscope 只用云端结果打包")
     ap.add_argument("--model", help="ct2 为本地模型目录，mlx 为 huggingface 仓库名")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--fresh", action="store_true", help="已转写的章也重跑")
@@ -680,6 +698,10 @@ def main():
     if args.backend == "ct2":
         ASR_BACKEND = "ct2"
         ASR_MODEL = args.model or MODEL_DIR
+    elif args.backend == "dashscope":
+        # 转写本身不在这里跑（由 tools/dashscope-asr.py 做），这里只负责按同一标签打包
+        ASR_BACKEND = "dashscope"
+        ASR_MODEL = args.model or os.environ.get("SONUX_DS_ASR_MODEL", "fun-asr")
     elif args.backend == "auto":
         ASR_BACKEND = "mlx" if os.path.exists(MLX_PY) else "ct2"
         if ASR_BACKEND == "ct2":
