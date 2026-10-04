@@ -381,10 +381,17 @@ struct BookCoverView: View {
 /// 整卡按下反馈：卡片做成真 Button 才有按下高亮（.plain 样式按下毫无变化，
 /// 用户会以为「点了没反应」）。只做明暗不做缩放，免得与同层的播放键对不齐
 struct PressableCardStyle: ButtonStyle {
+    /// 日志里用来分辨是哪一张卡（配合触摸探针，能定位「触摸进来了但按钮没被按下」）
+    var logName: String = ""
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .opacity(configuration.isPressed ? 0.55 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { pressed in
+                guard !logName.isEmpty else { return }
+                NSLog("[sonux] probe: 整卡按钮「%@」%@", logName, pressed ? "按下" : "松手")
+            }
     }
 }
 
@@ -406,7 +413,7 @@ struct BookGridCard: View {
                 cardBody
                     .padding(10)
             }
-            .buttonStyle(PressableCardStyle())
+            .buttonStyle(PressableCardStyle(logName: book.title))
 
             // 与封面同宽同比例的透明垫块，把播放键钉在封面正中；垫块自己不参与点击
             Color.clear
@@ -471,6 +478,9 @@ struct BookGridCard: View {
                 .background(Circle().fill(.ultraThinMaterial))
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 1)
+                // 视觉只有 46pt，热区扩到 68pt：擦着圆边点要能算点中。它在 overlay 里居中，
+                // 扩出去的部分不会挤到封面与文字的排版
+                .frame(width: 68, height: 68)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

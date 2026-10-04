@@ -264,7 +264,7 @@ private struct BookRow: View {
                 // 与卡片网格、历史页同一套白卡：浅色模式下 secondarySystemGroupedBackground 就是纯白
                 .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
             }
-            .buttonStyle(PressableCardStyle())
+            .buttonStyle(PressableCardStyle(logName: book.title))
 
             HStack(spacing: 0) {
                 Spacer(minLength: 0)

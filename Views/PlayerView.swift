@@ -28,6 +28,9 @@ struct PlayerView: View {
 
     /// 左上返回与右上章节入口圆底共用的直径，取自详情页导航栏返回按钮的实测尺寸
     private static let circleButtonDiameter: CGFloat = 45
+    /// 圆底按钮的可点范围：比视觉圆大一圈（Apple 建议的最小触控边距是 44pt，
+    /// 视觉 45pt 的圆擦边点不中且没有任何反馈，扩到 68 才容得下手抖）
+    private static let buttonHitDiameter: CGFloat = 68
 
     /// 进度条两侧快退/快进的步长（秒），与锁屏的跳过区间一致
     private static let skipSeconds: TimeInterval = 15
@@ -169,27 +172,38 @@ struct PlayerView: View {
             .accessibilityLabel(LF("%d Chapters", book?.chapters.count ?? 0))
     }
 
-    /// 圆底图标按钮：尺寸与材质与详情页导航栏返回按钮一致
+    /// 圆底图标按钮：视觉尺寸与材质与详情页导航栏返回按钮一致。
+    /// 热区单独扩到 buttonHitDiameter —— 只有 45pt 的圆擦着边就点不中，而点不中是无声的：
+    /// 播放页还盖在上面，用户以为「后面那几本书点不开了」。扩出来的空间用负边距抵消，
+    /// 排版与画面位置完全不变（负值 = -(热区-视觉)/2）
     @ViewBuilder
     private func circleButton(glyph name: String, action: @escaping () -> Void) -> some View {
         let glyph = Image(systemName: name)
             .font(.system(size: 21, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: Self.circleButtonDiameter, height: Self.circleButtonDiameter)
-            .contentShape(Circle())
+        let slop = (Self.buttonHitDiameter - Self.circleButtonDiameter) / 2
 
         if #available(iOS 26.0, *) {
             Button(action: action) {
                 glyph.glassEffect(.regular.interactive(), in: Circle())
+                    .frame(width: Self.buttonHitDiameter, height: Self.buttonHitDiameter)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, -slop)
+            .padding(.vertical, -slop)
         } else {
             Button(action: action) {
                 glyph
                     .background(Circle().fill(.ultraThinMaterial))
                     .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 1))
+                    .frame(width: Self.buttonHitDiameter, height: Self.buttonHitDiameter)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, -slop)
+            .padding(.vertical, -slop)
         }
     }
 
