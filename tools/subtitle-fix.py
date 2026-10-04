@@ -513,13 +513,11 @@ def main():
         # 与转写同序：最近听过的书先修，你最先在自己正在听的那本上看到效果
         recent = {b: i for i, b in enumerate(T.recent_books())}
         items.sort(key=lambda it: (recent.get(it[1], len(recent)), T.lsc(it[1]), T.lsc(it[2])))
-    if args.limit:
-        items = items[:args.limit * 4]      # 先粗筛，再按待修名单取前 N（下面限）
-
     authors = T.book_authors()
     todo = [it for it in items if not fix_done(fix_path(it[1], it[2]), os.path.getsize(it[0]))]
     if args.limit:
-        # 限流要作用在「待修」上：先截 items 的话，后续每轮会反复拿到已修完的前 N 章空转
+        # 只截「待修」名单。早先还额外把 items 截到 limit*4，结果待修的章全落在
+        # 截断线之后，看门狗每轮都报「没有待修的章」空转了两个小时
         todo = todo[:args.limit]
     print(f"共 {len(items)} 章，待修 {len(todo)} 章，模型 {LLM_NAME}"
           + ("（云端）" if args.api else "（本地）"), flush=True)
