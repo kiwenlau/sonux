@@ -127,10 +127,7 @@ struct RootView: View {
     }
 
     /// 「继续收听」条。只要听过书就常显（没在播时挂的是最近收听的那本，见 SonuxApp）。
-    /// 作为 tab 内容的兄弟视图排在自绘 tab 栏上方：
-    /// 既不会遮住 tab（参考微信听书：tab 在最下，播放条在其上），
-    /// 也不会像 .safeAreaInset 那样被外层 ignoresSafeArea 抵消——
-    /// 那样页面内容会一直铺到屏幕底，最后一章永远滚不出播放条的范围
+    /// 排在 tab 栏上方，与 tab 栏同在一块面板里（见 bottomPanel）
     @ViewBuilder
     private var miniPlayerBar: some View {
         if player.currentBook != nil {
@@ -169,8 +166,9 @@ struct RootView: View {
     }
 
     /// 一个 tab 的全部内容：自己的导航栈、正在播放条、再加自己那份 tab 栏。
-    /// 每个 tab 各自画一份 tab 栏，高亮的就是本 tab（常量），不需要状态传播就能正确高亮；
-    /// 系统 tab 栏（iOS 26 是悬浮玻璃胶囊，改不了样式）隐藏掉
+    /// 每 tab 各自画一份 tab 栏，高亮的就是本 tab（常量），不需要状态传播就能正确高亮；
+    /// 系统 tab 栏（iOS 26 是悬浮玻璃胶囊，改不了样式）隐藏掉。
+    /// 面板排在正文下方而不是叠在上面：正文到面板上沿就截断，不会从底下滑过去
     private func tabView(_ tab: AppTab) -> some View {
         VStack(spacing: 0) {
             Group {
@@ -182,7 +180,25 @@ struct RootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+            bottomPanel(tab)
+        }
+        // tab 栏要贴到屏幕最底（盖住主屏指示条），整块内容才会在底部留白
+        .ignoresSafeArea(edges: .bottom)
+        // 系统那一条悬浮玻璃 tab 栏藏掉（要从 tab 内容里声明才生效），用自绘的
+        .toolbar(.hidden, for: .tabBar)
+        .tabItem { Label(tab.title, systemImage: tab.icon) }
+        .tag(tab)
+    }
+
+    /// 底部一整块面板：「继续收听」条在上、tab 栏在下，两块共用同一层底色
+    /// （微信听书就是一整块，不是两条颜色不同的条），中间靠一条细分割线区隔
+    private func bottomPanel(_ tab: AppTab) -> some View {
+        VStack(spacing: 0) {
             miniPlayerBar
+
+            Rectangle()
+                .fill(Color(.separator))
+                .frame(height: 0.5)
 
             TabBarView(selection: tab) { tapped in
                 // 再点当前 tab 退回根页面，其他情况切 tab
@@ -193,12 +209,7 @@ struct RootView: View {
                 }
             }
         }
-        // tab 栏要贴到屏幕最底（盖住主屏指示条），整块内容才会在底部留白
-        .ignoresSafeArea(edges: .bottom)
-        // 系统那一条悬浮玻璃 tab 栏藏掉（要从 tab 内容里声明才生效），用自绘的
-        .toolbar(.hidden, for: .tabBar)
-        .tabItem { Label(tab.title, systemImage: tab.icon) }
-        .tag(tab)
+        .background(Color(.systemBackground))
     }
 
     var body: some View {
@@ -222,7 +233,8 @@ struct RootView: View {
     }
 }
 
-/// 底部标签栏：参考微信读书——通栏不透明底、顶部一条细分割线、图标加小字。
+/// 底部标签栏：参考微信读书——图标加小字，选中只换主题色。
+/// 底色与上方的「继续收听」条共用，由 bottomPanel 统一铺，这里只管排版。
 /// selection 由所属 tab 传入且永不变化（每个 tab 自己一份），避开 SwiftUI 子视图不刷新的坑
 private struct TabBarView: View {
     let selection: AppTab
@@ -262,12 +274,6 @@ private struct TabBarView: View {
         .padding(.top, Self.topPadding)
         // 主屏指示条那一条也归 tab 栏，背景铺满才不会有割裂感
         .padding(.bottom, max(HomeIndicator.inset - Self.topPadding, 0))
-        .background(Color(.systemBackground))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color(.separator))
-                .frame(height: 0.5)
-        }
     }
 }
 

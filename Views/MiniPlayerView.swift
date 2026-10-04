@@ -76,7 +76,7 @@ struct MiniPlayerView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 52)
-        .background(.bar)
+        // 不自己铺底：与下方 tab 栏共用 RootView 那一整块底色，两条才不是一个颜色
     }
 }
 
