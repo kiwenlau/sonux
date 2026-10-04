@@ -427,6 +427,95 @@ def seam_check(llm, args, book, chap, lines, cuts):
     return out
 
 
+_CANNED = {}       # 书名 → {12 字滑窗: 出现过的章数}
+_WIN = 12
+
+
+def canned_index(book):
+    """本书「同一句话出现在第几章」的索引。
+
+    广告是罐头：同一段宣传词会在几十章里逐字重现；正文不会。第一遍的 adcheck-refine
+    就是靠这个判中间插播，但它只留了 73 条记录，覆盖不到这一遍新找的刀，
+    所以这里按缓存分段自己算一遍。
+    """
+    if book in _CANNED:
+        return _CANNED[book]
+    idx = {}
+    d = os.path.join(AC.ROOT, "tools", "adcheck-cache")
+    try:
+        names = sorted(os.listdir(os.path.join(TR, book + ".json"))) and None
+    except Exception:
+        names = None
+    chapters = sorted(json.load(open(os.path.join(TR, book + ".json"), encoding="utf-8"))["chapters"])
+    for chap in chapters:
+        rel = f"TestBooks/{book}/{chap}"
+        txt = norm_txt("".join(t["t"] for t in AC.load_cache_segments(rel)))
+        seen = set()
+        for i in range(0, max(0, len(txt) - _WIN + 1)):
+            g = txt[i:i + _WIN]
+            if len(g) == _WIN:
+                seen.add(g)
+        for g in seen:
+            idx[g] = idx.get(g, 0) + 1
+    _CANNED[book] = idx
+    return idx
+
+
+def norm_txt(t):
+    return re.sub(r"\W", "", t or "", flags=re.UNICODE)
+
+
+def is_canned(book, txt, args):
+    """这段文本是不是罐头宣传：有连续 _WIN 字在本书另外至少 --canned-in 章里逐字出现过。"""
+    t = norm_txt(txt)
+    if len(t) < _WIN:
+        return False
+    idx = canned_index(book)
+    hit = sum(1 for i in range(0, len(t) - _WIN + 1)
+              if idx.get(t[i:i + _WIN], 0) >= args.canned_in)
+    return hit >= max(2, (len(t) - _WIN + 1) // 4)
+
+
+def cache_evidence(rel, a, b, args):
+    """用第一遍那份更细的 whisper-small 分段，独立看一眼这一刀切掉的是什么。
+
+    大模型读的字幕出自 whisper-large，它会把十几秒音频塌成一行——实测「《静雅思听》
+    让智慧也动听」占了 13.4 秒，而缓存里那 13 秒全是正文「就是不管你干得好不好 /
+    你一直在干才是好员工 / 在日本加班是正常现象」。照大字幕的边界下刀就连正文一起切了。
+    adcheck 的缓存是 2 秒粒度，正好当旁证：
+      True  = 区间内几乎没人说话（音乐底）或文案命中广告/信息卡特征 → 这刀能切
+      False = 区间内是成句文本又不含广告特征 → 不能切
+      None  = 没有缓存可参照（让调用方退回用时间可信度判断）
+    """
+    segs = AC.load_cache_segments(rel)
+    if not segs:
+        return None, "无缓存旁证"
+    inside = [t for t in segs if t["e"] > a + 0.2 and t["b"] < b - 0.2]
+    txt = "".join(t["t"] for t in inside)
+    n = len(re.sub(r"\W", "", txt, flags=re.UNICODE))
+    if n < args.min_body:
+        return True, f"区间内几乎无人说话（{n} 字）"
+    if AD_RE.search(txt) or CARD_RE.search(txt):
+        return True, "缓存文案命中广告/信息卡特征"
+    if is_canned(rel.split("/")[1], txt, args):
+        return True, "罐头文案在本书多章逐字重现"
+    return False, f"区间内是成句文本（{n} 字，无广告特征、未跨章重现）"
+
+
+def untrustworthy(line, args):
+    """这一行的起止时间能不能信。
+
+    whisper 会把一大段音频塌成一行：实测「《静雅思听》 让智慧也动听」占了 13.4 秒，
+    而那 13 秒里其实还有 9 秒正文。照这种行的边界下刀就会连正文一起切掉（第一遍验收
+    把这类刀标成「无内容证据」拦下了）。中文朗读正常 4~6 字/秒，低于阈值就是塌行。
+    """
+    span = line[1] - line[0]
+    if span > args.max_span:
+        return True
+    n = len(re.sub(r"\W", "", line[2], flags=re.UNICODE))
+    return span > args.rate_min_span and n / span < args.min_rate
+
+
 def cut_text(lines, a, b):
     """切口覆盖到的字幕原文（进报告用，长句截断）。"""
     return " ".join(l[2] for l in lines if l[0] >= a - 0.01 and l[1] <= b + 0.01)[:120]
@@ -475,10 +564,10 @@ def scan_chapter(llm, args, book, chap, lines):
         a, b = bounds(lines, g, dur)
         # 单句字幕跨度超过上限 = ASR 把一大段音频塌成了一句（常发生在配乐/口播段），
         # 它的起止时间不可信，拿它下刀可能一下吃掉一分多钟正文，只能退回人工/声学复核
-        long_ones = [i for i in g if lines[i][1] - lines[i][0] > args.max_span]
-        if long_ones:
+        bad = [i for i in g if untrustworthy(lines[i], args)]
+        if bad:
             sus_span.append((a, b, sorted({cats_by_line[i] for i in g if i in cats_by_line}),
-                             f"行时长不可信（{len(long_ones)} 句跨度 >{args.max_span:.0f}s）"))
+                             f"行时长不可信（{len(bad)} 句语速低于 {args.min_rate} 字/秒或跨度 >{args.max_span:.0f}s）"))
             continue
         if b - a >= args.min_cut:
             cand.append(((a, b), sorted({cats_by_line[i] for i in g if i in cats_by_line})))
@@ -525,7 +614,8 @@ def scan_chapter(llm, args, book, chap, lines):
         snap_note = []
     ev = [f"标注 {len(cats_by_line)} 行 → 复核通过 {len(kept)} 行 → 候选 {len(cand)} 刀"
           f" → 采纳 {len(cuts)} 刀，退回 {len(over) + len(back)} 刀",
-          "；".join(f"{a:.0f}-{b:.0f}s[{','.join(c)}]{w}" for a, b, c, w in over + back)[:280] or "无退回"] + snap_note
+          "；".join(f"{a:.0f}-{b:.0f}s[{','.join(c)}]{w}" for a, b, c, w in over + back)[:280] or "无退回",
+          "旁证：" + "；".join(weak)[:200] if weak else "无旁证"] + snap_note
     mixed = any(len(t[2]) > args.mixed_len and not (AD_RE.search(t[2]) or CARD_RE.search(t[2]))
                 for a, b in cuts
                 for t in lines if a <= t[0] and t[1] <= b)
@@ -607,6 +697,14 @@ def main():
     ap.add_argument("--head-tail", type=float, default=45.0, help="多长算片头/片尾")
     ap.add_argument("--max-span", type=float, default=20.0,
                     help="单句字幕跨度超过此秒数视为时间不可信，只标记不下刀")
+    ap.add_argument("--canned-in", type=int, default=3,
+                    help="连续 12 字在本书另外几章逐字重现就算罐头宣传（12 字窗口）")
+    ap.add_argument("--min-body", type=int, default=12,
+                    help="切区里缓存文本超过此字数且无广告特征，就判它切到了正文")
+    ap.add_argument("--min-rate", type=float, default=2.2,
+                    help="低于此字/秒算 whisper 塌行（正常中文朗读 4~6 字/秒），该行不下刀")
+    ap.add_argument("--rate-min-span", type=float, default=5.0,
+                    help="跨度超过此秒数才做语速检查（短句本来语速就低）")
     ap.add_argument("--mixed-len", type=int, default=24,
                     help="刀内出现长于此字数又不含广告特征的句子，就标 needs_review（疑似混进正文）")
     ap.add_argument("--head-max", type=float, default=60.0,
@@ -621,6 +719,11 @@ def main():
     ap.add_argument("--no-snap", action="store_true", help="不做气口吸附（调试用）")
     ap.add_argument("--snap", action="store_true",
                     help="只给已有清单补做气口吸附（不重扫、不调模型）")
+    ap.add_argument("--regrade", action="store_true",
+                    help="对已有清单逐刀补做缓存旁证复核（第一遍那份更细的分段），"
+                         "切到正文的刀摘掉；不调模型")
+    ap.add_argument("--recheck", action="store_true",
+                    help="用当前判据复核已有清单，把塌行造成的刀摘掉（不调模型）")
     ap.add_argument("--emit", action="store_true", help="写 tools/adcuts-llm.jsonl 与报告")
     ap.add_argument("--overwrite", action="store_true", help="已扫过的章重扫（丢弃旧结果）")
     ap.add_argument("--union", action="store_true",
@@ -634,6 +737,88 @@ def main():
     if not key:
         sys.exit("没找到密钥：export DASHSCOPE_API_KEY=sk-...，或写进 ~/.config/sonux/llm-key")
     llm = LLM(API_BASE, key)
+
+    if args.regrade:
+        want = None
+        if args.only:
+            want = {ln.strip() for ln in open(args.only, encoding="utf-8") if ln.strip()}
+        rows, kept, dropped, secs = [], 0, 0, 0.0
+        for line in open(PLAN_OUT, encoding="utf-8"):
+            r = json.loads(line)
+            if r.get("cuts") and (want is None or r["file"] in want):
+                book, chap = r["file"].split("/")[1], r["file"].split("/")[2]
+                keep = []
+                for a, b in r["cuts"]:
+                    ok, why = cache_evidence(r["file"], a, b, args)
+                    if ok is None:
+                        # 没有缓存旁证时退回时间可信度判断：区间里只要有塌行就不切
+                        try:
+                            ch = json.load(open(os.path.join(TR, book + ".json")))["chapters"]
+                            lines = ch.get(chap) or ch.get(chap[:-4]) or []
+                        except Exception:
+                            lines = []
+                        inside = [l for l in lines if l[0] >= a - 0.05 and l[1] <= b + 0.05]
+                        if inside and any(untrustworthy(l, args) for l in inside):
+                            dropped += 1
+                            secs += b - a
+                            continue
+                    kept += 1
+                    keep.append([a, b])
+                r["cuts"] = keep
+                sec = round(sum(b - a for a, b in keep), 1)
+                r["cut_sec"], r["cut_pct"] = sec, round(100 * sec / max(1.0, r.get("dur") or 1), 2)
+            rows.append(r)
+        tmp = PLAN_OUT + f".{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            for r in rows:
+                fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+        os.replace(tmp, PLAN_OUT)
+        print(f"旁证复核：留 {kept} 刀，摘 {dropped} 刀（{secs/60:.1f} 分钟判为切到正文或时间不可信）；"
+              f"清单现在 {sum(len(r['cuts']) for r in rows)} 刀 / "
+              f"{sum(r['cut_sec'] for r in rows)/3600:.2f} 小时")
+        return
+
+    if args.recheck:
+        # 清单是早先用旧判据扫的：按现在的「语速/跨度」判据把不可信的刀摘掉，
+        # 不重新调模型（省一半时间），也保证清单与闸门规则一致
+        want = None
+        if args.only:
+            want = {ln.strip() for ln in open(args.only, encoding="utf-8") if ln.strip()}
+        rows, dropped, secs = [], 0, 0.0
+        for line in open(PLAN_OUT, encoding="utf-8"):
+            r = json.loads(line)
+            keep_cuts = list(r.get("cuts") or [])
+            if keep_cuts and (want is None or r["file"] in want):
+                book, chap = r["file"].split("/")[1], r["file"].split("/")[2]
+                try:
+                    ch = json.load(open(os.path.join(TR, book + ".json")))["chapters"]
+                    lines = ch.get(chap) or ch.get(chap[:-4]) or []
+                except Exception:
+                    lines = []
+                if lines:
+                    keep_cuts = []
+                    for a, b in r["cuts"]:
+                        inside = [l for l in lines if l[0] >= a - 0.05 and l[1] <= b + 0.05]
+                        if inside and any(untrustworthy(l, args) for l in inside):
+                            dropped += 1
+                            secs += b - a
+                            continue
+                        keep_cuts.append([a, b])
+                r["cuts"] = keep_cuts
+                sec = round(sum(b - a for a, b in keep_cuts), 1)
+                r["cut_sec"] = sec
+                r["cut_pct"] = round(100 * sec / max(1.0, r.get("dur") or 1), 2)
+                r["asr"] = RULES_VER      # 判据变了，标记成新版本，避免被旧结果误用
+            rows.append(r)
+        tmp = PLAN_OUT + f".{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            for r in rows:
+                fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+        os.replace(tmp, PLAN_OUT)
+        print(f"复核清单：摘掉 {dropped} 刀（共 {secs/60:.1f} 分钟时间不可信的刀），"
+              f"现在 {sum(len(r['cuts']) for r in rows)} 刀 / "
+              f"{sum(r['cut_sec'] for r in rows)/3600:.2f} 小时")
+        return
 
     if args.snap:
         want = None

@@ -184,7 +184,7 @@ def do_verify(n, dst_root, plan=PLAN):
                       " / ".join(x["t"] for x in segs[:4])[:120])
 
 
-def promote(dst_root, plan=PLAN):
+def promote(dst_root, plan=PLAN, books=None):
     """用干净文件替换 TestBooks/ 里的原文件（原文件挪到 TestBooks-original/）。
 
     plan 要跟着 --plan 走：第二遍去广告（adcuts-llm.jsonl）promote 时若还按默认的
@@ -192,7 +192,10 @@ def promote(dst_root, plan=PLAN):
     """
     bak = os.path.join(ROOT, "TestBooks-original")
     n = 0
-    for rel in [book_rel(r) for r in load_plan(plan)]:
+    rows = load_plan(plan)
+    if books:                       # 只搬这些书：第二遍是按书分批验收的，没过的不能上
+        rows = [r for r in rows if r["file"].split("/")[1] in books]
+    for rel in [book_rel(r) for r in rows]:
         src = os.path.join(SRC_ROOT, rel)
         new = os.path.join(dst_root, rel)
         if not os.path.exists(new):
@@ -223,7 +226,7 @@ def main():
     args = ap.parse_args()
 
     if args.promote:
-        promote(args.dest, args.plan)
+        promote(args.dest, args.plan, [args.book] if args.book else None)
         return
     if args.verify is not None:
         do_verify(args.verify, args.dest, args.plan)
