@@ -283,6 +283,11 @@ struct BottomPanelBackground: View {
                     .overlay(Color(.systemBackground).opacity(0.5))
             }
         }
+        // 纯装饰层，必须整块关掉命中测试：scaledToFill 的图片「尺寸」比面板高出一大截
+        // （方封面撑满 440 宽就有 440 高），而 clipped() 只裁绘制不裁点击 ——
+        // 不关的话这块看不见的巨物会盖在正文区上，把下面几排卡片的点击全吞掉，
+        // 表现就是「播了几本书之后，第 3 本怎么点都没反应、列表也滚不动」
+        .allowsHitTesting(false)
     }
 }
 
