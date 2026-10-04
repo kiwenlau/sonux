@@ -655,6 +655,38 @@ add("Sonux needs to restart to switch language.",
     uk="Щоб змінити мову, перезапустіть Sonux.", vi="Sonux cần khởi động lại để đổi ngôn ngữ.",
     zhhs="重启 Sonux 后即可切换为新语言。", zhtt="重新啟動 Sonux 後即會切換為新語言。")
 
+add("%d Chapters",
+    ar="%d فصل", ca="%d capítols", hr="%d poglavlja", cs="%d kapitol", da="%d kapitler",
+    nl="%d hoofdstukken", fr="%d chapitres", de="%d Kapitel", el="%d κεφάλαια", he="%d פרקים",
+    hi="%d अध्याय", hu="%d fejezet", id="%d Bab", it="%d capitoli", ja="%d 章", ko="%d화",
+    ms="%d Bab", nb="%d kapitler", pl="%d rozdziałów", ptbr="%d capítulos", ptpt="%d capítulos",
+    ro="%d capitole", ru="%d глав", sk="%d kapitol", es="%d capítulos", sv="%d kapitel",
+    th="%d บท", tr="%d bölüm", uk="%d розділів", vi="%d chương", zhhs="%d 章", zhtt="%d 章")
+
+add("Skip Backward 15 Seconds",
+    ar="تخطٍّ للخلف 15 ثانية", ca="Retrocedir 15 segons", hr="Skoči 15 sekundi unatrag",
+    cs="Přeskočit o 15 s zpět", da="Spring 15 sekunder tilbage", nl="15 seconden terugspoelen",
+    fr="Retour 15 secondes", de="15 Sek. zurück", el="Παράκαμψη 15 δευτ. πίσω",
+    he="דילוג לאחור 15 שניות", hi="15 सेकंड पीछे जाएँ", hu="15 másodperc vissza",
+    id="Mundur 15 detik", it="Indietro di 15 secondi", ja="15秒戻す", ko="15초 뒤로",
+    ms="Langkau 15 detik ke belakang", nb="Løp 15 sekunder bakover", pl="Przewiń o 15 s wstecz",
+    ptbr="Retroceder 15 segundos", ptpt="Recuar 15 segundos", ro="Sari înapoi 15 secunde",
+    ru="Перемотка на 15 с назад", sk="Preskočiť o 15 s späť", es="Retroceder 15 segundos",
+    sv="Spola bakåt 15 sekunder", th="ย้อนหลัง 15 วินาที", tr="15 saniye geri sar",
+    uk="Перемотати на 15 с назад", vi="Tua lùi 15 giây", zhhs="快退 15 秒", zhtt="快退 15 秒")
+
+add("Skip Forward 15 Seconds",
+    ar="تخطٍّ للأمام 15 ثانية", ca="Avançar 15 segons", hr="Skoči 15 sekundi unaprijed",
+    cs="Přeskočit o 15 s dopředu", da="Spring 15 sekunder frem", nl="15 seconden vooruitspoelen",
+    fr="Avance 15 secondes", de="15 Sek. vor", el="Παράκαμψη 15 δευτ. μπροστά",
+    he="דילוג קדימה 15 שניות", hi="15 सेकंड आगे जाएँ", hu="15 másodperc előre",
+    id="Maju 15 detik", it="Avanti di 15 secondi", ja="15秒送り", ko="15초 앞으로",
+    ms="Langkau 15 detik ke hadapan", nb="Løp 15 sekunder fremover", pl="Przewiń o 15 s do przodu",
+    ptbr="Avançar 15 segundos", ptpt="Avançar 15 segundos", ro="Sari înainte 15 secunde",
+    ru="Перемотка на 15 с вперёд", sk="Preskočiť o 15 s dopredu", es="Adelantar 15 segundos",
+    sv="Spola framåt 15 sekunder", th="ไปหน้า 15 วินาที", tr="15 saniye ileri sar",
+    uk="Перемотати на 15 с уперед", vi="Tua tới 15 giây", zhhs="快进 15 秒", zhtt="快進 15 秒")
+
 # ---------------- 生成 ----------------
 
 LITERAL = re.compile(r'\bLF?\(\s*"((?:[^"\\]|\\.)*)"')

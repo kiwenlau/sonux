@@ -29,6 +29,12 @@ struct PlayerView: View {
     /// 左上返回与右上章节入口圆底共用的直径，取自详情页导航栏返回按钮的实测尺寸
     private static let circleButtonDiameter: CGFloat = 45
 
+    /// 进度条两侧快退/快进的步长（秒），与锁屏的跳过区间一致
+    private static let skipSeconds: TimeInterval = 15
+    /// 快进快退按钮的点击框边长与到轨道的间距；时间行按同样宽度内缩，与轨道两端对齐
+    private static let skipButtonSide: CGFloat = 34
+    private static let skipToTrackGap: CGFloat = 8
+
     // 间距一律取自 8 的倍数刻度，全页节奏统一；
     // 松紧也表达分组关系：同一功能组内部间距小，组与组之间间距大；
     // 封面与播放组之间取 32：封面阴影向下扩散约 24pt，必须留出净距才不会压到章节名
@@ -314,22 +320,34 @@ struct PlayerView: View {
 
     // MARK: - 进度
 
+    /// 快退 15 秒、轨道、快进 15 秒排成一排（参考微信读书），时间行仍在其下方
     private var progress: some View {
         VStack(spacing: 6) {
-            Slider(
-                value: Binding(
-                    get: { scrubTime ?? player.currentTime },
-                    set: { scrubTime = $0 }
-                ),
-                in: 0...max(player.duration, 1),
-                onEditingChanged: { editing in
-                    if !editing, let t = scrubTime {
-                        player.seek(to: t)
-                        scrubTime = nil
-                    }
+            HStack(spacing: Self.skipToTrackGap) {
+                skipButton(glyph: "gobackward.15", label: L("Skip Backward 15 Seconds")) {
+                    player.skip(by: -Self.skipSeconds)
                 }
-            )
-            .tint(.white)
+
+                Slider(
+                    value: Binding(
+                        get: { scrubTime ?? player.currentTime },
+                        set: { scrubTime = $0 }
+                    ),
+                    in: 0...max(player.duration, 1),
+                    onEditingChanged: { editing in
+                        if !editing, let t = scrubTime {
+                            player.seek(to: t)
+                            scrubTime = nil
+                        }
+                    }
+                )
+                .tint(.white)
+
+                skipButton(glyph: "goforward.15", label: L("Skip Forward 15 Seconds")) {
+                    player.skip(by: Self.skipSeconds)
+                }
+            }
+
             HStack {
                 Text(TimeFormat.time(scrubTime ?? player.currentTime))
                 Spacer()
@@ -337,7 +355,22 @@ struct PlayerView: View {
             }
             .font(.caption.monospacedDigit())
             .foregroundStyle(.white.opacity(0.7))
+            // 两端让位给快进快退按钮，时间数字正好落在轨道起止点下方
+            .padding(.horizontal, Self.skipButtonSide + Self.skipToTrackGap)
         }
+    }
+
+    /// 快进/快退按钮：只用图标不加文字，符合播放页整体的极简排布
+    private func skipButton(glyph: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: glyph)
+                .font(.system(size: 21, weight: .regular))
+                .foregroundStyle(.white)
+                .frame(width: Self.skipButtonSide, height: Self.skipButtonSide)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     // MARK: - 主控制

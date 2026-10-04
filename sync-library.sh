@@ -44,9 +44,10 @@ xcrun simctl terminate booted "$BUNDLE_ID" 2>/dev/null || true
 
 if [ "$DO_DELETE" -eq 1 ]; then
   # 列出模拟器里有、仓库里没有的条目（这些会被删）
+  # transcripts/ 是字幕包（sync-transcripts.sh 管），也住在 Documents 里，不参与镜像删除
   EXTRA=()
   while IFS= read -r name; do
-    [ -n "$name" ] && EXTRA+=("$name")
+    [ -n "$name" ] && [ "$name" != "transcripts" ] && EXTRA+=("$name")
   done < <(comm -13 <(ls -1 "$SRC" | sort) <(ls -1 "$DOC" | sort))
   if [ "${#EXTRA[@]}" -gt 0 ]; then
     echo "⚠️  以下 ${#EXTRA[@]} 个条目只存在于模拟器，将被删除："
@@ -61,9 +62,13 @@ if [ "$DO_DELETE" -eq 1 ]; then
   fi
 fi
 
-RSYNC_ARGS=(-a --exclude '.DS_Store')
-# --delete-excluded：被排除的 .DS_Store 也要能删，否则旧书目录会因为只剩它而删不掉
-[ "$DO_DELETE" -eq 1 ] && RSYNC_ARGS+=(--delete --delete-excluded)
+RSYNC_ARGS=(-a --exclude '.DS_Store' --exclude 'transcripts/')
+# 不用 --delete-excluded：那样连上面 transcripts 的保护也会破掉，同步书库会顺手把字幕删了。
+# 它原本只是为了让「只剩 .DS_Store 的旧书目录」能被删干净，改成同步前显式清掉沙盒里的 .DS_Store。
+if [ "$DO_DELETE" -eq 1 ]; then
+  find "$DOC" -name '.DS_Store' -delete 2>/dev/null || true
+  RSYNC_ARGS+=(--delete)
+fi
 
 echo "📚 镜像 $SRC → $DOC"
 rsync "${RSYNC_ARGS[@]}" "$SRC/" "$DOC/"
@@ -77,4 +82,4 @@ fi
 echo "🚀 启动 Sonux…"
 xcrun simctl launch booted "$BUNDLE_ID" >/dev/null
 
-echo "✅ 完成：书库 $(ls -1 "$DOC" | wc -l | tr -d ' ') 本（源目录 $(ls -1 "$SRC" | wc -l | tr -d ' ') 本）"
+echo "✅ 完成：书库 $(ls -1 "$DOC" | grep -vx transcripts | wc -l | tr -d ' ') 本（源目录 $(ls -1 "$SRC" | wc -l | tr -d ' ') 本），字幕 $([ -d "$DOC/transcripts" ] && ls -1 "$DOC/transcripts" | wc -l | tr -d ' ' || echo 0) 本"

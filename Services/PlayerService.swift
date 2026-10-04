@@ -509,10 +509,11 @@ final class PlayerService: NSObject, ObservableObject {
             Task { @MainActor in self?.setSpeed(event.playbackRate) }
             return .success
         }
+        // 前后跳过区间都用 15 秒，与播放页进度条两侧的快进/快退按钮一致
         center.skipForwardCommand.isEnabled = true
-        center.skipForwardCommand.preferredIntervals = [30]
+        center.skipForwardCommand.preferredIntervals = [15]
         center.skipForwardCommand.addTarget { [weak self] event in
-            let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? 30
+            let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? 15
             Task { @MainActor in self?.skip(by: TimeInterval(interval)) }
             return .success
         }
