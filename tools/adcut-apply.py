@@ -184,11 +184,15 @@ def do_verify(n, dst_root, plan=PLAN):
                       " / ".join(x["t"] for x in segs[:4])[:120])
 
 
-def promote(dst_root):
-    """用干净文件替换 TestBooks/ 里的原文件（原文件挪到 TestBooks-original/）。"""
+def promote(dst_root, plan=PLAN):
+    """用干净文件替换 TestBooks/ 里的原文件（原文件挪到 TestBooks-original/）。
+
+    plan 要跟着 --plan 走：第二遍去广告（adcuts-llm.jsonl）promote 时若还按默认的
+    adcuts.jsonl 搬文件，会把第一遍的干净结果盖回 TestBooks，等于白切第二轮。
+    """
     bak = os.path.join(ROOT, "TestBooks-original")
     n = 0
-    for rel in [book_rel(r) for r in load_plan(PLAN)]:
+    for rel in [book_rel(r) for r in load_plan(plan)]:
         src = os.path.join(SRC_ROOT, rel)
         new = os.path.join(dst_root, rel)
         if not os.path.exists(new):
@@ -214,10 +218,12 @@ def main():
     ap.add_argument("--jobs", type=int, default=1)
     ap.add_argument("--verify", type=int, nargs="?", const=8, default=None)
     ap.add_argument("--promote", action="store_true")
+    ap.add_argument("--report", default=REPORT,
+                    help="审核清单落盘路径；第二遍去广告要另指一个文件，别覆盖第一遍的报告")
     args = ap.parse_args()
 
     if args.promote:
-        promote(args.dest)
+        promote(args.dest, args.plan)
         return
     if args.verify is not None:
         do_verify(args.verify, args.dest, args.plan)
@@ -239,7 +245,7 @@ def main():
             print(f"  {i+1}/{len(rows)}", flush=True)
     shutil.rmtree(tmp_root, ignore_errors=True)
 
-    with open(REPORT, "w", newline="") as fh:
+    with open(args.report, "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["书名", "章节", "原时长s", "切除s", "占比", "切口数", "切口位置", "需复核", "证据"])
         w.writerows(report)
@@ -247,7 +253,7 @@ def main():
     print(f"{'dry-run（未写文件）' if not args.apply else '已写入 ' + args.dest}："
           f"{len(report)} 章，共切除 {tot_cut/3600:.1f} 小时（成功 {stats['ok']}，跳过 {stats['skip']}，"
           f"失败 {stats['fail']}）")
-    print("→ 审核清单", REPORT)
+    print("→ 审核清单", args.report)
 
 
 if __name__ == "__main__":

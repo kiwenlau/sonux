@@ -607,8 +607,35 @@ def chapter_result(book, name, dirs):
             continue
         tag = str(row.get("asr", ""))
         if tag.startswith("fix:") or tag == asr_tag():
-            return row["lines"]
+            # 时长一律以 ASR 逐章结果里记的解码长度为准：纠错版文件里的 dur 存的是
+            # 最后一行字幕的结束时间，whisper 在尾部会漂，拿它钳等于没钳
+            return clamp_lines(row["lines"], asr_dur(book, name))
     return None
+
+
+def asr_dur(book, name):
+    """这一章音频的真实时长（whisper 读到的样本数算出来的），取不到就返 0。"""
+    try:
+        return float(json.load(open(os.path.join(PARTS, book, name + ".json"))).get("dur") or 0)
+    except Exception:
+        return 0.0
+
+
+def clamp_lines(lines, dur):
+    """把字幕时间钳回音频实际长度。
+
+    whisper 的段时间会在结尾越界：实测 588/1589 章的最后一行超出音频实际时长（最多 +30s，
+    短章节能到 20%），App 里表现为最后一句字幕多挂几十秒。逐章结果不重转写，
+    在读取处钳一下就好，越出时长之外的整行丢掉。
+    """
+    if not dur:
+        return lines
+    out = []
+    for a, b, t in lines:
+        if a >= dur:
+            continue
+        out.append([a, min(b, dur), t])
+    return out
 
 
 def iter_book_chapters(book):

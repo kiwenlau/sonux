@@ -44,7 +44,9 @@ import adcheck as A  # noqa: E402
 ROOT = A.ROOT
 PLAN = os.path.join(ROOT, "tools", "adcuts.jsonl")
 RAW = os.path.join(ROOT, "tools", "adcheck.jsonl")
-CLEAN = os.path.join(ROOT, "TestBooks-clean")
+# 切好的文件在哪一轮的目录里：第一遍是 TestBooks-clean，第二遍（语义普查）是 TestBooks-clean2。
+# 用环境变量传给 multiprocessing 的子进程（macOS 上 spawn 起的子进程不会继承改过的全局量）。
+CLEAN = os.path.join(ROOT, os.environ.get("SONUX_AUDIT_CLEAN") or "TestBooks-clean")
 OUT_CSV = os.path.join(ROOT, "tools", "adcheck-audit.csv")
 CLIP_DIR = os.path.join(ROOT, "tools", "待听样本")
 WIN = 10            # 罐头短语滑窗字数
@@ -295,14 +297,22 @@ def export_clips(rows, sus, nmax=12):
 
 
 def main():
+    global CLEAN, OUT_CSV      # --clean / --out 会改写模块级路径，父子进程都要跟着变
     ap = argparse.ArgumentParser(description="自动验收切除结果")
     ap.add_argument("--plan", default=PLAN)
+    ap.add_argument("--clean", default="TestBooks-clean",
+                    help="切好的文件目录；第二遍去广告用 TestBooks-clean2")
+    ap.add_argument("--out", default=os.path.join(ROOT, "tools", "adcheck-audit.csv"),
+                    help="验收 CSV 落盘路径")
     ap.add_argument("--book")
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--deep", type=int, default=0, help="随机抽 N 章做整章重转写")
     ap.add_argument("--export-suspects", action="store_true")
     args = ap.parse_args()
 
+    CLEAN = os.path.join(ROOT, args.clean)
+    OUT_CSV = args.out
+    os.environ["SONUX_AUDIT_CLEAN"] = args.clean     # 让子进程也读到同一份
     rows = [r for r in A.load_rows(args.plan) if "cuts" in r]
     if args.book:
         rows = [r for r in rows if r["file"].split("/")[1] == args.book]

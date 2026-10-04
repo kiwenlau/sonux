@@ -25,8 +25,12 @@ from adcheck import ROOT, keep_ranges  # noqa: E402
 PLAN = os.path.join(ROOT, "tools", "adcuts.jsonl")
 
 
-def load_map(plan_path):
-    """chapterId（书/文件名）→ (cuts, 新时长)。"""
+def load_map(plan_path, books=None):
+    """chapterId（书/文件名）→ (cuts, 新时长)。
+
+    books 用来限定「哪些书已经真的换过文件」：清单里含全书目的切口，不过滤就会把
+    还没 promote 的书的进度也一起往前挪，等于让人家丢掉几十秒没听过的内容。
+    """
     out = {}
     for line in open(plan_path):
         try:
@@ -36,6 +40,8 @@ def load_map(plan_path):
         if "cuts" not in r or not r["cuts"]:
             continue
         rel = r["file"]
+        if books and rel.split("/")[1] not in books:
+            continue
         rel = rel[len("TestBooks/"):] if rel.startswith("TestBooks/") else rel
         keeps = keep_ranges(r["dur"], r["cuts"])
         out[rel] = (sorted(r["cuts"]), sum(e - s for s, e in keeps))
@@ -59,10 +65,11 @@ def main():
     ap = argparse.ArgumentParser(description="重映射收听进度到新时间轴")
     ap.add_argument("progress")
     ap.add_argument("--plan", default=PLAN)
+    ap.add_argument("--book", action="append", help="只换算这些书（可重复）；不给就是全部")
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
 
-    m = load_map(args.plan)
+    m = load_map(args.plan, args.book)
     d = json.load(open(args.progress))
     changed = 0
     for sect in ("books", "chapters"):

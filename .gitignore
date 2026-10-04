@@ -47,3 +47,10 @@ TestBooks-original/
 # Xcode 用户个人状态（窗口布局、方案管理等）
 xcuserdata/
 *.xcuserstate
+
+# 第二遍去广告（语义普查）的运行产物，都能由脚本重算，不入库
+TestBooks-clean2/
+tools/adcuts-llm.jsonl
+tools/adcheck-llm-report.csv
+tools/adcut-report-llm*.csv
+tools/adcheck-audit-llm*.csv
