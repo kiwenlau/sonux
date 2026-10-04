@@ -58,6 +58,16 @@ while true; do
   fi
   say "===== 第 ${round} 轮 · 可用内存 $(free_gb)GB · 校对后端 $FIX_MODE · 转写进度 $(count)"
 
+  # 上一轮被强杀时可能留下孤儿 worker（SIGKILL 连 atexit 都跑不到）：一个本地校对
+  # worker 吃 7.8GB，两三个就能把机器顶到 OOM，而且它们还在写旧版结果
+  stale=$(( $(pgrep -f "transcribe.py --mlx-worker" | wc -l) + $(pgrep -f "subtitle-fix.py --shard" | wc -l) ))
+  if [ "$stale" -gt 0 ]; then
+    say "→ 清掉上一轮残留的 ${stale} 个 worker 进程"
+    pkill -9 -f "transcribe.py --mlx-worker" 2>/dev/null
+    pkill -9 -f "subtitle-fix.py --shard" 2>/dev/null
+    sleep 3
+  fi
+
   # ---------- 1. 转写（whisper large-v3-turbo，GPU）----------
   say "→ 转写一批（≤${ASR_BATCH} 章）"
   python3 tools/transcribe.py --all --jobs 3 --limit "$ASR_BATCH" 2>&1 | tail -3

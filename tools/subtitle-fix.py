@@ -427,6 +427,8 @@ def spawn_workers(todo, args):
         procs.append((proc, path))
         threading.Thread(target=lambda p=proc: [lines_q.put(l) for l in p.stdout],
                          daemon=True).start()
+    # 本地 worker 每个吃 7.8GB，父进程被杀时必须带走它们，不然变孤儿把机器顶爆
+    T.guard_children([p for p, _ in procs])
     t0, n, done = time.time(), 0, 0
     alive = len(procs)
     while alive:

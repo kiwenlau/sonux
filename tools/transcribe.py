@@ -434,6 +434,31 @@ def transcribe_mlx(path, model, prompt=None):
     return dur, segs
 
 
+def guard_children(procs):
+    """父进程退出或被杀时，顺手带走 worker。
+
+    不这么做就会留下孤儿进程：一个本地 14B worker 吃 7.8GB，两个孤儿就把 48GB
+    机器顶到只剩 20% 可用（实际发生过），而且它们还在继续写旧版结果。
+    SIGKILL 拦不住，所以 subtitle-autopilot.sh 每轮开头还会再扫一遍残留。
+    """
+    import atexit
+    import signal
+
+    def cleanup(*_):
+        for p in procs:
+            try:
+                p.terminate()
+            except Exception:
+                pass
+
+    atexit.register(cleanup)
+    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        try:
+            signal.signal(sig, lambda *_: (cleanup(), sys.exit(1)))
+        except (ValueError, OSError):
+            pass
+
+
 def free_memory_gb():
     """可用内存（GB）。
 
@@ -524,6 +549,7 @@ def spawn_mlx(items, model, jobs, pack_every=60):
         procs.append((proc, shard_file))
         threading.Thread(target=lambda p=proc: [lines_q.put(l) for l in p.stdout],
                          daemon=True).start()
+    guard_children([p for p, _ in procs])
     t0, done, n = time.time(), 0, 0
     alive = len(procs)
     while alive:
