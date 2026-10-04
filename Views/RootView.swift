@@ -103,6 +103,8 @@ struct RootView: View {
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
     @StateObject private var routers = TabRouters()
+    /// 封面图：底部面板要晕上当前这本书封面的颜色
+    @ObservedObject private var coverStore = CoverStore.shared
 
     /// 栈内每一页的内容：按路由值取当前数据，书被删掉时页面自然变空
     @ViewBuilder
@@ -190,7 +192,13 @@ struct RootView: View {
         .tag(tab)
     }
 
-    /// 底部一整块面板：「继续收听」条在上、tab 栏在下，两块共用同一层底色
+    /// 面板出血用的封面：当前这本书的封面图（没提取到就不晕色）
+    private var bleedCover: UIImage? {
+        guard let book = player.currentBook else { return nil }
+        return coverStore.image(for: book)
+    }
+
+    /// 底部一整块面板：「继续收听」条在上、tab 栏在下，两块共用同一层底
     /// （微信听书就是一整块，不是两条颜色不同的条），中间靠一条细分割线区隔
     private func bottomPanel(_ tab: AppTab) -> some View {
         VStack(spacing: 0) {
@@ -209,7 +217,7 @@ struct RootView: View {
                 }
             }
         }
-        .background(Color(.systemBackground))
+        .background(BottomPanelBackground(cover: bleedCover))
     }
 
     var body: some View {
@@ -230,6 +238,40 @@ struct RootView: View {
         .environmentObject(routers)
         .animation(.spring(response: 0.38, dampingFraction: 0.86), value: player.showPlayer)
         .tint(.indigo)
+        // 面板要晕封面色，但从列表直接进播放页时可能还没提取过封面，在这里补上
+        .task(id: player.currentBook?.id) {
+            guard let book = player.currentBook else { return }
+            await coverStore.load(for: book)
+        }
+    }
+}
+
+/// 底部面板的底：白底上把当前这本书的封面糊开再压一层纱——只要封面的颜色晕染，
+/// 不要形状。直接把面板做半透明行不通：系统材质模糊半径太小，纱一薄底下列表的
+/// 白卡条纹就整条透上来（看着像渲染出错），纱一厚颜色也没了
+struct BottomPanelBackground: View {
+    /// 出血用的封面图；nil 就是纯底
+    let cover: UIImage?
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+
+            if let cover {
+                // 先用 Color.clear 把尺寸定在面板上：封面是方的，scaledToFill 会撑到
+                // 整屏宽那么高，直接放进 ZStack 会把面板底顶到正文区去糊住最后一排卡片
+                Color.clear
+                    .overlay(
+                        Image(uiImage: cover)
+                            .resizable()
+                            .scaledToFill()
+                            .blur(radius: 60)
+                    )
+                    .clipped()
+                    // 纱用同色底：浅色压淡、深色压暗，两种模式下文字都读得清
+                    .overlay(Color(.systemBackground).opacity(0.5))
+            }
+        }
     }
 }
 
@@ -272,7 +314,7 @@ private struct TabBarView: View {
         .frame(height: Self.contentHeight)
         .frame(maxWidth: .infinity)
         .padding(.top, Self.topPadding)
-        // 主屏指示条那一条也归 tab 栏，背景铺满才不会有割裂感
+        // 主屏指示条那一条也归 tab 栏，底铺满才不会有割裂感
         .padding(.bottom, max(HomeIndicator.inset - Self.topPadding, 0))
     }
 }
