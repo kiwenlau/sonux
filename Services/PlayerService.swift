@@ -48,6 +48,8 @@ final class PlayerService: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     /// 被打断前是否处于播放状态（用于中断结束后自动恢复）
     private var wasPlayingBeforeInterruption = false
+    /// 音频会话是否已激活过：setCategory/setActive 是同步阻塞调用，激活过一次就别每次点播放都重跑
+    private var audioSessionActivated = false
     /// 连续语速范围与步进：0.5x–3x，每格 0.1
     static let speedRange: ClosedRange<Double> = 0.5...3.0
     static let speedStep: Double = 0.1
@@ -445,10 +447,19 @@ final class PlayerService: NSObject, ObservableObject {
 
     /// 激活音频会话：只在真正要出声的那一刻调用。
     /// 早到 App 启动就激活，会抢走音频焦点，把用户正在别的 App 里听的音乐暂停掉。
+    /// setCategory / setActive 是同步阻塞调用（Apple 把它列为 runtime issue
+    /// “AVAudioSession Hang Risk”），模拟器里首次激活还要跑 CoreAudio 插件枚举，实测占主线程上百毫秒；
+    /// 会话没被系统收走就别重复跑，否则每次点播放都要卡一下
     private func activateAudioSession() {
+        guard !audioSessionActivated else { return }
         let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .spokenAudio, options: [])
-        try? session.setActive(true)
+        do {
+            try session.setCategory(.playback, mode: .spokenAudio, options: [])
+            try session.setActive(true)
+            audioSessionActivated = true
+        } catch {
+            NSLog("[sonux] play: 激活音频会话失败 %@", error.localizedDescription)
+        }
     }
 
     /// 已发起封面提取的书 id，避免同一本书重复调度
@@ -630,6 +641,8 @@ extension PlayerService {
                     guard let self = self else { return }
                     switch type {
                     case .began:
+                        // 系统把会话收走了，下次播放要重新激活
+                        self.audioSessionActivated = false
                         self.wasPlayingBeforeInterruption = self.isPlaying
                         self.player?.pause()
                         self.isPlaying = false
