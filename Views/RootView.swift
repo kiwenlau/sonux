@@ -126,7 +126,8 @@ struct RootView: View {
         Binding(get: { router.path }, set: { router.path = $0 })
     }
 
-    /// 「正在播放」收起条。作为 tab 内容的兄弟视图排在自绘 tab 栏上方：
+    /// 「继续收听」条。只要听过书就常显（没在播时挂的是最近收听的那本，见 SonuxApp）。
+    /// 作为 tab 内容的兄弟视图排在自绘 tab 栏上方：
     /// 既不会遮住 tab（参考微信听书：tab 在最下，播放条在其上），
     /// 也不会像 .safeAreaInset 那样被外层 ignoresSafeArea 抵消——
     /// 那样页面内容会一直铺到屏幕底，最后一章永远滚不出播放条的范围

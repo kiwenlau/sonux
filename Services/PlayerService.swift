@@ -179,11 +179,14 @@ final class PlayerService: NSObject, ObservableObject {
     }
 
     func seek(to time: TimeInterval) {
-        guard let player = player else { return }
-        let clamped = min(max(0, time), player.duration)
-        player.currentTime = clamped
+        let clamped = min(max(0, time), player?.duration ?? duration)
         currentTime = clamped
         reportPosition()
+        guard let player = player else {
+            // 只挂了位置没装载播放器：记下目标时间，按播放键就从这里出声
+            return
+        }
+        player.currentTime = clamped
         updateNowPlaying()
     }
 
@@ -227,6 +230,30 @@ final class PlayerService: NSObject, ObservableObject {
             player.rate = rounded // 确保生效
         }
         updateNowPlaying()
+    }
+
+    /// 是否已装载播放器：false 时只是挂着收听位置，不会出声
+    var hasPlayer: Bool { player != nil }
+
+    /// 把某本书的收听位置挂上但不播放：供常显的「继续收听」条使用。
+    /// 不创建 AVAudioPlayer、也不激活音频会话——按播放键才真正出声，
+    /// 冷启动打开 App 因此不会抢走用户正在别的 App 里听的音乐
+    func prepareToResume(book: Book, chapter: Chapter, at time: TimeInterval) {
+        guard player == nil else { return }
+        currentBook = book
+        currentChapter = chapter
+        duration = chapter.duration
+        currentTime = min(max(0, time), max(chapter.duration, 0))
+        isPlaying = false
+    }
+
+    /// 卸掉挂着但未播放的那本书（书被删掉时调用）；正在播放的不受影响
+    func unloadPrepared() {
+        guard player == nil else { return }
+        currentBook = nil
+        currentChapter = nil
+        currentTime = 0
+        duration = 0
     }
 
     func stop() {
