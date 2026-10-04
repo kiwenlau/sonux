@@ -229,48 +229,59 @@ private struct BookRow: View {
     let onPlay: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            BookCoverView(book: book)
-                .overlay {
-                    if isNowPlaying {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.indigo, lineWidth: 2)
+        // 整行「打开详情」与行尾播放键是平级兄弟（与书库卡片同一套做法）：
+        // 真 Button 才有按下高亮，也不会被 List 的滑动删除/长按菜单抢走点击
+        ZStack {
+            Button(action: onOpen) {
+                HStack(spacing: 12) {
+                    BookCoverView(book: book)
+                        .overlay {
+                            if isNowPlaying {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(Color.indigo, lineWidth: 2)
+                            }
+                        }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(book.title)
+                            .font(.headline)
+                            .foregroundStyle(isNowPlaying ? Color.indigo : Color.primary)
+                            .lineLimit(2)
+                        // 有作者显作者，否则退而显总时长；正在播放时作者也染浅靛蓝
+                        Text(book.author ?? TimeFormat.duration(book.totalDuration))
+                            .font(.subheadline)
+                            .foregroundStyle(isNowPlaying ? Color.indigo.opacity(0.55) : Color.secondary)
+                            .lineLimit(1)
                     }
+
+                    Spacer(minLength: 8)
+
+                    // 给上层播放键占好位置，整行宽度与原来一致
+                    Color.clear
+                        .frame(width: 34, height: 34)
                 }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(book.title)
-                    .font(.headline)
-                    .foregroundStyle(isNowPlaying ? Color.indigo : Color.primary)
-                    .lineLimit(2)
-                // 有作者显作者，否则退而显总时长；正在播放时作者也染浅靛蓝
-                Text(book.author ?? TimeFormat.duration(book.totalDuration))
-                    .font(.subheadline)
-                    .foregroundStyle(isNowPlaying ? Color.indigo.opacity(0.55) : Color.secondary)
-                    .lineLimit(1)
+                .padding(12)
+                // 与卡片网格、历史页同一套白卡：浅色模式下 secondarySystemGroupedBackground 就是纯白
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
             }
+            .buttonStyle(PressableCardStyle())
 
-            Spacer(minLength: 8)
-
-            Button(action: onPlay) {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.indigo)
-                    .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color.indigo.opacity(0.12)))
-                    .contentShape(Circle())
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Button(action: onPlay) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.indigo)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.indigo.opacity(0.12)))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(LF("Play \"%@\" from Where You Left Off", book.title))
+                .accessibilityIdentifier("book-play-\(book.id)")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(LF("Play \"%@\" from Where You Left Off", book.title))
-            .accessibilityIdentifier("book-play-\(book.id)")
+            .padding(.horizontal, 12)
         }
-        .padding(12)
-        // 与卡片网格、历史页同一套白卡：浅色模式下 secondarySystemGroupedBackground 就是纯白
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onOpen)
-        // 只给「打开详情」的命名操作，不占默认操作，否则行内播放按钮会被父层合并抢走
-        .accessibilityAction(named: LF("Open Details for \"%@\"", book.title)) { onOpen() }
         // 行间距：放在卡片背景之外，不算进白底
         .padding(.vertical, 6)
     }

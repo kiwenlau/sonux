@@ -59,11 +59,13 @@ final class AppRouter: ObservableObject {
 
     /// 进入某本书的详情页
     func openBook(id: String) {
+        NSLog("[sonux] ui: 入栈详情页 %@（栈深 %d → %d）", id, path.count, path.count + 1)
         path.append(.book(id))
     }
 
     /// 进入某位作者的作品页
     func openAuthor(_ author: String) {
+        NSLog("[sonux] ui: 入栈作者页 %@（栈深 %d → %d）", author, path.count, path.count + 1)
         path.append(.author(author))
     }
 }
@@ -99,6 +101,21 @@ final class TabRouters: ObservableObject {
     }
 }
 
+/// 一条 tab 的导航栈。必须单独成视图：AppRouter 是 TabRouters 里的普通常量，
+/// 只有本视图用 @ObservedObject 观察它，`$router.path` 的变化才会被读到。
+/// 写在 RootView 里手工包 Binding 是不行的——入栈时没有任何发布去触发 RootView 重算，
+/// NavigationStack 拿到的还是旧 path，点卡片/列表行就不会跳转（要等别的对象碰巧发布才补上）
+private struct TabStack<Content: View>: View {
+    @ObservedObject var router: AppRouter
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        NavigationStack(path: $router.path) {
+            content()
+        }
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
@@ -122,12 +139,6 @@ struct RootView: View {
         }
     }
 
-    /// NavigationStack 的 path 绑定。`$routers.xxxRouter.path` 这种嵌套属性包装写不了，
-    /// 手工包一层 Binding，set 时回写到对应 AppRouter
-    private func pathBinding(for router: AppRouter) -> Binding<[LibraryRoute]> {
-        Binding(get: { router.path }, set: { router.path = $0 })
-    }
-
     /// 「继续收听」条。只要听过书就常显（没在播时挂的是最近收听的那本，见 SonuxApp）。
     /// 排在 tab 栏上方，与 tab 栏同在一块面板里（见 bottomPanel）
     @ViewBuilder
@@ -139,7 +150,7 @@ struct RootView: View {
 
     /// 书库 tab：整条书库导航栈（首页、详情页、作者页）
     private var libraryTab: some View {
-        NavigationStack(path: pathBinding(for: routers.libraryRouter)) {
+        TabStack(router: routers.libraryRouter) {
             LibraryView()
                 .navigationDestination(for: LibraryRoute.self) { route in
                     destination(for: route)
@@ -149,7 +160,7 @@ struct RootView: View {
 
     /// 播放历史 tab：详情页压进本 tab 自己的栈，返回时回到历史页而不是书库
     private var historyTab: some View {
-        NavigationStack(path: pathBinding(for: routers.historyRouter)) {
+        TabStack(router: routers.historyRouter) {
             HistoryView(onOpenBook: { routers.historyRouter.openBook(id: $0) })
                 .navigationDestination(for: LibraryRoute.self) { route in
                     destination(for: route)
@@ -159,7 +170,7 @@ struct RootView: View {
 
     /// 「我」tab：收听时长统计
     private var meTab: some View {
-        NavigationStack(path: pathBinding(for: routers.meRouter)) {
+        TabStack(router: routers.meRouter) {
             MeView()
                 .navigationDestination(for: LibraryRoute.self) { route in
                     destination(for: route)

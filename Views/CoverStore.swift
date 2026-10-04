@@ -378,6 +378,16 @@ struct BookCoverView: View {
     }
 }
 
+/// 整卡按下反馈：卡片做成真 Button 才有按下高亮（.plain 样式按下毫无变化，
+/// 用户会以为「点了没反应」）。只做明暗不做缩放，免得与同层的播放键对不齐
+struct PressableCardStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.55 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 /// 书库卡片视图（双列网格用）：大封面 + 标题 + 作者，封面中央一个从上次位置续播的播放按钮
 /// 该书正在播放时：封面加靛蓝描边，卡片底色、标题和作者变靛蓝（作者色更浅），不再叠加音柱徽章
 struct BookGridCard: View {
@@ -389,6 +399,30 @@ struct BookGridCard: View {
     @ObservedObject private var store = CoverStore.shared
 
     var body: some View {
+        // 整卡「打开详情」与封面中央的播放键是平级兄弟：外层 Button 套内层 Button 时，
+        // 按下会被外层抢走（实测点播放键反而进了详情页），所以播放键不能放进整卡按钮的 label 里
+        ZStack(alignment: .top) {
+            Button(action: onOpen) {
+                cardBody
+                    .padding(10)
+            }
+            .buttonStyle(PressableCardStyle())
+
+            // 与封面同宽同比例的透明垫块，把播放键钉在封面正中；垫块自己不参与点击
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .aspectRatio(0.8, contentMode: .fit)
+                .allowsHitTesting(false)
+                .overlay { playButton }
+                .padding(10)
+        }
+        .background(cardBackground)
+        .task(id: book.id) {
+            await store.load(for: book)
+        }
+    }
+
+    private var cardBody: some View {
         VStack(alignment: .leading, spacing: 8) {
             // 固定比例的封面框：铺白底（与卡片同色），封面 scaledToFit 顶到贴合边、无内边距
             ZStack {
@@ -413,22 +447,6 @@ struct BookGridCard: View {
                         .strokeBorder(Color.indigo, lineWidth: 2.5)
                 }
             }
-            .overlay {
-                // 播放按钮居中压在封面上：半透胶囊底保证任何封面都能看清图标
-                Button(action: onPlay) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.indigo)
-                        .frame(width: 46, height: 46)
-                        .background(Circle().fill(.ultraThinMaterial))
-                        .overlay(Circle().strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
-                        .shadow(color: .black.opacity(0.25), radius: 4, y: 1)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(LF("Play \"%@\" from Where You Left Off", book.title))
-                .accessibilityIdentifier("book-card-play-\(book.id)")
-            }
 
             Text(book.title)
                 .font(.subheadline.weight(.semibold))
@@ -441,24 +459,34 @@ struct BookGridCard: View {
                 .foregroundStyle(isNowPlaying ? Color.indigo.opacity(0.55) : Color.secondary)
                 .lineLimit(1)
         }
-        .padding(10)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onOpen)
-        // 只给「打开详情」的命名操作，不占默认操作，否则封面中央的播放按钮会被父层合并抢走
-        .accessibilityAction(named: LF("Open Details for \"%@\"", book.title)) { onOpen() }
-        .background(
-            // 卡片底色是纯白（浅色模式下 secondarySystemGroupedBackground 即 #FFFFFF），
-            // 浮在分组灰页面上；正在播放时在白底上再叠一层浅靛蓝，不透出页底灰
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .overlay {
-                    if isNowPlaying {
-                        RoundedRectangle(cornerRadius: 14).fill(Color.indigo.opacity(0.1))
-                    }
-                }
-        )
-        .task(id: book.id) {
-            await store.load(for: book)
+    }
+
+    /// 播放按钮居中压在封面上：半透胶囊底保证任何封面都能看清图标
+    private var playButton: some View {
+        Button(action: onPlay) {
+            Image(systemName: "play.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.indigo)
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(.ultraThinMaterial))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
+                .shadow(color: .black.opacity(0.25), radius: 4, y: 1)
+                .contentShape(Circle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(LF("Play \"%@\" from Where You Left Off", book.title))
+        .accessibilityIdentifier("book-card-play-\(book.id)")
+    }
+
+    /// 卡片底色是纯白（浅色模式下 secondarySystemGroupedBackground 即 #FFFFFF），
+    /// 浮在分组灰页面上；正在播放时在白底上再叠一层浅靛蓝，不透出页底灰
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 14)
+            .fill(Color(.secondarySystemGroupedBackground))
+            .overlay {
+                if isNowPlaying {
+                    RoundedRectangle(cornerRadius: 14).fill(Color.indigo.opacity(0.1))
+                }
+            }
     }
 }

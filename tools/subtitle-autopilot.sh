@@ -24,6 +24,11 @@ export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 export LANG="$LC_ALL"
 
 ASR_BATCH=${ASR_BATCH:-120}
+# 转写 worker 数：3 个时机器 15 分钟负载冲到 57（14 核），用户直接卡到把它杀掉，
+# 默认降到 2；再配合下面的「负载高就先等」闸门
+ASR_JOBS=${ASR_JOBS:-2}
+# 云端校对并发：线程虽轻，但和转写叠加时会加剧排队
+FIX_WORKERS=${FIX_WORKERS:-6}
 FIX_BATCH=${FIX_BATCH:-200}   # 云端校对每轮跑够多章，才追得上转写的速度
 # MLX 每个 worker 的 GPU 常驻区上限：whisper 模型才 1.6GB，给 2GB 足够。
 # 不封这个的话 RSS 看着只占 2GB，实际 GPU 常驻区能把 48GB 机器顶到 OOM
@@ -51,7 +56,7 @@ while true; do
   if have_key; then
     FIX_MODE=api
     # 不带引号是有意的：靠空白分词把参数传下去，这些参数里没有空格
-    FIXARGS="--api --workers ${FIX_WORKERS:-8}"
+    FIXARGS="--api --workers $FIX_WORKERS"
   else
     FIX_MODE=local
     FIXARGS=""
@@ -68,9 +73,18 @@ while true; do
     sleep 3
   fi
 
+  # 负载闸门：1 分钟负载超过核数 1.5 倍就先等，别把用户的机器压到不能用
+  cores=$(sysctl -n hw.ncpu)
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    load=$(sysctl -n vm.loadavg | tr -d "{}" | awk '{print $1}' | cut -d. -f1)
+    [ "${load:-0}" -le $((cores * 3 / 2)) ] && break
+    say "→ 当前负载 $load 高于 ${cores} 核的 1.5 倍，等 2 分钟再开这一轮"
+    sleep 120
+  done
+
   # ---------- 1. 转写（whisper large-v3-turbo，GPU）----------
   say "→ 转写一批（≤${ASR_BATCH} 章）"
-  python3 tools/transcribe.py --all --jobs 3 --limit "$ASR_BATCH" 2>&1 | tail -3
+  python3 tools/transcribe.py --all --jobs "$ASR_JOBS" --limit "$ASR_BATCH" 2>&1 | tail -3
   asr_done=$(count); left=${asr_done%%/*}; total=$(echo "$asr_done" | tr '/' ' ' | awk '{print $2}')
   [ -n "$total" ] && [ "$left" = "$total" ] && asr_all=1 || asr_all=0
 
