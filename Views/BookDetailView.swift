@@ -43,10 +43,10 @@ private struct BookInfoHeader: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // 封面
+            // 封面：留白处铺白底（与页面同色），靠外阴影而不是底色块区分封面边界
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.1))
+                    .fill(Color(.secondarySystemGroupedBackground))
                     .frame(width: 220, height: 220 * (4.0 / 3.0))
 
                 if let cover = coverImage {

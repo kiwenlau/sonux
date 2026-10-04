@@ -95,9 +95,14 @@ struct LibraryView: View {
                         }
                         .accessibilityIdentifier("book-row-\(book.id)")
                         .listRowSeparator(.hidden)
+                        // 行本身透明，卡片底色由 BookRow 自己画，两侧留出网格同款间距
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 14))
                     }
                 }
                 .listStyle(.plain)
+                // List 默认会铺一层不透明白底，挡住上面的分组灰
+                .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
             }
         }
@@ -115,7 +120,10 @@ struct LibraryView: View {
             }
             libraryContent
         }
-        .background(Color(.systemBackground))
+        // 页面底色用分组灰（微信听书那种浅灰），白色卡片才浮得出来；
+        // 底色往上铺进状态栏与导航栏，整片顶部是一个颜色不断层
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationTitle(pageTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -256,11 +264,15 @@ private struct BookRow: View {
             .accessibilityLabel(LF("Play \"%@\" from Where You Left Off", book.title))
             .accessibilityIdentifier("book-play-\(book.id)")
         }
+        .padding(12)
+        // 与卡片网格、历史页同一套白卡：浅色模式下 secondarySystemGroupedBackground 就是纯白
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         // 只给「打开详情」的命名操作，不占默认操作，否则行内播放按钮会被父层合并抢走
         .accessibilityAction(named: LF("Open Details for \"%@\"", book.title)) { onOpen() }
-        .padding(.vertical, 4)
+        // 行间距：放在卡片背景之外，不算进白底
+        .padding(.vertical, 6)
     }
 }
 
@@ -356,7 +368,8 @@ private struct LibrarySearchBar: View {
         .padding(.horizontal, 10)
         .frame(height: 36)
         .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+        // 灰底页面上搜索框用白色卡片色，跟微信听书一致
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(.secondarySystemGroupedBackground)))
         .contentShape(RoundedRectangle(cornerRadius: 10))
         // 点输入框周围的空白也能聚焦，和系统搜索框手感一致
         .onTapGesture { focused = true }

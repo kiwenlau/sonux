@@ -350,7 +350,8 @@ struct BookCoverView: View {
     /// 封面框边长：底部迷你播放器用更小的一号
     var size: CGFloat = 50
     /// 背景填充色：传 nil 表示不铺底色，空余处直接露出所在容器的背景
-    var background: Color? = Color.gray.opacity(0.1)
+    /// 默认铺白（卡片同款底色）：封面比例与封面框不一致时，留白处不能是灰块
+    var background: Color? = Color(.secondarySystemGroupedBackground)
     // 单例共享缓存，用 ObservedObject 避免多行各自持有独立副本
     @ObservedObject private var store = CoverStore.shared
 
@@ -389,10 +390,10 @@ struct BookGridCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // 固定比例的封面框：背景色填充，封面 scaledToFit 顶到贴合边、无内边距
+            // 固定比例的封面框：铺白底（与卡片同色），封面 scaledToFit 顶到贴合边、无内边距
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.gray.opacity(0.1))
+                    .fill(Color(.secondarySystemGroupedBackground))
                 if let cover = store.image(for: book) {
                     Image(uiImage: cover)
                         .resizable()
@@ -446,8 +447,15 @@ struct BookGridCard: View {
         // 只给「打开详情」的命名操作，不占默认操作，否则封面中央的播放按钮会被父层合并抢走
         .accessibilityAction(named: LF("Open Details for \"%@\"", book.title)) { onOpen() }
         .background(
+            // 卡片底色是纯白（浅色模式下 secondarySystemGroupedBackground 即 #FFFFFF），
+            // 浮在分组灰页面上；正在播放时在白底上再叠一层浅靛蓝，不透出页底灰
             RoundedRectangle(cornerRadius: 14)
-                .fill(isNowPlaying ? Color.indigo.opacity(0.1) : Color(.secondarySystemGroupedBackground))
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay {
+                    if isNowPlaying {
+                        RoundedRectangle(cornerRadius: 14).fill(Color.indigo.opacity(0.1))
+                    }
+                }
         )
         .task(id: book.id) {
             await store.load(for: book)

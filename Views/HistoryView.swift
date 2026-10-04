@@ -44,7 +44,9 @@ struct HistoryView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
+        // 底色铺进状态栏与导航栏，与书库页一致
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationTitle(L("History"))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -116,8 +118,14 @@ private struct HistoryCard: View {
         .onTapGesture(perform: onPlay)
         .accessibilityAction(named: LF("Play \"%@\" from Where You Left Off", entry.book.title)) { onPlay() }
         .background(
+            // 白底卡片，正在播放时在白底上叠浅靛蓝（与书库卡片同一套做法）
             RoundedRectangle(cornerRadius: 14)
-                .fill(isNowPlaying ? Color.indigo.opacity(0.1) : Color(.secondarySystemGroupedBackground))
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay {
+                    if isNowPlaying {
+                        RoundedRectangle(cornerRadius: 14).fill(Color.indigo.opacity(0.1))
+                    }
+                }
         )
     }
 

@@ -24,7 +24,9 @@ struct MeView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
+        // 底色铺进状态栏与导航栏，与书库、历史页一致
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationTitle(L("Me"))
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("me-page")
