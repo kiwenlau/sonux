@@ -31,10 +31,43 @@
 		400000000000000000000017 /* Quote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000017 /* Quote.swift */; };
 		400000000000000000000018 /* QuoteCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000018 /* QuoteCard.swift */; };
 		400000000000000000000019 /* ListeningReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000019 /* ListeningReportView.swift */; };
+		40000000000000000000001A /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000001A /* WidgetBridge.swift */; };
+		40000000000000000000001B /* WidgetSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000001B /* WidgetSync.swift */; };
+		40000000000000000000001C /* SonuxWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000010 /* SonuxWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		40000000000000000000001D /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000001A /* WidgetBridge.swift */; };
+		40000000000000000000001E /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000010 /* Localization.swift */; };
+		40000000000000000000001F /* TimeFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000005 /* TimeFormat.swift */; };
+		400000000000000000000020 /* NowPlayingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000001C /* NowPlayingWidget.swift */; };
+		400000000000000000000021 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000012 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1A0000000000000000000016 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A0000000000000000000011;
+			remoteInfo = SonuxWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1A0000000000000000000017 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = PlugIns;
+			dstSubfolderSpec = 7;
+			files = (
+				40000000000000000000001C /* SonuxWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		1A0000000000000000000005 /* Sonux.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sonux.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A0000000000000000000010 /* SonuxWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SonuxWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		300000000000000000000001 /* SonuxApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxApp.swift; sourceTree = "<group>"; };
 		300000000000000000000002 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
 		300000000000000000000003 /* LibraryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryService.swift; sourceTree = "<group>"; };
@@ -59,10 +92,23 @@
 		300000000000000000000017 /* Quote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quote.swift; sourceTree = "<group>"; };
 		300000000000000000000018 /* QuoteCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteCard.swift; sourceTree = "<group>"; };
 		300000000000000000000019 /* ListeningReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningReportView.swift; sourceTree = "<group>"; };
+		30000000000000000000001A /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
+		30000000000000000000001B /* WidgetSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSync.swift; sourceTree = "<group>"; };
+		30000000000000000000001C /* NowPlayingWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingWidget.swift; sourceTree = "<group>"; };
+		30000000000000000000001D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		30000000000000000000001E /* Sonux.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Sonux.entitlements; sourceTree = "<group>"; };
+		30000000000000000000001F /* Widget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Widget.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1A0000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A0000000000000000000013 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -78,7 +124,9 @@
 				500000000000000000000001 /* App */,
 				500000000000000000000002 /* Models */,
 				500000000000000000000003 /* Services */,
+				500000000000000000000006 /* Shared */,
 				500000000000000000000004 /* Views */,
+				500000000000000000000007 /* Widget */,
 				500000000000000000000005 /* Support */,
 				1A0000000000000000000003 /* Products */,
 			);
@@ -88,6 +136,7 @@
 			isa = PBXGroup;
 			children = (
 				1A0000000000000000000005 /* Sonux.app */,
+				1A0000000000000000000010 /* SonuxWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -105,8 +154,27 @@
 			isa = PBXGroup;
 			children = (
 				300000000000000000000012 /* Localizable.xcstrings */,
+				30000000000000000000001E /* Sonux.entitlements */,
+				30000000000000000000001F /* Widget.entitlements */,
 			);
 			path = Support;
+			sourceTree = "<group>";
+		};
+		500000000000000000000006 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				30000000000000000000001A /* WidgetBridge.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		500000000000000000000007 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				30000000000000000000001C /* NowPlayingWidget.swift */,
+				30000000000000000000001D /* Info.plist */,
+			);
+			path = Widget;
 			sourceTree = "<group>";
 		};
 		500000000000000000000002 /* Models */ = {
@@ -127,6 +195,7 @@
 				300000000000000000000004 /* PlayerService.swift */,
 				300000000000000000000014 /* TranscriptStore.swift */,
 				300000000000000000000015 /* TextSearch.swift */,
+				30000000000000000000001B /* WidgetSync.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -161,15 +230,34 @@
 				1A0000000000000000000006 /* Sources */,
 				1A0000000000000000000007 /* Frameworks */,
 				1A0000000000000000000008 /* Resources */,
+				1A0000000000000000000017 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				1A0000000000000000000015 /* PBXTargetDependency */,
 			);
 			name = Sonux;
 			productName = Sonux;
 			productReference = 1A0000000000000000000005 /* Sonux.app */;
 			productType = "com.apple.product-type.application";
+		};
+		1A0000000000000000000011 /* SonuxWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A0000000000000000000018 /* Build configuration list for PBXNativeTarget "SonuxWidget" */;
+			buildPhases = (
+				1A0000000000000000000012 /* Sources */,
+				1A0000000000000000000013 /* Frameworks */,
+				1A0000000000000000000014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SonuxWidget;
+			productName = SonuxWidget;
+			productReference = 1A0000000000000000000010 /* SonuxWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -182,6 +270,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					1A0000000000000000000004 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					1A0000000000000000000011 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -233,6 +324,7 @@
 			projectRoot = "";
 			targets = (
 				1A0000000000000000000004 /* Sonux */,
+				1A0000000000000000000011 /* SonuxWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -243,6 +335,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				400000000000000000000012 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A0000000000000000000014 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				400000000000000000000021 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -276,10 +376,31 @@
 				400000000000000000000017 /* Quote.swift in Sources */,
 				400000000000000000000018 /* QuoteCard.swift in Sources */,
 				400000000000000000000019 /* ListeningReportView.swift in Sources */,
+				40000000000000000000001A /* WidgetBridge.swift in Sources */,
+				40000000000000000000001B /* WidgetSync.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A0000000000000000000012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				400000000000000000000020 /* NowPlayingWidget.swift in Sources */,
+				40000000000000000000001D /* WidgetBridge.swift in Sources */,
+				40000000000000000000001E /* Localization.swift in Sources */,
+				40000000000000000000001F /* TimeFormat.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1A0000000000000000000015 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A0000000000000000000011 /* SonuxWidget */;
+			targetProxy = 1A0000000000000000000016 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1A000000000000000000000C /* Debug */ = {
@@ -331,6 +452,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_ENTITLEMENTS = Support/Sonux.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7YXZS92PLV;
@@ -359,6 +481,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_ENTITLEMENTS = Support/Sonux.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7YXZS92PLV;
@@ -383,6 +506,60 @@
 			};
 			name = Release;
 		};
+		1A0000000000000000000019 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Support/Widget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7YXZS92PLV;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Widget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Sonux;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kiwenlau.sonux.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		1A000000000000000000001A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Support/Widget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7YXZS92PLV;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Widget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Sonux;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kiwenlau.sonux.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -400,6 +577,15 @@
 			buildConfigurations = (
 				1A000000000000000000000E /* Debug */,
 				1A000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A0000000000000000000018 /* Build configuration list for PBXNativeTarget "SonuxWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000000000000000000019 /* Debug */,
+				1A000000000000000000001A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

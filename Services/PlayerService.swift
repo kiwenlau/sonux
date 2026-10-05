@@ -314,6 +314,8 @@ final class PlayerService: NSObject, ObservableObject {
         duration = chapter.duration
         currentTime = min(max(0, time), max(chapter.duration, 0))
         isPlaying = false
+        // 冷启动时小组件也该知道在听哪本：这条状态不会走 updateNowPlaying（没出声），单独报一次
+        syncWidget(book: book, chapter: chapter)
     }
 
     /// 卸掉挂着但未播放的那本书（书被删掉时调用）；正在播放的不受影响
@@ -323,6 +325,7 @@ final class PlayerService: NSObject, ObservableObject {
         currentChapter = nil
         currentTime = 0
         duration = 0
+        WidgetSync.clear()
     }
 
     func stop() {
@@ -331,9 +334,12 @@ final class PlayerService: NSObject, ObservableObject {
         player?.stop()
         player = nil
         loadedFileURL = nil
+        isPlaying = false
+        // 先把「停在这儿」推给小组件，再清空手上的书：否则小组件会凭空断掉这本书，
+        // 退化成空状态而不是「上次听到这里」
+        if let book = currentBook, let chapter = currentChapter { syncWidget(book: book, chapter: chapter) }
         currentBook = nil
         currentChapter = nil
-        isPlaying = false
         currentTime = 0
         duration = 0
         displayLinkTimer?.invalidate()
@@ -608,8 +614,25 @@ final class PlayerService: NSObject, ObservableObject {
         scheduleCoverLoad(for: book)
         NSLog("[sonux] updateNowPlaying: 锁屏封面 %@ %.0fx%.0f", coverSource, cover.size.width, cover.size.height)
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        syncWidget(book: book, chapter: chapter)
         let ms = (CACurrentMediaTime() - t0) * 1000
         if ms > 30 { NSLog("[sonux] updateNowPlaying: 耗时 %.1f ms", ms) }
+    }
+
+    /// 把当前收听状态推给桌面小组件。与锁屏信息同一时机上报（播、停、切章、变速、拖过进度），
+    /// 每秒的进度前进不在这儿报——小组件会拿快照里的时间戳自己算
+    private func syncWidget(book: Book, chapter: Chapter) {
+        let index = book.chapters.firstIndex(where: { $0.id == chapter.id }).map { $0 + 1 } ?? 1
+        WidgetSync.publish(book: book, chapter: chapter, chapterIndex: index,
+                           time: currentTime, duration: chapter.duration,
+                           isPlaying: isPlaying, speed: speed)
+    }
+
+    /// 封面刚提取到手时重发一次快照：小组件据此决定铺真封面还是把书名占位图糊成底色
+    /// （冷启动挂着没播的那本不走 updateNowPlaying，没这一句就会一直拿着启动时那张占位图）
+    func refreshWidgetSnapshot() {
+        guard let book = currentBook, let chapter = currentChapter else { return }
+        syncWidget(book: book, chapter: chapter)
     }
 
     /// 后台提取当前书的大图封面，完成后回写锁屏展示；同一本书只调度一次

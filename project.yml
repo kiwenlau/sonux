@@ -19,13 +19,23 @@ targets:
       - App
       - Models
       - Services
+      - Shared
       - Views
       - Support/Localizable.xcstrings
+    entitlements:
+      path: Support/Sonux.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.kiwenlau.sonux
     info:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: Sonux
         CFBundleLocalizations: [en, zh-Hans, zh-Hant, ja, ko, fr, de, es, pt-BR, pt-PT, it, ru, ar, nl, sv, da, fi, nb, pl, tr, cs, sk, hu, el, he, hi, id, ms, ro, uk, th, vi, ca, hr]
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Viewer
+            CFBundleURLName: com.kiwenlau.sonux
+            CFBundleURLSchemes: [sonux]
         UILaunchScreen: {}
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: false
@@ -43,3 +53,32 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kiwenlau.sonux
         INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+  SonuxWidget:
+    # 桌面「正在收听」小组件：与主 App 共用 Localization / TimeFormat / WidgetBridge 三份源码
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widget
+      - Shared/WidgetBridge.swift
+      - App/Localization.swift
+      - Views/TimeFormat.swift
+      - Support/Localizable.xcstrings
+    dependencies:
+      - target: Sonux
+    entitlements:
+      path: Support/Widget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.kiwenlau.sonux
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Sonux
+        CFBundleLocalizations: [en, zh-Hans, zh-Hant, ja, ko, fr, de, es, pt-BR, pt-PT, it, ru, ar, nl, sv, da, fi, nb, pl, tr, cs, sk, hu, el, he, hi, id, ms, ro, uk, th, vi, ca, hr]
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kiwenlau.sonux.widget
+        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+        SKIP_INSTALL: "YES"

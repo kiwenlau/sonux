@@ -263,6 +263,8 @@ struct RootView: View {
         .task(id: player.currentBook?.id) {
             guard let book = player.currentBook else { return }
             await coverStore.load(for: book)
+            // 封面到手，重发一次小组件快照（小组件铺真封面还是糊占位图，看的就是这个标记）
+            player.refreshWidgetSnapshot()
         }
     }
 }

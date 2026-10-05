@@ -40,6 +40,11 @@ struct SonuxApp: App {
                         break
                     }
                 }
+                // 桌面小组件点进来直接落到播放页（见 Widget/NowPlayingWidget.swift 的 widgetURL）
+                .onOpenURL { url in
+                    guard url.scheme == "sonux" else { return }
+                    player.showPlayer = true
+                }
         }
     }
 
