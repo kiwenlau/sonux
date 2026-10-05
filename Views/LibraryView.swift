@@ -6,6 +6,8 @@ struct LibraryView: View {
     @EnvironmentObject private var player: PlayerService
     @EnvironmentObject private var routers: TabRouters
     @AppStorage("libraryGridView") private var gridView = true
+    /// 排序方式：默认按最近收听；@AppStorage 只存原始值，脏值（如已删掉的 duration、progress）也回落到这个默认
+    @AppStorage("librarySort") private var sortRaw = LibrarySort.lastPlayed.rawValue
     /// 限定只看某一位作者的作品（作者页）：整套界面与书库共用，
     /// 差别只有顶部标题、隐藏「添加」入口与空态文案；nil 就是书库本身
     var author: String? = nil
@@ -37,9 +39,14 @@ struct LibraryView: View {
         author.map(LibraryService.displayAuthor) ?? ""
     }
 
-    /// 按搜索关键词过滤后的书，空关键词时返回全部
+    /// 当前选择的排序方式（解不出来的原始值按默认「最近收听」处理）
+    private var sort: LibrarySort {
+        LibrarySort(rawValue: sortRaw) ?? .lastPlayed
+    }
+
+    /// 按搜索关键词过滤并按用户选的排序方式重排的书，空关键词时返回全部
     private var visibleBooks: [Book] {
-        sourceBooks.filter { $0.matches(searchText: searchQuery) }
+        library.sorted(sourceBooks.filter { $0.matches(searchText: searchQuery) }, by: sort)
     }
 
     /// 书库主体：空态 / 无搜索结果 / 卡片网格 / 列表四种情况
@@ -139,6 +146,10 @@ struct LibraryView: View {
         .navigationTitle(pageTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // 三个图标形状差别大（加号偏方、上下箭头偏高、列表偏扁），套同一个系统字号会
+            // 一高一矮（实测墨迹高 17.7 / 21.0 / 14.4 pt），所以各配一档字号把高度配平：
+            // 加号用系统默认 17pt，上下箭头 14pt，列表 19pt、网格 15pt
+            // （配平后依次 17.7 / 16.7 / 17.3 / 17.3 pt）
             ToolbarItem(placement: .topBarTrailing) {
                 // 搜索时收起「添加」入口（此时导入会打乱搜索结果），视图切换按钮保留；
                 // 作者页也没有导入的语境，同样不显示
@@ -151,11 +162,37 @@ struct LibraryView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                // 列表 / 卡片视图切换
+                // 排序：三种方式收进一个下拉菜单，选中的打勾，选择记进偏好下次启动沿用。
+                // 书库空的时候没得排，不摆这个入口
+                if !sourceBooks.isEmpty {
+                    Menu {
+                        ForEach(LibrarySort.allCases) { option in
+                            Button {
+                                NSLog("[sonux] ui: 书库排序改为 %@", option.rawValue)
+                                sortRaw = option.rawValue
+                            } label: {
+                                if sort == option {
+                                    Label(option.label, systemImage: "checkmark")
+                                } else {
+                                    Text(option.label)
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 14))
+                    }
+                    .accessibilityLabel(L("Sort By"))
+                    .accessibilityIdentifier("library-sort")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                // 列表 / 卡片视图切换：两个符号一扁一方，各自一档字号才跟得上旁边两个
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) { gridView.toggle() }
                 } label: {
                     Image(systemName: gridView ? "list.bullet" : "square.grid.2x2")
+                        .font(.system(size: gridView ? 19 : 15))
                 }
                 .accessibilityIdentifier("toggle-view")
             }

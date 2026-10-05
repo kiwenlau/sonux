@@ -13,6 +13,23 @@ enum LibraryError: LocalizedError {
     }
 }
 
+/// 书库的排序方式：默认按最近收听（最后播放时间从新到旧），菜单顺序就是这个 case 顺序
+enum LibrarySort: String, CaseIterable, Identifiable {
+    case lastPlayed
+    case added
+    case fileName
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .lastPlayed: return L("Recently Played")
+        case .added: return L("Recently Added")
+        case .fileName: return L("File Name")
+        }
+    }
+}
+
 /// 书库服务：扫描 File Sharing 目录，把音频文件组织成书，并持久化播放进度
 @MainActor
 final class LibraryService: ObservableObject {
@@ -23,6 +40,8 @@ final class LibraryService: ObservableObject {
     @Published private(set) var chapterPositions: [String: PlayPosition] = [:]
     /// key: bookId，value: 该书最后一次播放时间（播放历史页按它排序）
     @Published private(set) var lastPlayedDates: [String: Date] = [:]
+    /// key: bookId，value: 该书进书库的时间（按「最近添加」排序用），第一次扫到时补记，之后不再改
+    @Published private(set) var addedDates: [String: Date] = [:]
     /// 收听时长统计（累计/按天/按书），由播放器每秒累加
     @Published private(set) var listening = ListeningStats()
     /// 首次扫描是否已出结果：未出结果前界面显示 loading，而不是「书库是空的」
@@ -98,8 +117,20 @@ final class LibraryService: ObservableObject {
         let aliveChapterIds = Set(scanned.flatMap { $0.chapters.map(\.id) })
         chapterPositions = chapterPositions.filter { aliveChapterIds.contains($0.key) }
         lastPlayedDates = lastPlayedDates.filter { aliveBookIds.contains($0.key) }
+        addedDates = addedDates.filter { aliveBookIds.contains($0.key) }
+        backfillAddedDates(scanned)
         backfillFinishedBooks()
         saveProgress()
+    }
+
+    /// 补记「哪天进的书库」：只处理没记过的书（也就是新导入的那几本），
+    /// 取 Documents 里对应条目的创建时间；拿不到就按发现当天记，之后不再改
+    private func backfillAddedDates(_ books: [Book]) {
+        for book in books where addedDates[book.id] == nil {
+            let url = documentsDir.appendingPathComponent(book.storagePath)
+            let created = (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
+            addedDates[book.id] = created ?? Date()
+        }
     }
 
     /// 补记完成日期：早先的版本不记「哪天听完的」，这里把已经听完但没日期的书
@@ -342,6 +373,27 @@ final class LibraryService: ObservableObject {
         author.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// 按用户选的排序方式排一组书：最近收听、最近添加从新到旧；
+    /// 文件名称就是扫目录出来的自然序，原样返回（没听过的书没有日期，与同键值的书一起按书名兜底排最后）
+    /// 排序键先算好再排，免得比较器里反复取字典与换算日期
+    func sorted(_ books: [Book], by sort: LibrarySort) -> [Book] {
+        guard sort != .fileName else { return books }
+        let keyed = books.map { book -> (book: Book, key: Double, title: String) in
+            let key: Double
+            switch sort {
+            case .fileName: key = 0
+            case .added: key = addedDates[book.id]?.timeIntervalSince1970 ?? 0
+            case .lastPlayed: key = lastPlayedDates[book.id]?.timeIntervalSince1970 ?? 0
+            }
+            return (book, key, book.title)
+        }
+        // 键值相同（都没听过、时长一样…）的书按书名自然序兜底，重排结果才不会每刷一次就跳一次
+        return keyed.sorted {
+            if $0.key != $1.key { return $0.key > $1.key }
+            return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+        }.map(\.book)
+    }
+
     func position(forBook id: String) -> PlayPosition? {
         positions[id]
     }
@@ -515,6 +567,7 @@ final class LibraryService: ObservableObject {
         positions[book.id] = nil
         for chapter in book.chapters { chapterPositions[chapter.id] = nil }
         lastPlayedDates[book.id] = nil
+        addedDates[book.id] = nil
         listening.removeBook(book.id)
         // 直接从内存书库移除并保存；全量 rescan 会阻塞主线程，改为后台异步补扫一次
         books.removeAll { $0.id == book.id }
@@ -739,12 +792,15 @@ final class LibraryService: ObservableObject {
         return nil
     }
 
-    /// 持久化结构：书本进度 + 章节进度 + 最后播放时间 + 收听时长统计
+    /// 持久化结构：书本进度 + 章节进度 + 最后播放时间 + 收听时长统计 + 添加时间
+    /// 除两份进度外都写成可选：旧档缺键要能解出来（解码失败会整份丢掉进度），
+    /// 缺的那部分由扫描时按文件的创建时间补记
     private struct ProgressStore: Codable {
         var books: [String: PlayPosition]
         var chapters: [String: PlayPosition]
         var lastPlayed: [String: Date]?
         var listening: ListeningStats?
+        var added: [String: Date]?
     }
 
     private func saveProgress() {
@@ -753,7 +809,8 @@ final class LibraryService: ObservableObject {
         encoder.outputFormatting = .sortedKeys
         // 进度里存有 Date（最后播放时间）：统一用秒级 epoch，与工具链生成的 JSON 互通
         encoder.dateEncodingStrategy = .secondsSince1970
-        let store = ProgressStore(books: positions, chapters: chapterPositions, lastPlayed: lastPlayedDates, listening: listening)
+        let store = ProgressStore(books: positions, chapters: chapterPositions,
+                                  lastPlayed: lastPlayedDates, listening: listening, added: addedDates)
         guard let data = try? encoder.encode(store) else { return }
         do {
             // Data.write 不会创建中间目录，而 iOS 不预建 Application Support，先确保父目录存在
@@ -778,6 +835,7 @@ final class LibraryService: ObservableObject {
             chapterPositions = store.chapters
             lastPlayedDates = store.lastPlayed ?? [:]
             listening = store.listening ?? ListeningStats()
+            addedDates = store.added ?? [:]
         } else if let old = try? decoder.decode([String: PlayPosition].self, from: data) {
             // 兼容旧格式：只有按书记录的进度，从中派生出章节历史位置
             positions = old

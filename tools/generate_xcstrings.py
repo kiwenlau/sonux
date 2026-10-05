@@ -807,6 +807,49 @@ add("Share", ar="مشاركة", ca="Comparteix", hr="Dijeli", cs="Sdílet", da="
     zhhs="分享", zhtt="分享")
 
 
+add("Sort By", ar="ترتيب حسب", ca="Ordena per", hr="Poredaj po", cs="Řadit podle",
+    da="Sortér efter", nl="Sorteren op", fr="Trier par", de="Sortieren nach",
+    el="Ταξινόμηση κατά", he="מיין לפי", hi="क्रमबद्ध करें", hu="Rendezés",
+    id="Urutkan berdasarkan", it="Ordina per", ja="並べ替え", ko="정렬 기준",
+    ms="Isih ikut", nb="Sorter etter", pl="Sortuj według", ptbr="Ordenar por",
+    ptpt="Ordenar por", ro="Sortați după", ru="Сортировка", sk="Zoradiť podľa",
+    es="Ordenar por", sv="Sortera efter", th="เรียงตาม", tr="Sıralama Ölçütü",
+    uk="Сортувати за", vi="Sắp xếp theo", zhhs="排序方式", zhtt="排序方式")
+
+add("File Name", ar="اسم الملف", ca="Nom del fitxer", hr="Naziv datoteke",
+    cs="Název souboru", da="Filnavn", nl="Bestandsnaam", fr="Nom du fichier",
+    de="Dateiname", el="Όνομα αρχείου", he="שם הקובץ", hi="फ़ाइल नाम",
+    hu="Fájlnév", id="Nama file", it="Nome file", ja="ファイル名", ko="파일 이름",
+    ms="Nama fail", nb="Filnavn", pl="Nazwa pliku", ptbr="Nome do arquivo",
+    ptpt="Nome do ficheiro", ro="Nume fișier", ru="Имя файла", sk="Názov súboru",
+    es="Nombre del archivo", sv="Filnamn", th="ชื่อไฟล์", tr="Dosya adı",
+    uk="Назва файлу", vi="Tên tệp", zhhs="文件名称", zhtt="檔案名稱")
+
+add("Recently Added", ar="أُضيفت مؤخرًا", ca="Afegits recentment", hr="Nedavno dodano",
+    cs="Nedávno přidané", da="Tilføjet for nylig", nl="Onlangs toegevoegd",
+    fr="Ajoutés récemment", de="Zuletzt hinzugefügt", el="Πρόσφατα προστεθέντα",
+    he="נוסף לאחרונה", hi="हाल ही में जोड़ा गया", hu="Legutóbb hozzáadva",
+    id="Baru ditambahkan", it="Aggiunti di recente", ja="最近追加", ko="최근 추가",
+    ms="Baru ditambah", nb="Nylig lagt til", pl="Ostatnio dodane",
+    ptbr="Adicionados recentemente", ptpt="Adicionados recentemente",
+    ro="Adăugate recent", ru="Недавно добавленные", sk="Nedávno pridané",
+    es="Añadidos recientemente", sv="Nyligen tillagda", th="เพิ่มล่าสุด",
+    tr="Yeni eklenen", uk="Нещодавно додані", vi="Gần đây đã thêm",
+    zhhs="最近添加", zhtt="最近新增")
+
+add("Recently Played", ar="تمت التشغيل مؤخرًا", ca="Reproduïts recentment",
+    hr="Nedavno reproducirano", cs="Nedávno přehrávané", da="Senest afspillet",
+    nl="Onlangs afgespeeld", fr="Écoutés récemment", de="Zuletzt gehört",
+    el="Πρόσφατα αναπαραχθέντα", he="הושמע לאחרונה", hi="हाल ही में सुना",
+    hu="Legutóbb lejátszva", id="Baru diputar", it="Riprodotti di recente",
+    ja="最近再生", ko="최근 재생", ms="Baru dimainkan", nb="Nylig spilt av",
+    pl="Ostatnio odtwarzane", ptbr="Tocados recentemente", ptpt="Reproduzidos recentemente",
+    ro="Redate recent", ru="Недавно прослушанные", sk="Nedávno prehrávané",
+    es="Reproducidos recientemente", sv="Nyligen spelade", th="เล่นล่าสุด",
+    tr="Son çalınan", uk="Нещодавно прослухані", vi="Gần đây đã phát",
+    zhhs="最近收听", zhtt="最近收聽")
+
+
 # ---------------- 生成 ----------------
 
 LITERAL = re.compile(r'\bLF?\(\s*"((?:[^"\\]|\\.)*)"')
