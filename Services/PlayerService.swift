@@ -43,6 +43,8 @@ final class PlayerService: NSObject, ObservableObject {
     private var listeningAnchor: Date?
 
     private var player: AVAudioPlayer?
+    /// 当前装载进播放器的音频文件：内嵌章节的书多章共用一个文件，用它判断能否原地跳章
+    private var loadedFileURL: URL?
     private var displayLinkTimer: Timer?
     private var sleepTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -52,6 +54,9 @@ final class PlayerService: NSObject, ObservableObject {
     private var lastAudibleAt: Date?
     /// 停播超过这么久再续播才回退：随手暂停马上继续（回个消息、想重听一句）不该被往回拽
     private static let resumeRewindAfter: TimeInterval = 30
+    /// 章尾判定余量：内嵌章节的书靠计时发现「到章尾了」，差这一点就算播完，
+    /// 免得把上一章的最后一帧算成下一章的开头
+    private static let chapterEndTolerance: TimeInterval = 0.05
     /// 音频会话是否已激活过：setCategory/setActive 是同步阻塞调用，激活过一次就别每次点播放都重跑
     private var audioSessionActivated = false
     /// 连续语速范围与步进：0.5x–3x，每格 0.1
@@ -111,31 +116,46 @@ final class PlayerService: NSObject, ObservableObject {
         play(chapter: chapter, book: book, fromTime: time)
     }
 
-    /// 播放某一章节
+    /// 播放某一章节。fromTime 与对外发布的 currentTime 都是「本章内」的秒；
+    /// 内嵌章节的 m4b 里本章只是文件的一段，落到播放器上要换算成文件内的秒
     func play(chapter: Chapter, book: Book, fromTime: TimeInterval = 0) {
         activateAudioSession()
+        let local = clampedLocalTime(fromTime, in: chapter)
+
+        // 同一文件内的章节切换：不移植播放器，跳个偏移就出声。
+        // 一本十几小时的书若每次切章都重建播放器，就要重新解码整本文件，又慢又吃内存
+        if let existing = player, loadedFileURL == chapter.fileURL {
+            currentBook = book
+            currentChapter = chapter
+            duration = chapter.duration
+            existing.currentTime = chapter.fileTime(local)
+            currentTime = local
+            existing.rate = speedValue()
+            existing.play()
+            isPlaying = existing.isPlaying
+            markPlaybackStarted()
+            return
+        }
+
         do {
             let player = try AVAudioPlayer(contentsOf: chapter.fileURL)
             player.prepareToPlay()
             player.enableRate = true
             player.rate = speedValue()
             player.delegate = self
-            player.currentTime = min(max(0, fromTime), max(chapter.duration - 0.5, 0))
+            player.currentTime = chapter.fileTime(local)
 
             self.player?.stop()
             self.player = player
+            self.loadedFileURL = chapter.fileURL
             self.currentBook = book
             self.currentChapter = chapter
             self.duration = chapter.duration
-            self.currentTime = player.currentTime
+            self.currentTime = local
             self.isPlaying = true
             player.play()
 
-            startProgressTimer()
-            touchResumeClock()
-            listeningAnchor = Date()
-            applyRememberedSleepTimerIfNeeded()
-            updateNowPlaying()
+            markPlaybackStarted()
         } catch {
             // 跨章续播时新播放器创建失败（文件损坏或解码器占满）不能静默停在“看似还在播”的状态
             NSLog("[sonux] play: 打开《%@》失败 %@", chapter.title, error.localizedDescription)
@@ -143,6 +163,20 @@ final class PlayerService: NSObject, ObservableObject {
             flushListening()
             updateNowPlaying()
         }
+    }
+
+    /// 章内秒的合法区间：结尾留半秒余量，免得刚设位置就被判成播完
+    private func clampedLocalTime(_ time: TimeInterval, in chapter: Chapter) -> TimeInterval {
+        min(max(0, time), max(chapter.duration - 0.5, 0))
+    }
+
+    /// 出声之后要办的事：进度计时、续播回退基准、收听计时、定时关闭接续、锁屏信息
+    private func markPlaybackStarted() {
+        startProgressTimer()
+        touchResumeClock()
+        listeningAnchor = Date()
+        applyRememberedSleepTimerIfNeeded()
+        updateNowPlaying()
     }
 
     /// 恢复播放时接续之前的定时：
@@ -165,13 +199,15 @@ final class PlayerService: NSObject, ObservableObject {
     /// 停够久才退（随手暂停又继续不该被往回拽），章头几秒不再退
     /// 只改播放起点，不把回退后的位置写回进度，免得反复续播把位置越退越靠前
     private func rewindAfterPauseIfNeeded() {
-        guard let player, !player.isPlaying else { return }
+        guard let player, !player.isPlaying, let chapter = currentChapter else { return }
         let pausedFor = lastAudibleAt.map { Date().timeIntervalSince($0) } ?? .infinity
-        guard pausedFor >= Self.resumeRewindAfter, player.currentTime > ProgressPolicy.resumeRewind else { return }
-        let target = player.currentTime - ProgressPolicy.resumeRewind
-        player.currentTime = target
+        // 章内秒才可比：回退不能退到本章起点之前（那是上一章的地盘）
+        let local = chapter.localTime(player.currentTime)
+        guard pausedFor >= Self.resumeRewindAfter, local > ProgressPolicy.resumeRewind else { return }
+        let target = local - ProgressPolicy.resumeRewind
+        player.currentTime = chapter.fileTime(target)
         currentTime = target
-        NSLog("[sonux] resume: 已停 %.0f s，续播回退到 %.0f s", min(pausedFor, 86400), target)
+        NSLog("[sonux] resume: 已停 %.0f s，续播回退到《%@》%.0f s", min(pausedFor, 86400), chapter.title, target)
     }
 
     /// 更新续播回退的计时基准：正在出声，或用户刚把位置摆正（拖进度、快进快退）
@@ -205,8 +241,12 @@ final class PlayerService: NSObject, ObservableObject {
         NSLog("[sonux] togglePlayPause: done total %.1f ms", (CACurrentMediaTime() - t0) * 1000)
     }
 
+    /// 跳到本章内的某个秒数：进度条、快进快退、锁屏拖动都按章内位置算，
+    /// 落到播放器上再换算成文件内的秒
     func seek(to time: TimeInterval) {
-        let clamped = min(max(0, time), player?.duration ?? duration)
+        let chapter = currentChapter
+        let span = chapter?.duration ?? duration
+        let clamped = min(max(0, time), span)
         currentTime = clamped
         // 手动拖过位置就说明人知道自己在听哪儿，这段停顿不再当作「接不上话」处理
         touchResumeClock()
@@ -215,7 +255,7 @@ final class PlayerService: NSObject, ObservableObject {
             // 只挂了位置没装载播放器：记下目标时间，按播放键就从这里出声
             return
         }
-        player.currentTime = clamped
+        player.currentTime = chapter.map { $0.fileTime(clamped) } ?? clamped
         updateNowPlaying()
     }
 
@@ -290,6 +330,7 @@ final class PlayerService: NSObject, ObservableObject {
         reportPosition()
         player?.stop()
         player = nil
+        loadedFileURL = nil
         currentBook = nil
         currentChapter = nil
         isPlaying = false
@@ -439,8 +480,15 @@ final class PlayerService: NSObject, ObservableObject {
                     let t0 = CACurrentMediaTime()
                     self.touchResumeClock()
                     self.accumulateListening()
-                    self.currentTime = player.currentTime
-                    self.reportPosition()
+                    let chapter = self.currentChapter
+                    if let chapter, self.nextChapterInSameFile() != nil,
+                       player.currentTime >= chapter.fileEnd - Self.chapterEndTolerance {
+                        // 内嵌章节的书：一章只是文件里的一段，到点得在这儿自己判（文件没播完不会来 didFinishPlaying）
+                        self.finishCurrentChapter()
+                    } else {
+                        self.currentTime = chapter.map { $0.localTime(player.currentTime) } ?? player.currentTime
+                        self.reportPosition()
+                    }
                     let ms = (CACurrentMediaTime() - t0) * 1000
                     if ms > 50 { NSLog("[sonux] progressTick: 耗时 %.1f ms", ms) }
                 } else {
@@ -451,6 +499,49 @@ final class PlayerService: NSObject, ObservableObject {
         }
         RunLoop.main.add(timer, forMode: .common)
         displayLinkTimer = timer
+    }
+
+    /// 同一文件里的下一章（只有内嵌章节的书才有）：取不到说明本章已经到这个文件的结尾，
+    /// 那一声 didFinishPlaying 会来收尾，不必在计时里再判一次
+    private func nextChapterInSameFile() -> Chapter? {
+        guard let book = currentBook, let chapter = currentChapter,
+              let idx = book.chapters.firstIndex(where: { $0.id == chapter.id }),
+              book.chapters.indices.contains(idx + 1) else { return nil }
+        let next = book.chapters[idx + 1]
+        return next.fileURL == chapter.fileURL ? next : nil
+    }
+
+    /// 一章播完：把位置记到章尾、通知外部，再按定时关闭停下或续播下一章
+    private func finishCurrentChapter() {
+        guard let chapter = currentChapter, let book = currentBook else { return }
+        NSLog("[sonux] finishChapter: 《%@》播完（记到 %.0f s）", chapter.title, chapter.duration)
+        currentTime = chapter.duration
+        reportPosition()
+        onChapterFinished?(chapter, book)
+
+        if sleepMode == .endOfChapter {
+            toggleOffIfPlaying()
+            return
+        }
+        advanceToNextChapter()
+    }
+
+    /// 自动续播下一章：同一文件里的章节原地跳偏移，换了文件才重建播放器
+    private func advanceToNextChapter() {
+        guard let book = currentBook, let chapter = currentChapter,
+              let idx = book.chapters.firstIndex(where: { $0.id == chapter.id }) else { return }
+        let next = idx + 1
+        guard book.chapters.indices.contains(next) else {
+            NSLog("[sonux] advance: 《%@》已播到最后一章", book.title)
+            isPlaying = false
+            updateNowPlaying()
+            return
+        }
+        let target = book.chapters[next]
+        if target.fileURL == chapter.fileURL {
+            NSLog("[sonux] advance: 同一个文件内跳到《%@》（文件 %.0f s 处）", target.title, target.fileStart)
+        }
+        play(chapter: target, book: book, fromTime: resumeTime(for: target))
     }
 
     // MARK: - 收听时长统计
@@ -620,39 +711,16 @@ final class PlayerService: NSObject, ObservableObject {
 extension PlayerService: AVAudioPlayerDelegate {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in
-            guard let chapter = self.currentChapter, let book = self.currentBook else { return }
+            guard let chapter = self.currentChapter else { return }
             // 本章是否真的播完：系统给的 flag 在倍速、路由切换等情况下会报 false，
             // 不能让它把“播完一章”误当成“播放被取消”，否则定时未走完就再也听不到下一章
-            guard flag || player.currentTime >= chapter.duration - 1.0 else {
-                NSLog("[sonux] didFinish: 未播完就结束（%.0f/%.0f），不续播", player.currentTime, chapter.duration)
+            guard flag || player.currentTime >= chapter.fileEnd - 1.0 else {
+                NSLog("[sonux] didFinish: 未播完就结束（%.0f/%.0f），不续播", player.currentTime, chapter.fileEnd)
                 self.isPlaying = false
                 self.updateNowPlaying()
                 return
             }
-            // 记录本章完成位置
-            self.currentTime = chapter.duration
-            self.reportPosition()
-            self.onChapterFinished?(chapter, book)
-
-            if self.sleepMode == .endOfChapter {
-                self.toggleOffIfPlaying()
-                return
-            }
-            self.advanceToNextChapterIfNeeded()
-        }
-    }
-
-    @MainActor private func advanceToNextChapterIfNeeded() {
-        guard let book = currentBook, let chapter = currentChapter,
-              let idx = book.chapters.firstIndex(where: { $0.id == chapter.id }) else { return }
-        let next = idx + 1
-        if book.chapters.indices.contains(next) {
-            let chapter = book.chapters[next]
-            play(chapter: chapter, book: book, fromTime: resumeTime(for: chapter))
-        } else {
-            NSLog("[sonux] advance: 《%@》已播到最后一章", book.title)
-            isPlaying = false
-            updateNowPlaying()
+            self.finishCurrentChapter()
         }
     }
 }

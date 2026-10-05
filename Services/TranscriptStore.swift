@@ -84,10 +84,15 @@ final class TranscriptStore: ObservableObject {
               let file = try? JSONDecoder().decode(TranscriptFile.self, from: data) else { return [:] }
         var result: [String: [TranscriptLine]] = [:]
         for chapter in chapters {
-            // 字幕包的键是章文件名，与 Chapter.id 的末段一致
-            let lines = file.lines(forChapterFile: chapter.id.split(separator: "/").last.map(String.init)
-                                    ?? chapter.fileURL.lastPathComponent)
-            if !lines.isEmpty { result[chapter.id] = lines }
+            // 字幕包的键是章文件名；内嵌章节的书里整本共用一份时间轴，按本章区间切片
+            let lines = file.lines(forChapterFile: chapter.fileURL.lastPathComponent)
+            let last = chapter.index == chapters.count - 1
+            let sliced = lines.compactMap { line -> TranscriptLine? in
+                guard line.start >= chapter.fileStart - 0.5, last || line.start < chapter.fileEnd - 0.5 else { return nil }
+                let start = max(0, line.start - chapter.fileStart)
+                return TranscriptLine(start: start, end: max(start, line.end - chapter.fileStart), text: line.text)
+            }
+            if !sliced.isEmpty { result[chapter.id] = sliced }
         }
         return result
     }

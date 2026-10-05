@@ -72,7 +72,7 @@ final class LibraryService: ObservableObject {
             // 书库快照另起低优先级任务落盘，不拖慢结果上屏
             let snapshotURL = self.snapshotURL
             Task.detached(priority: .utility) {
-                Self.writeSnapshot(scanned, to: snapshotURL)
+                Self.writeSnapshot(scanned, to: snapshotURL, documentsDir: documentsDir)
             }
             await MainActor.run {
                 self.applyScanResult(scanned)
@@ -104,20 +104,32 @@ final class LibraryService: ObservableObject {
     /// 第一帧渲染用的书库快照：只存相对路径、标题、时长等纯数据，
     /// 章节 fileURL 由当前 Documents 路径重建，避免绝对路径在模拟器/真机间失效
     private struct SnapshotChapter: Codable {
+        /// 章节 id：单章文件就是相对路径，内嵌章节的书是「相对路径#章号」
         var path: String
+        /// 音频文件的相对路径；只在跟 id 不同时写（内嵌章节共用一个文件），旧快照没这个键
+        var audio: String?
         var title: String
         var duration: TimeInterval
+        /// 本章在文件里的起始秒；只在非 0 时写，旧快照没这个键按 0 处理
+        var start: TimeInterval?
 
-        init(_ chapter: Chapter) {
+        init(_ chapter: Chapter, documentsDir: URL) {
             path = chapter.id
             title = chapter.title
             duration = chapter.duration
+            // 内嵌章节的书多章共用一个文件：id 带「#章号」后缀，另存文件相对路径，别从 id 里猜
+            if chapter.id.contains("#") {
+                let file = LibraryService.relativePath(chapter.fileURL, documentsDir: documentsDir)
+                audio = file == chapter.id ? nil : file
+            }
+            start = chapter.fileStart > 0 ? chapter.fileStart : nil
         }
 
         func chapter(bookId: String, index: Int, basePath: String) -> Chapter {
             // 章节上千个，直接拼已规范化的相对路径比逐段 appendingPathComponent 便宜
             Chapter(id: path, bookId: bookId, index: index, title: title, duration: duration,
-                    fileURL: URL(fileURLWithPath: "\(basePath)/\(path)"))
+                    fileURL: URL(fileURLWithPath: "\(basePath)/\(audio ?? path)"),
+                    fileStart: start ?? 0)
         }
     }
 
@@ -128,12 +140,12 @@ final class LibraryService: ObservableObject {
         var storagePath: String
         var chapters: [SnapshotChapter]
 
-        init(_ book: Book) {
+        init(_ book: Book, documentsDir: URL) {
             id = book.id
             title = book.title
             author = book.author
             storagePath = book.storagePath
-            chapters = book.chapters.map(SnapshotChapter.init)
+            chapters = book.chapters.map { SnapshotChapter($0, documentsDir: documentsDir) }
         }
 
         func book(basePath: String) -> Book {
@@ -166,10 +178,10 @@ final class LibraryService: ObservableObject {
     /// 后台写入快照，供下次冷启动第一帧直接渲染
     /// 每次扫描成功都写，不比较差异：删除书后内存与扫描结果已经一致，
     /// 只有无条件落盘才不会把被删的书留在快照里（下次启动会闪出幽灵条目）
-    nonisolated private static func writeSnapshot(_ books: [Book], to url: URL) {
+    nonisolated private static func writeSnapshot(_ books: [Book], to url: URL, documentsDir: URL) {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        guard let data = try? encoder.encode(books.map(SnapshotBook.init)) else { return }
+        guard let data = try? encoder.encode(books.map { SnapshotBook($0, documentsDir: documentsDir) }) else { return }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try data.write(to: url, options: .atomic)
@@ -185,17 +197,25 @@ final class LibraryService: ObservableObject {
         var mtime: Int
         var duration: TimeInterval
         var author: String?
+        /// 内嵌章节 TOC（m4b 一类「一个文件装整本书」）：各章起点与章名；没有则为 nil
+        var chapters: [EmbeddedChapter]?
+    }
+
+    /// 内嵌章节 TOC 的一条：本章在文件时间轴上的起始秒 + 内嵌章名
+    nonisolated private struct EmbeddedChapter: Codable, Equatable {
+        var start: TimeInterval
+        var title: String
     }
 
     /// 后台执行：遍历目录并读取每个音频的时长/作者等元数据（优先命中磁盘缓存）
     nonisolated private static func scanBooks(in documentsDir: URL, supportedExtensions: Set<String>, cacheURL: URL) -> [Book] {
         let fm = FileManager.default
         var books: [Book] = []
-        var cache = loadMetaCache(from: cacheURL)
+        let cache = loadMetaCache(from: cacheURL)
         var fresh: [String: AudioFileMeta] = [:]
         var misses = 0
 
-        // 顶层条目：文件夹 = 多章节书；音频文件 = 单本书
+        // 顶层条目：文件夹 = 多章节书；音频文件 = 单本书（内嵌章节 TOC 的一个文件也能出多章）
         let topItems: [URL]
         if let entries = try? fm.contentsOfDirectory(
             at: documentsDir,
@@ -218,12 +238,14 @@ final class LibraryService: ObservableObject {
             } else if supportedExtensions.contains(entry.pathExtension.lowercased()) {
                 let path = relativePath(entry, documentsDir: documentsDir)
                 let bookId = "file:\(path)"
-                if let chapter = makeChapter(file: entry, bookId: bookId, index: 0, documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses) {
+                let chapters = makeChapters(file: entry, bookId: bookId, firstIndex: 0,
+                                            documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses)
+                if !chapters.isEmpty {
                     books.append(Book(
                         id: bookId,
                         title: entry.deletingPathExtension().lastPathComponent,
                         author: fresh[path]?.author,
-                        chapters: [chapter],
+                        chapters: chapters,
                         storagePath: path
                     ))
                 }
@@ -247,11 +269,18 @@ final class LibraryService: ObservableObject {
             fresh[path] = cached
             return cached
         }
+        // 一个文件只开一次 asset：时长、作者、内嵌章节都从它读
+        let asset = AVURLAsset(url: file)
+        let duration = audioDuration(of: asset)
         let meta = AudioFileMeta(size: size, mtime: mtime,
-                                 duration: audioDuration(of: file),
-                                 author: audioAuthor(of: file))
+                                 duration: duration,
+                                 author: audioAuthor(of: asset),
+                                 chapters: embeddedChapters(of: asset, duration: duration))
         fresh[path] = meta
         misses += 1
+        if let toc = meta.chapters {
+            NSLog("[sonux] meta: %@ 读到内嵌章节 %d 条", path, toc.count)
+        }
         return meta
     }
 
@@ -452,7 +481,7 @@ final class LibraryService: ObservableObject {
     }
 
     /// 从「文件」App 导入音频文件或文件夹：复制进 Documents 后重新扫描
-    /// - 文件夹 → 一本多章节书；单个音频 → 一本单章书
+    /// - 文件夹 → 一本多章节书；单个音频 → 一本书（章节数由该文件的内嵌 TOC 决定）
     /// - 返回成功导入的条目数
     @discardableResult
     func importItems(from urls: [URL]) -> Int {
@@ -514,8 +543,11 @@ final class LibraryService: ObservableObject {
 
         audioFiles.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
         let bookId = "dir:\(relativePath(folder, documentsDir: documentsDir))"
-        let chapters = audioFiles.enumerated().compactMap { index, file in
-            makeChapter(file: file, bookId: bookId, index: index, documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses)
+        // 一个文件可能展开成多个逻辑章节（内嵌 TOC），章号按全书顺序累加
+        var chapters: [Chapter] = []
+        for file in audioFiles {
+            chapters += makeChapters(file: file, bookId: bookId, firstIndex: chapters.count,
+                                     documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses)
         }
         guard !chapters.isEmpty else { return nil }
 
@@ -528,17 +560,36 @@ final class LibraryService: ObservableObject {
         )
     }
 
-    nonisolated private static func makeChapter(file: URL, bookId: String, index: Int, documentsDir: URL, cache: [String: AudioFileMeta], fresh: inout [String: AudioFileMeta], misses: inout Int) -> Chapter? {
-        let id = relativePath(file, documentsDir: documentsDir)
-        let duration = meta(for: file, path: id, cache: cache, fresh: &fresh, misses: &misses).duration
-        return Chapter(
-            id: id,
-            bookId: bookId,
-            index: index,
-            title: Self.chapterTitle(from: file),
-            duration: duration,
-            fileURL: file
-        )
+    /// 一个音频文件展开成若干章节：
+    /// - 有内嵌章节 TOC（m4b 一类）：同一个 fileURL 拆成 N 个逻辑章节，各带自己的起点，
+    ///   id 形如「相对路径#章号」，进度、字幕、定时关闭都按这一章的粒度记账
+    /// - 没有 TOC（或 TOC 只有一条）：仍是「一个文件 = 一章」，id 就是相对路径，历史进度不失效
+    nonisolated private static func makeChapters(file: URL, bookId: String, firstIndex: Int, documentsDir: URL,
+                                                 cache: [String: AudioFileMeta], fresh: inout [String: AudioFileMeta],
+                                                 misses: inout Int) -> [Chapter] {
+        let path = relativePath(file, documentsDir: documentsDir)
+        let meta = meta(for: file, path: path, cache: cache, fresh: &fresh, misses: &misses)
+        guard var toc = meta.chapters, meta.duration > 0 else {
+            return [Chapter(id: path, bookId: bookId, index: firstIndex, title: chapterTitle(from: file),
+                            duration: meta.duration, fileURL: file)]
+        }
+        // TOC 的第一条可能不从 0 开始（片头没打点）：把开头空隙并进第一章，否则那一段永远听不到
+        if let head = toc.first, head.start > 0 {
+            toc[0] = EmbeddedChapter(start: 0, title: head.title)
+        }
+        return toc.enumerated().map { offset, item in
+            // 本章到下一章的起点为止；最后一章取到文件结尾，免得结尾一小段没有章认领
+            let end = offset + 1 < toc.count ? toc[offset + 1].start : meta.duration
+            return Chapter(
+                id: "\(path)#\(offset)",
+                bookId: bookId,
+                index: firstIndex + offset,
+                title: item.title.isEmpty ? "\(firstIndex + offset + 1)" : item.title,
+                duration: max(0, end - item.start),
+                fileURL: file,
+                fileStart: item.start
+            )
+        }
     }
 
     nonisolated private static func relativePath(_ url: URL, documentsDir: URL) -> String {
@@ -572,15 +623,45 @@ final class LibraryService: ObservableObject {
         return base
     }
 
-    nonisolated private static func audioDuration(of url: URL) -> TimeInterval {
-        let asset = AVURLAsset(url: url)
+    nonisolated private static func audioDuration(of asset: AVAsset) -> TimeInterval {
         let seconds = CMTimeGetSeconds(asset.duration)
         return seconds.isFinite && seconds > 0 ? seconds : 0
     }
 
+    /// 读音频内嵌的章节 TOC（章节轨或 chpl 原子），返回按起点排好的章列表；
+    /// 没有 TOC、只有 1 条、或时间轴都落在文件之外时返回 nil，交给「一个文件 = 一章」的常规路径。
+    ///
+    /// 注意 locale：制作工具（ffmpeg、Calibre、各种转码器）常把章名标成 "und"（未标注语言），
+    /// 只按用户偏好语言匹配会一条都取不到，所以匹配为空时再逐个 locale 取一次
+    nonisolated private static func embeddedChapters(of asset: AVAsset, duration: TimeInterval) -> [EmbeddedChapter]? {
+        guard duration > 0 else { return nil }
+        var groups = asset.chapterMetadataGroups(bestMatchingPreferredLanguages: Locale.preferredLanguages)
+        if groups.isEmpty {
+            for locale in asset.availableChapterLocales {
+                let found = asset.chapterMetadataGroups(withTitleLocale: locale,
+                                                        containingItemsWithCommonKeys: [.commonKeyTitle])
+                if !found.isEmpty {
+                    groups = found
+                    break
+                }
+            }
+        }
+        var toc: [EmbeddedChapter] = []
+        for group in groups {
+            let start = CMTimeGetSeconds(group.timeRange.start)
+            guard start.isFinite, start >= 0, start < duration else { continue }
+            // 比上一章起点还不挪 1 秒的条目（重复打点、空章）不要，否则会切出一段听不到的章
+            if let last = toc.last, start <= last.start + 1 { continue }
+            let title = group.items.first { $0.commonKey == .commonKeyTitle }?.stringValue
+                ?? group.items.first?.stringValue
+            toc.append(EmbeddedChapter(start: start,
+                                       title: (title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)))
+        }
+        return toc.count > 1 ? toc : nil
+    }
+
     /// 从音频元数据提取作者（artist / album artist 字段，取第一个非空值）
-    nonisolated private static func audioAuthor(of url: URL) -> String? {
-        let asset = AVURLAsset(url: url)
+    nonisolated private static func audioAuthor(of asset: AVAsset) -> String? {
         let authorIDs: [AVMetadataIdentifier] = [
             .iTunesMetadataArtist, .iTunesMetadataAlbumArtist, .iTunesMetadataOriginalArtist,
             .quickTimeMetadataArtist, .quickTimeUserDataArtist,

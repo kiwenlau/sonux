@@ -24,7 +24,8 @@ struct Book: Identifiable, Codable, Equatable {
     }
 }
 
-/// 一个章节（对应一个音频文件）
+/// 一个章节：通常对应一个音频文件；
+/// m4b 内嵌章节 TOC 时对应同一文件里的一段（从 fileStart 起、长 duration 秒）
 struct Chapter: Identifiable, Codable, Equatable {
     let id: String
     var bookId: String
@@ -32,6 +33,48 @@ struct Chapter: Identifiable, Codable, Equatable {
     var title: String
     var duration: TimeInterval
     var fileURL: URL
+    /// 本章在音频文件时间轴上的起始秒：一个文件一章时恒为 0
+    var fileStart: TimeInterval
+
+    init(id: String, bookId: String, index: Int, title: String, duration: TimeInterval,
+         fileURL: URL, fileStart: TimeInterval = 0) {
+        self.id = id
+        self.bookId = bookId
+        self.index = index
+        self.title = title
+        self.duration = duration
+        self.fileURL = fileURL
+        self.fileStart = fileStart
+    }
+
+    /// 本章在文件时间轴上的结束秒（最后一章就是文件结尾）
+    var fileEnd: TimeInterval { fileStart + duration }
+
+    /// 文件时间轴的秒 → 本章内的秒（界面与进度都按章内秒记账）
+    func localTime(_ fileTime: TimeInterval) -> TimeInterval {
+        max(0, fileTime - fileStart)
+    }
+
+    /// 本章内的秒 → 文件时间轴的秒
+    func fileTime(_ local: TimeInterval) -> TimeInterval {
+        fileStart + local
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, bookId, index, title, duration, fileURL, fileStart
+    }
+
+    /// fileStart 是后加的字段：旧数据（含按章节进度 JSON）里没这个键，缺省按 0 处理
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        bookId = try container.decode(String.self, forKey: .bookId)
+        index = try container.decode(Int.self, forKey: .index)
+        title = try container.decode(String.self, forKey: .title)
+        duration = try container.decode(TimeInterval.self, forKey: .duration)
+        fileURL = try container.decode(URL.self, forKey: .fileURL)
+        fileStart = try container.decodeIfPresent(TimeInterval.self, forKey: .fileStart) ?? 0
+    }
 }
 
 /// 播放位置：某章节的某秒
