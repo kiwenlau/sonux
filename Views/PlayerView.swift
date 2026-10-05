@@ -282,12 +282,16 @@ struct PlayerView: View {
     /// 章节入口：点开弹出章节列表快捷切章。只用一枚与章节名同色的小图标，
     /// 不再套玻璃圆底 —— 这一行是文字注脚，不是操作栏
     ///
-    /// 热区单独扩到 44×32（图标本身只有 ~17pt，擦着边点不中且没有任何反馈），
+    /// 字号与深浅跟下面字幕行右端那枚文稿图标完全一致（15pt / .regular / 白 0.6）：
+    /// 两枚图标上下成一列，实测 list.bullet 在 15pt 是 19×13、text.page 是 17×18，
+    /// 宽度只差 2pt；之前一个 17pt 一个 14pt 时宽度差到 6pt，看着就是两套东西
+    ///
+    /// 热区单独扩到 44×32（图标本身只有 ~19pt，擦着边点不中且没有任何反馈），
     /// 多出来的尺寸用负边距抵掉：图标的视觉位置与这一行的高度都不变
     private var chaptersButton: some View {
         Button { showingChaptersSheet = true } label: {
             Image(systemName: "list.bullet")
-                .font(.system(size: 17, weight: .regular))
+                .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(.white.opacity(0.6))
                 .frame(width: 44, height: 32)
                 .contentShape(Rectangle())
@@ -359,8 +363,9 @@ struct PlayerView: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
 
                     Image(systemName: "text.page")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.5))
+                        // 15pt / 白 0.6 与上面章节行那枚图标配成同一列，规格见 chaptersButton
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.6))
                         // 与首行文字的光学中线对齐
                         .offset(y: 1)
                 }
