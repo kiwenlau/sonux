@@ -398,6 +398,8 @@ final class LibraryService: ObservableObject {
         let todaySeconds: TimeInterval
         let last7Seconds: TimeInterval
         let streakDays: Int
+        /// 近 7 天逐日时长（从旧到新，最后一个是今天），给「我」页的柱状图用
+        let recentDays: [ListeningDay]
 
         var isEmpty: Bool { totalSeconds < 1 }
     }
@@ -407,7 +409,8 @@ final class LibraryService: ObservableObject {
             totalSeconds: listening.totalSeconds,
             todaySeconds: listening.seconds(on: now),
             last7Seconds: listening.seconds(in: 7, endingOn: now),
-            streakDays: listening.streakDays(endingOn: now)
+            streakDays: listening.streakDays(endingOn: now),
+            recentDays: listening.recentDays(7, endingOn: now)
         )
     }
 

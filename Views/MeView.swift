@@ -58,9 +58,13 @@ private struct SettingsCard: View {
     }
 }
 
-/// 累计时长卡片：大数字加今天 / 近 7 天 / 连续天数三个小指标
+/// 累计时长卡片：大数字 + 今日目标环与近 7 天柱状图 + 今天 / 近 7 天 / 连续天数三个小指标
+/// 目标环和柱状图都只有图形、不放文字，数值由下方三个指标承载
 private struct TotalCard: View {
     let summary: LibraryService.ListeningSummary
+
+    /// 每日收听目标：半小时（目标环按今天的收听时长占它的比例填充）
+    private static let dailyGoalSeconds: TimeInterval = 30 * 60
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -72,6 +76,21 @@ private struct TotalCard: View {
                 .font(.system(size: 30, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.indigo)
                 .accessibilityIdentifier("me-total")
+
+            HStack(spacing: 16) {
+                GoalRing(progress: summary.todaySeconds / Self.dailyGoalSeconds)
+                    .frame(width: 64, height: 64)
+                    .accessibilityLabel(L("Today"))
+                    .accessibilityValue(TimeFormat.duration(summary.todaySeconds))
+                    .accessibilityIdentifier("me-goal-ring")
+
+                WeekBarChart(days: summary.recentDays, goalSeconds: Self.dailyGoalSeconds)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 64)
+                    .accessibilityLabel(L("Last 7 Days"))
+                    .accessibilityValue(TimeFormat.duration(summary.last7Seconds))
+                    .accessibilityIdentifier("me-week-bars")
+            }
 
             HStack(spacing: 0) {
                 StatItem(title: L("Today"), value: TimeFormat.duration(summary.todaySeconds))
@@ -102,5 +121,81 @@ private struct TotalCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+/// 今日目标环：浅紫底圈是整天的目标，深紫弧线是今天已经完成的进度（从 12 点起顺时针）
+private struct GoalRing: View {
+    /// 完成度 0...1，超过目标按满环算
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.indigo.opacity(0.12), lineWidth: 8)
+
+            if fraction >= 1 {
+                // 满环不裁切，免得首尾相接处留下一道接缝
+                Circle()
+                    .stroke(Color.indigo, lineWidth: 8)
+            } else {
+                Circle()
+                    .trim(from: 0, to: fraction)
+                    .stroke(
+                        AngularGradient(
+                            colors: [Color.indigo.opacity(0.4), Color.indigo],
+                            center: .center,
+                            startAngle: .degrees(0),
+                            endAngle: .degrees(360)
+                        ),
+                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+            }
+        }
+    }
+
+    /// 夹到 0...1，脏数据（NaN、负数）当没听处理
+    private var fraction: Double {
+        let raw = progress
+        guard raw.isFinite else { return 0 }
+        return min(max(raw, 0), 1)
+    }
+}
+
+/// 近 7 天柱状图：从旧到新排列，今天那根实心，其余半透明；标尺取「本周最高的一天」与「每日目标」的较大者
+private struct WeekBarChart: View {
+    let days: [ListeningDay]
+    let goalSeconds: TimeInterval
+
+    var body: some View {
+        GeometryReader { proxy in
+            HStack(spacing: 0) {
+                ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
+                    ZStack(alignment: .bottom) {
+                        // 浅底柱表示这一格的满值，实心部分才是当天时长
+                        Capsule()
+                            .fill(Color.indigo.opacity(0.1))
+                            .frame(width: 12)
+
+                        Capsule()
+                            .fill(index == days.count - 1 ? Color.indigo : Color.indigo.opacity(0.4))
+                            .frame(width: 12, height: barHeight(day.seconds, in: proxy.size.height))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+
+    /// 没听的那天为 0，秒数直接按比例化成柱高
+    private var peak: TimeInterval {
+        max(days.map(\.seconds).max() ?? 0, goalSeconds, 1)
+    }
+
+    /// 柱高按标尺等比缩放；只要那天听过就至少留 4pt，别让几分钟的收听在图上看不见
+    private func barHeight(_ seconds: TimeInterval, in height: CGFloat) -> CGFloat {
+        guard seconds > 0 else { return 0 }
+        return max(height * CGFloat(min(seconds / peak, 1)), min(4, height))
     }
 }
