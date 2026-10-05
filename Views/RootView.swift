@@ -1,10 +1,12 @@
 import SwiftUI
 import UIKit
 
-/// 书库导航栈里的路由：一本书的详情页，或一位作者的作品页
+/// 书库导航栈里的路由：一本书的详情页、一位作者的作品页，或一次全库字幕搜索的结果页
 enum LibraryRoute: Hashable {
     case book(String)
     case author(String)
+    /// 关键词 + 搜索范围（作者页里发起的只搜那位作者的作品，nil 是全库）
+    case textSearch(query: String, author: String?)
 }
 
 /// 底部标签页：音频、历史与「我的」各挂一条独立导航栈
@@ -67,6 +69,12 @@ final class AppRouter: ObservableObject {
     func openAuthor(_ author: String) {
         NSLog("[sonux] ui: 入栈作者页 %@（栈深 %d → %d）", author, path.count, path.count + 1)
         path.append(.author(author))
+    }
+
+    /// 进入全库字幕搜索的结果页：书名与章节名之外，正文的每一句也搜得到
+    func openTextSearch(query: String, author: String?) {
+        NSLog("[sonux] ui: 入栈全文搜索 %@（栈深 %d → %d）", query, path.count, path.count + 1)
+        path.append(.textSearch(query: query, author: author))
     }
 }
 
@@ -136,6 +144,8 @@ struct RootView: View {
         case .author(let name):
             // 作者页就是只装了一位作者作品的书库，整套界面（搜索、列表/卡片切换）与首页一致
             LibraryView(author: name)
+        case .textSearch(let query, let author):
+            TextSearchView(query: query, author: author)
         }
     }
 

@@ -703,6 +703,91 @@ add("Pause",
     es="Pausar", sv="Pausa", th="หยุดชั่วคราว", tr="Duraklat", uk="Призупинити", vi="Tạm dừng",
     zhhs="暂停", zhtt="暫停")
 
+# ---------------- 文案页（上一笔提交漏补的键） ----------------
+
+add("Chapter Text", ar="نص الفصل", ca="Text del capítol", hr="Tekst poglavlja", cs="Text kapitoly",
+    da="Kapiteltekst", nl="Hoofdstuktekst", fr="Texte du chapitre", de="Kapiteltext",
+    el="Κείμενο κεφαλαίου", he="טקסט הפרק", hi="अध्याय पाठ", hu="Fejezet szövege",
+    id="Teks bab", it="Testo del capitolo", ja="章のテキスト", ko="챕터 텍스트", ms="Teks bab",
+    nb="Kapitteltekst", pl="Tekst rozdziału", ptbr="Texto do capítulo", ptpt="Texto do capítulo",
+    ro="Textul capitolului", ru="Текст главы", sk="Text kapitoly", es="Texto del capítulo",
+    sv="Kapiteltext", th="ข้อความของบท", tr="Bölüm metni", uk="Текст розділу",
+    vi="Văn bản chương", zhhs="本章文案", zhtt="本章文案")
+
+# ---------------- 全库字幕搜索 ----------------
+
+add("Search All Text for \"%@\"", ar="ابحث عن «%@» في كل النص", ca="Cerca «%@» en tot el text", hr="Pretraži sav tekst za „%@“",
+    cs="Hledat „%@“ v celém textu", da="Søg efter „%@“ i al tekst", nl="„%@“ doorzoeken in alle tekst",
+    fr="Rechercher « %@ » dans tout le texte", de="Gesamten Text nach „%@“ durchsuchen",
+    el="Αναζήτηση «%@» σε όλο το κείμενο", he="חפש “%@” בכל הטקסט", hi="पूरे पाठ में “%@” खोजें",
+    hu="Keresés a teljes szövegben: „%@“", id="Cari “%@” di semua teks",
+    it="Cerca “%@” in tutto il testo", ja="「%@」を全文検索", ko="전체 텍스트에서 “%@” 검색",
+    ms="Cari “%@” dalam semua teks", nb="Søk etter «%@» i all tekst", pl="Szukaj „%@” w całym tekście",
+    ptbr="Pesquisar “%@” em todo o texto", ptpt="Pesquisar “%@” em todo o texto",
+    ro="Caută „%@“ în tot textul", ru="Искать «%@» во всём тексте", sk="Hľadať „%@“ v celom texte",
+    es="Buscar «%@» en todo el texto", sv="Sök ”%@” i all text", th="ค้นหา “%@” ในข้อความทั้งหมด",
+    tr="Tüm metinde “%@” ara", uk="Шукати «%@» в усьому тексті", vi="Tìm “%@” trong toàn bộ văn bản",
+    zhhs="全文搜索「%@」", zhtt="全文搜尋「%@」")
+
+add("Searching", ar="جاري البحث", ca="Cercant", hr="Pretraživanje", cs="Probíhá hledání",
+    da="Søger", nl="Bezig met zoeken", fr="Recherche en cours", de="Suche läuft",
+    el="Αναζήτηση", he="מחפש", hi="खोज जारी है", hu="Keresés", id="Mencari",
+    it="Ricerca in corso", ja="検索中", ko="검색 중", ms="Sedang mencari", nb="Søker",
+    pl="Wyszukiwanie", ptbr="Pesquisando", ptpt="Pesquisando", ro="Se caută",
+    ru="Идёт поиск", sk="Prebieha vyhľadávanie", es="Buscando", sv="Söker",
+    th="กำลังค้นหา", tr="Aranıyor", uk="Трива пошук", vi="Đang tìm kiếm", zhhs="正在搜索",
+    zhtt="正在搜尋")
+
+add("No Transcripts to Search", ar="لا يوجد نص للبحث فيه", ca="No hi ha text per cercar", hr="Nema teksta za pretraživanje",
+    cs="Není žádný text ke hledání", da="Ingen tekst at søge i", nl="Geen tekst om te zoeken",
+    fr="Aucun texte à rechercher", de="Kein Text zum Suchen", el="Δεν υπάρχει κείμενο για αναζήτηση",
+    he="אין טקסט לחפש בו", hi="खोजने के लिए पाठ नहीं है", hu="Nincs kereshető szöveg",
+    id="Tidak ada teks untuk dicari", it="Nessun testo da cercare", ja="検索できる字幕がありません",
+    ko="검색할 대본이 없습니다", ms="Tiada teks untuk dicari", nb="Ingen tekst å søke i",
+    pl="Brak tekstu do wyszukiwania", ptbr="Não há texto para pesquisar",
+    ptpt="Não há texto para pesquisar", ro="Nu există text de căutat",
+    ru="Нет текста для поиска", sk="Žiadny text na vyhľadávanie", es="No hay texto que buscar",
+    sv="Ingen text att söka i", th="ไม่มีข้อความให้ค้นหา", tr="Aranacak metin yok",
+    uk="Немає тексту для пошуку", vi="Không có văn bản để tìm", zhhs="还没有可搜索的字幕",
+    zhtt="還沒有可搜尋的字幕")
+
+add("%d Hits", ar="%d تطابق", ca="%d coincidències", hr="%d rezultata", cs="%d výskytů",
+    da="%d fund", nl="%d resultaten", fr="%d mentions", de="%d Treffer", el="%d ευρέσεις",
+    he="%d התאמות", hi="%d मैच", hu="%d találat", id="%d hasil", it="%d occorrenze",
+    ja="%d 箇所", ko="%d개 일치", ms="%d hasil", nb="%d treff", pl="%d trafień", ptbr="%d correspondências",
+    ptpt="%d correspondências", ro="%d rezultate", ru="%d совпадений", sk="%d výskytov",
+    es="%d coincidencias", sv="%d träffar", th="%d รายการ", tr="%d sonuç",
+    uk="%d збігів", vi="%d kết quả", zhhs="命中 %d 句", zhtt="命中 %d 句")
+
+add("%d More Hits Not Listed", ar="%d تطابق آخر غير مُدرج", ca="%d coincidències més no enumerades",
+    hr="%d dodatnih rezultata nije navedeno", cs="%d dalších výskytů není uvedeno",
+    da="%d yderligere fund vises ikke", nl="%d resultaten niet weergegeven",
+    fr="%d autres mentions non affichées", de="%d weitere Treffer nicht aufgeführt",
+    el="%d ακόμη ευρέσεις δεν παραθέτονται", he="%d התאמות נוספות אינן ברשימה",
+    hi="%d और मैच सूचीबद्ध नहीं हैं", hu="%d további találat nincs feltüntetve",
+    id="%d hasil lainnya tidak ditampilkan", it="%d occorrenze aggiuntive non elencate",
+    ja="他 %d 箇所は非表示", ko="나머지 %d개는 표시되지 않음", ms="%d hasil lagi tidak disenaraikan",
+    nb="%d treff vises ikke", pl="%d dalszych trafień nie zostało wymienionych",
+    ptbr="Mais %d correspondências não listadas", ptpt="Mais %d correspondências não listadas",
+    ro="%d rezultate în plus nu sunt listate", ru="Ещё %d совпадений не показано",
+    sk="%d ďalších výskytov nie je uvedených", es="%d coincidencias más no listadas",
+    sv="Ytterligare %d träffar visas inte", th="อีก %d รายการไม่แสดง",
+    tr="%d sonuç daha listelenmedi", uk="Ще %d збігів не показано", vi="%d kết quả khác không được liệt kê",
+    zhhs="另有 %d 句未列出", zhtt="另有 %d 句未列出")
+
+add("Play \"%1$@\" at %2$@", ar="شغّل «%1$@» عند %2$@", ca="Reprodueix «%1$@» a %2$@", hr="Reproduziraj „%1$@“ na %2$@",
+    cs="Přehrát „%1$@“ v %2$@", da="Afspil „%1$@“ ved %2$@", nl="“%1$@” afspelen op %2$@",
+    fr="Lire « %1$@ » à %2$@", de="„%1$@“ bei %2$@ wiedergeben", el="Αναπαραγωγή «%1$@» στο %2$@",
+    he="הפעל “%1$@” ב-%2$@", hi="%2$@ पर “%1$@” चलाएँ", hu="„%1$@” lejátszása itt: %2$@",
+    id="Putar “%1$@” pada %2$@", it="Riproduci “%1$@” alle %2$@", ja="%2$@ で「%1$@」を再生",
+    ko="%2$@에서 “%1$@” 재생", ms="Main “%1$@” pada %2$@", nb="Spill av «%1$@» ved %2$@",
+    pl="Odtwórz „%1$@” o %2$@", ptbr="Reproduzir “%1$@” em %2$@", ptpt="Reproduzir “%1$@” em %2$@",
+    ro="Redă „%1$@” la %2$@", ru="Воспроизвести «%1$@» на %2$@", sk="Prehrať „%1$@“ o %2$@",
+    es="Reproducir «%1$@» en %2$@", sv="Spara ”%1$@” vid %2$@", th="เล่น “%1$@” ที่ %2$@",
+    tr="“%1$@” %2$@ için oynat", uk="Відтворити «%1$@» на %2$@", vi="Phát “%1$@” tại %2$@",
+    zhhs="从 %2$@ 播放「%1$@」", zhtt="從 %2$@ 播放「%1$@」")
+
+
 # ---------------- 生成 ----------------
 
 LITERAL = re.compile(r'\bLF?\(\s*"((?:[^"\\]|\\.)*)"')

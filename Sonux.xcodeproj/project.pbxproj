@@ -26,6 +26,8 @@
 		400000000000000000000012 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000012 /* Localizable.xcstrings */; };
 		400000000000000000000013 /* Transcript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000013 /* Transcript.swift */; };
 		400000000000000000000014 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000014 /* TranscriptStore.swift */; };
+		400000000000000000000015 /* TextSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000015 /* TextSearch.swift */; };
+		400000000000000000000016 /* TextSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000016 /* TextSearchView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +51,8 @@
 		300000000000000000000012 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		300000000000000000000013 /* Transcript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcript.swift; sourceTree = "<group>"; };
 		300000000000000000000014 /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
+		300000000000000000000015 /* TextSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSearch.swift; sourceTree = "<group>"; };
+		300000000000000000000016 /* TextSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSearchView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +119,7 @@
 				300000000000000000000003 /* LibraryService.swift */,
 				300000000000000000000004 /* PlayerService.swift */,
 				300000000000000000000014 /* TranscriptStore.swift */,
+				300000000000000000000015 /* TextSearch.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -132,6 +137,7 @@
 				30000000000000000000000C /* HistoryView.swift */,
 				30000000000000000000000F /* MeView.swift */,
 				300000000000000000000011 /* LanguageView.swift */,
+				300000000000000000000016 /* TextSearchView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -256,6 +262,8 @@
 				400000000000000000000011 /* LanguageView.swift in Sources */,
 				400000000000000000000013 /* Transcript.swift in Sources */,
 				400000000000000000000014 /* TranscriptStore.swift in Sources */,
+				400000000000000000000015 /* TextSearch.swift in Sources */,
+				400000000000000000000016 /* TextSearchView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

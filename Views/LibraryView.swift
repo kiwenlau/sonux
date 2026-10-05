@@ -113,10 +113,22 @@ struct LibraryView: View {
             // 不用系统 .searchable：它聚焦时会把工具栏右侧按钮整个换成「取消」，
             // 做不到「隐藏添加、保留视图切换」，所以搜索栏自己画
             if !sourceBooks.isEmpty {
-                LibrarySearchBar(query: $searchQuery, focused: $searchFocused)
+                LibrarySearchBar(query: $searchQuery, focused: $searchFocused) { committed in
+                    // 按键盘上的「搜索」= 直接进字幕搜索页：书名与章节名之外的第三种搜法
+                    router.openTextSearch(query: committed, author: author)
+                }
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
                     .padding(.bottom, 8)
+            }
+            // 关键词一定下来就露出全文搜索入口（此时还没到一屏书名，加一行不显拥挤）：
+            // 有声书的搜索重心在正文里，只按书名过滤会让人觉得「搜不到」
+            if !sourceBooks.isEmpty, !searchQuery.isEmpty {
+                FullTextSearchRow(query: searchQuery) {
+                    router.openTextSearch(query: searchQuery, author: author)
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
             }
             libraryContent
         }
@@ -341,6 +353,10 @@ private struct LibrarySearchBar: View {
     @FocusState.Binding var focused: Bool
     /// 输入框里的实时文本
     @State private var text = ""
+    /// 回车提交后的动作：把关键词交给父视图跳字幕搜索页。
+    /// 显式传值而不是让父视图回读 query —— 写入的是存储，这一趟渲染还没重算，
+    /// 传值能保证跳过去用的就是刚提交的那个词
+    var onSubmitText: (String) -> Void = { _ in }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -357,6 +373,9 @@ private struct LibrarySearchBar: View {
                 .onSubmit {
                     focused = false
                     apply()
+                    let committed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !committed.isEmpty else { return }
+                    onSubmitText(committed)
                 }
                 .accessibilityLabel(L("Search Library"))
                 .accessibilityIdentifier("library-search")
@@ -395,6 +414,41 @@ private struct LibrarySearchBar: View {
     private func apply() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if query != trimmed { query = trimmed }
+    }
+}
+
+/// 全文搜索入口：书名与章节名之外的第三种搜法——把关键词带进字幕搜索页。
+/// 与搜索栏同样式的一张白卡，右端一个箭头表明它是个去处而不是筛选结果
+private struct FullTextSearchRow: View {
+    let query: String
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 8) {
+                Image(systemName: "text.magnifyingglass")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.indigo)
+
+                Text(LF("Search All Text for \"%@\"", query))
+                    .font(.subheadline)
+                    .foregroundStyle(.indigo)
+                    .lineLimit(1)
+
+                Spacer(minLength: 4)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 36)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(.secondarySystemGroupedBackground)))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("library-fulltext")
     }
 }
 
@@ -455,6 +509,10 @@ struct ContentUnavailableWrapper<ActionView: View>: View {
                 .foregroundStyle(.indigo)
             Text(title)
                 .font(.title2.bold())
+                // 关键词可能被用户贴进一整句话，标题要能折行但不能把整页顶没（居中三行为止）
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .padding(.horizontal, 24)
             action()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -13,13 +13,17 @@ final class TranscriptStore: ObservableObject {
     /// key: 章节相对路径（与 Chapter.id 一致），value: 按时间排序的字幕行
     @Published private(set) var linesByChapter: [String: [TranscriptLine]] = [:]
 
+    /// 字幕包目录：Documents/transcripts（书库与字幕共用同一个 Documents，靠目录名区分）
+    nonisolated static let transcriptsDirectory =
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("transcripts", isDirectory: true)
+
     private let transcriptsDir: URL
     private var loadedBookId: String?
     private var loadingBookId: String?
 
     private init() {
-        transcriptsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("transcripts", isDirectory: true)
+        transcriptsDir = Self.transcriptsDirectory
     }
 
     /// 异步读取某本书的字幕；同一本不重复读，等待期间换了书则丢弃结果
@@ -96,16 +100,32 @@ final class TranscriptStore: ObservableObject {
               let file = try? JSONDecoder().decode(TranscriptFile.self, from: data) else { return [:] }
         var result: [String: [TranscriptLine]] = [:]
         for chapter in chapters {
-            // 字幕包的键是章文件名；内嵌章节的书里整本共用一份时间轴，按本章区间切片
-            let lines = file.lines(forChapterFile: chapter.fileURL.lastPathComponent)
-            let last = chapter.index == chapters.count - 1
-            let sliced = lines.compactMap { line -> TranscriptLine? in
-                guard line.start >= chapter.fileStart - 0.5, last || line.start < chapter.fileEnd - 0.5 else { return nil }
-                let start = max(0, line.start - chapter.fileStart)
-                return TranscriptLine(start: start, end: max(start, line.end - chapter.fileStart), text: line.text)
-            }
-            if !sliced.isEmpty { result[chapter.id] = sliced }
+            let lines = lines(for: chapter, of: chapters, in: file)
+            if !lines.isEmpty { result[chapter.id] = lines }
         }
         return result
+    }
+
+    /// 某章的字幕行，时间是「本章内」的秒（与播放器和界面记账口径一致）
+    ///
+    /// 字幕包的键是章文件名；内嵌章节的书里整本共用一份时间轴，要按本章在文件里的
+    /// 区间切片再把起点归零。
+    nonisolated static func lines(for chapter: Chapter, of chapters: [Chapter],
+                                 in file: TranscriptFile) -> [TranscriptLine] {
+        return file.lines(forChapterFile: chapter.fileURL.lastPathComponent).compactMap { line in
+            guard let start = localStart(of: line.start, in: chapter, of: chapters) else { return nil }
+            return TranscriptLine(start: start, end: max(start, line.end - chapter.fileStart), text: line.text)
+        }
+    }
+
+    /// 文件时间轴上的一句属不属于本章？属于就换算成章内秒（不在返回 nil）
+    ///
+    /// 边界留 0.5 秒容差：转写的时间戳会有一点头尾溢出，最后一章则不设上界。
+    /// 播放路径与全文搜索共用这一条判据，两边看到的句子才是同一批。
+    nonisolated static func localStart(of lineStart: TimeInterval, in chapter: Chapter,
+                                       of chapters: [Chapter]) -> TimeInterval? {
+        let last = chapter.index == chapters.count - 1
+        guard lineStart >= chapter.fileStart - 0.5, last || lineStart < chapter.fileEnd - 0.5 else { return nil }
+        return max(0, lineStart - chapter.fileStart)
     }
 }
