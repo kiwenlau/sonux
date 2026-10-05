@@ -98,7 +98,16 @@ final class LibraryService: ObservableObject {
         let aliveChapterIds = Set(scanned.flatMap { $0.chapters.map(\.id) })
         chapterPositions = chapterPositions.filter { aliveChapterIds.contains($0.key) }
         lastPlayedDates = lastPlayedDates.filter { aliveBookIds.contains($0.key) }
+        backfillFinishedBooks()
         saveProgress()
+    }
+
+    /// 补记完成日期：早先的版本不记「哪天听完的」，这里把已经听完但没日期的书
+    /// 按它最后播放那天补一条，免得升级后「本月/本年听完几本」直接归零
+    private func backfillFinishedBooks() {
+        for book in books where listening.finished[book.id] == nil && isBookFinished(book) {
+            listening.markFinished(bookId: book.id, at: lastPlayedDates[book.id] ?? Date())
+        }
     }
 
     /// 第一帧渲染用的书库快照：只存相对路径、标题、时长等纯数据，
@@ -400,17 +409,51 @@ final class LibraryService: ObservableObject {
         let streakDays: Int
         /// 近 7 天逐日时长（从旧到新，最后一个是今天），给「我」页的柱状图用
         let recentDays: [ListeningDay]
+        /// 本月（自然月）累计收听秒数
+        let monthSeconds: TimeInterval
+        /// 本月整本听完的书数
+        let monthFinished: Int
 
         var isEmpty: Bool { totalSeconds < 1 }
+        /// 这个月有没有痕迹：一个月既没听也没听完，就不必在页面上摆一张空卡
+        var hasMonthActivity: Bool { monthSeconds >= 1 || monthFinished > 0 }
     }
 
     func listeningSummary(now: Date = Date()) -> ListeningSummary {
-        ListeningSummary(
+        let month = ListeningStats.monthKey(now)
+        return ListeningSummary(
             totalSeconds: listening.totalSeconds,
             todaySeconds: listening.seconds(on: now),
             last7Seconds: listening.seconds(in: 7, endingOn: now),
             streakDays: listening.streakDays(endingOn: now),
-            recentDays: listening.recentDays(7, endingOn: now)
+            recentDays: listening.recentDays(7, endingOn: now),
+            monthSeconds: listening.seconds(in: month),
+            monthFinished: listening.booksFinished(in: month)
+        )
+    }
+
+    /// 收听报告页的快照：一整年一档
+    struct ListeningReport {
+        let year: Int
+        let totalSeconds: TimeInterval
+        let daysListened: Int
+        let booksFinished: Int
+        /// 逐月收听秒数，下标 0 是 1 月
+        let monthly: [TimeInterval]
+        /// 柱状图里该实心那一格（0 = 1 月），即报告这一年的本月
+        let currentMonth: Int
+    }
+
+    func listeningReport(now: Date = Date(), calendar: Calendar = .current) -> ListeningReport {
+        let year = calendar.component(.year, from: now)
+        let bucket = ListeningStats.yearKey(now, calendar: calendar)
+        return ListeningReport(
+            year: year,
+            totalSeconds: listening.seconds(in: bucket),
+            daysListened: listening.daysListened(in: bucket),
+            booksFinished: listening.booksFinished(in: bucket),
+            monthly: listening.monthlySeconds(inYear: year),
+            currentMonth: calendar.component(.month, from: now) - 1
         )
     }
 
@@ -422,7 +465,24 @@ final class LibraryService: ObservableObject {
         }
         // 每次上报进度都刷新最后播放时间，播放历史页据此排序
         lastPlayedDates[bookId] = Date()
+        markFinishedIfNeeded(bookId: bookId)
         saveProgress()
+    }
+
+    /// 一本书是否整本听完：每一章都播到了结尾附近（从没点开的章不算，跳过的章也不算听完）
+    private func isBookFinished(_ book: Book) -> Bool {
+        guard !book.chapters.isEmpty else { return false }
+        return book.chapters.allSatisfy { chapter in
+            guard let time = chapterPositions[chapter.id]?.time else { return false }
+            return ProgressPolicy.isFinished(time: time, duration: chapter.duration)
+        }
+    }
+
+    /// 跨过「整本听完」这条线时落一笔完成日期；听过的书都要每秒走到这里，
+    /// 所以先按有没有记过筛掉，已经听完的书不再翻章
+    private func markFinishedIfNeeded(bookId: String) {
+        guard listening.finished[bookId] == nil, let book = book(id: bookId), isBookFinished(book) else { return }
+        listening.markFinished(bookId: bookId)
     }
 
     /// 重置某个音频的历史播放位置（下次从头播放）

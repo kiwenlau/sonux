@@ -18,7 +18,13 @@ struct MeView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    TotalCard(summary: summary)
+                    VStack(spacing: 14) {
+                        TotalCard(summary: summary)
+                        // 本月没听也没听完就不摆空卡，年度报告的入口跟着本月卡走
+                        if summary.hasMonthActivity {
+                            MonthCard(summary: summary)
+                        }
+                    }
                 }
             }
         }
@@ -84,7 +90,9 @@ private struct TotalCard: View {
                     .accessibilityValue(TimeFormat.duration(summary.todaySeconds))
                     .accessibilityIdentifier("me-goal-ring")
 
-                WeekBarChart(days: summary.recentDays, goalSeconds: Self.dailyGoalSeconds)
+                ListeningBarChart(values: summary.recentDays.map(\.seconds),
+                                  peakFloor: Self.dailyGoalSeconds,
+                                  highlightIndex: summary.recentDays.count - 1)
                     .frame(maxWidth: .infinity)
                     .frame(height: 64)
                     .accessibilityLabel(L("Last 7 Days"))
@@ -103,24 +111,52 @@ private struct TotalCard: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
     }
+}
 
-    /// 一个指标：上值下标题，三列平分卡片宽度
-    private struct StatItem: View {
-        let title: String
-        let value: String
+/// 本月卡：本月的收听时长与听完的本数，点进去是今年的收听报告
+/// 样式跟累计卡一致（小标题 + 分栏指标），只占两栏
+private struct MonthCard: View {
+    let summary: LibraryService.ListeningSummary
 
-        var body: some View {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(value)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text(title)
-                    .font(.caption)
+    var body: some View {
+        NavigationLink {
+            ListeningReportView()
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L("This Month"))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
+
+                HStack(spacing: 0) {
+                    StatItem(title: L("Listening Time"), value: TimeFormat.duration(summary.monthSeconds))
+                    StatItem(title: L("Books Finished"), value: LF("%d Books", summary.monthFinished))
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
         }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("me-month-card")
+    }
+}
+
+/// 一个指标：上值下标题，几列平分卡片宽度（累计卡三列、本月卡两列都用它）
+struct StatItem: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -163,15 +199,19 @@ private struct GoalRing: View {
     }
 }
 
-/// 近 7 天柱状图：从旧到新排列，今天那根实心，其余半透明；标尺取「本周最高的一天」与「每日目标」的较大者
-private struct WeekBarChart: View {
-    let days: [ListeningDay]
-    let goalSeconds: TimeInterval
+/// 柱状图：一格一根浅底柱，实心部分才是那格的量（近 7 天与逐月都用它）
+struct ListeningBarChart: View {
+    /// 每格一根柱子的秒数，从旧到新
+    let values: [Double]
+    /// 标尺下限：近 7 天拿每日目标当下限，柱子才跟目标可比；年度报告传 0，按最高那格算
+    let peakFloor: Double
+    /// 实心那一格的下标（今天 / 本月），其余半透明
+    let highlightIndex: Int?
 
     var body: some View {
         GeometryReader { proxy in
             HStack(spacing: 0) {
-                ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
+                ForEach(values.indices, id: \.self) { index in
                     ZStack(alignment: .bottom) {
                         // 浅底柱表示这一格的满值，实心部分才是当天时长
                         Capsule()
@@ -179,8 +219,8 @@ private struct WeekBarChart: View {
                             .frame(width: 12)
 
                         Capsule()
-                            .fill(index == days.count - 1 ? Color.indigo : Color.indigo.opacity(0.4))
-                            .frame(width: 12, height: barHeight(day.seconds, in: proxy.size.height))
+                            .fill(index == highlightIndex ? Color.indigo : Color.indigo.opacity(0.4))
+                            .frame(width: 12, height: barHeight(values[index], in: proxy.size.height))
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -188,13 +228,13 @@ private struct WeekBarChart: View {
         }
     }
 
-    /// 没听的那天为 0，秒数直接按比例化成柱高
-    private var peak: TimeInterval {
-        max(days.map(\.seconds).max() ?? 0, goalSeconds, 1)
+    /// 没听的那格为 0，秒数直接按比例化成柱高
+    private var peak: Double {
+        max(values.max() ?? 0, peakFloor, 1)
     }
 
-    /// 柱高按标尺等比缩放；只要那天听过就至少留 4pt，别让几分钟的收听在图上看不见
-    private func barHeight(_ seconds: TimeInterval, in height: CGFloat) -> CGFloat {
+    /// 柱高按标尺等比缩放；只要那格听过就至少留 4pt，别让几分钟的收听在图上看不见
+    private func barHeight(_ seconds: Double, in height: CGFloat) -> CGFloat {
         guard seconds > 0 else { return 0 }
         return max(height * CGFloat(min(seconds / peak, 1)), min(4, height))
     }
