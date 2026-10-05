@@ -788,6 +788,25 @@ add("Play \"%1$@\" at %2$@", ar="شغّل «%1$@» عند %2$@", ca="Reprodueix 
     zhhs="从 %2$@ 播放「%1$@」", zhtt="從 %2$@ 播放「%1$@」")
 
 
+add("Quote Card", ar="بطاقة الاقتباس", ca="Targeta de citació", hr="Kartica citata",
+    cs="Karta citátu", da="Citatkort", nl="Citaatkaart", fr="Carte de citation",
+    de="Zitatskarte", el="Κάρτα παράθεσης", he="כרטיס ציטוט", hi="उद्धरण कार्ड",
+    hu="Idézetkártya", id="Kartu kutipan", it="Carta della citazione", ja="引用カード",
+    ko="인용 카드", ms="Kad petikan", nb="Sitatkort", pl="Karta cytatu",
+    ptbr="Cartão de citação", ptpt="Cartão de citação", ro="Card de citat",
+    ru="Карточка цитаты", sk="Karta citátu", es="Tarjeta de cita", sv="Citatkort",
+    th="การ์ดคำอ้าง", tr="Alıntı kartı", uk="Картка цитати", vi="Thẻ trích dẫn",
+    zhhs="摘录卡片", zhtt="摘錄卡片")
+
+add("Share", ar="مشاركة", ca="Comparteix", hr="Dijeli", cs="Sdílet", da="Del",
+    nl="Delen", fr="Partager", de="Teilen", el="Κοινοποίηση", he="שיתוף",
+    hi="साझा करें", hu="Megosztás", id="Bagikan", it="Condividi", ja="共有",
+    ko="공유", ms="Kongsi", nb="Del", pl="Udostępnij", ptbr="Compartilhar",
+    ptpt="Partilhar", ro="Partajează", ru="Поделиться", sk="Zdieľať", es="Compartir",
+    sv="Dela", th="แชร์", tr="Paylaş", uk="Поділитися", vi="Chia sẻ",
+    zhhs="分享", zhtt="分享")
+
+
 # ---------------- 生成 ----------------
 
 LITERAL = re.compile(r'\bLF?\(\s*"((?:[^"\\]|\\.)*)"')

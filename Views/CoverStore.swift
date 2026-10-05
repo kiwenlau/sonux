@@ -10,6 +10,15 @@ struct CoverPalette {
     let lower: Color
     let bottom: Color
 
+    /// 没提取到封面时的兜底：紫色系，明暗结构与下面的主色色板一致，
+    /// 播放页背景与摘录卡片共用这一份，两边不会各写一套颜色
+    static let fallback = CoverPalette(
+        top: Color(red: 0.24, green: 0.16, blue: 0.44),
+        middle: Color(red: 0.30, green: 0.20, blue: 0.55),
+        lower: Color(red: 0.20, green: 0.12, blue: 0.38),
+        bottom: Color(red: 0.10, green: 0.05, blue: 0.24)
+    )
+
     /// 铺满全屏的沉浸渐变（含状态栏后面），色相全程一致，只明暗过渡
     var gradient: LinearGradient {
         LinearGradient(

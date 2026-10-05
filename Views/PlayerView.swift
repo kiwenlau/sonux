@@ -15,15 +15,9 @@ struct PlayerView: View {
     @State private var showingChaptersSheet = false
     /// 整章文案页（点字幕拉开，盖在播放页上）
     @State private var showingTranscript = false
+    /// 摘出来要出卡片的那句：长按字幕、文案页右上角的摘录按钮都写到这里（卡片层只有一份）
+    @State private var quoted: Quote?
     @State private var scrubTime: TimeInterval?
-
-    /// 没提取到封面时的兜底背景：沿用原来的紫色系，明暗结构与主色色板一致
-    private static let fallbackPalette = CoverPalette(
-        top: Color(red: 0.24, green: 0.16, blue: 0.44),
-        middle: Color(red: 0.30, green: 0.20, blue: 0.55),
-        lower: Color(red: 0.20, green: 0.12, blue: 0.38),
-        bottom: Color(red: 0.10, green: 0.05, blue: 0.24)
-    )
 
     /// 竖版封面在没有真实封面时的占位比例
     private static let placeholderRatio: CGFloat = 0.8
@@ -53,8 +47,9 @@ struct PlayerView: View {
 
     private var book: Book? { player.currentBook }
 
+    /// 没提取到封面时的兜底背景（紫色系，与摘录卡片共用同一份色板）
     private var palette: CoverPalette {
-        guard let book, let palette = covers.palette(for: book) else { return Self.fallbackPalette }
+        guard let book, let palette = covers.palette(for: book) else { return CoverPalette.fallback }
         return palette
     }
 
@@ -110,11 +105,13 @@ struct PlayerView: View {
             if showingTranscript, let book, let chapter = player.currentChapter,
                transcripts.hasTranscript(for: chapter.id) {
                 TranscriptView(book: book, chapter: chapter, palette: palette, cover: artworkImage,
-                               onCollapse: collapseTranscript)
+                               onCollapse: collapseTranscript, onQuote: { quoted = $0 })
                     .transition(.move(edge: .bottom))
                     .zIndex(1)
             }
         }
+        // 长按字幕、点文案页摘录按钮挑中的那句，都在这里出卡片
+        .quoteCardSheet($quoted)
     }
 
     /// 全屏播放页本体：三段式构图 + 下滑关闭 + 三个弹层
@@ -172,12 +169,12 @@ struct PlayerView: View {
 
     // MARK: - 顶部栏
 
-    /// 左侧返回，右侧章节入口
+    /// 左侧返回，右侧分享（把此刻正在读的那句画成摘录卡片）
     private var header: some View {
         HStack {
             backButton
             Spacer()
-            chaptersButton
+            shareButton
         }
         // 详情页返回按钮圆底左边缘在屏幕算起 19.3pt 处，外层内容已带 24pt 横内边距，这里回退对齐
         .padding(.leading, -4.7)
@@ -191,12 +188,16 @@ struct PlayerView: View {
             .accessibilityLabel(L("Back"))
     }
 
-    /// 右上角章节入口：与返回按钮同尺寸同材质的玻璃圆底，点开弹出章节列表快捷切章
+    /// 右上角分享入口：与返回按钮同尺寸同材质的玻璃圆底，把正在读的那句画成摘录卡片。
+    /// 图标照微信读书那样用「方框 + 右上箭头」（arrow.up.forward.square），
+    /// 不用系统分享那个「方框 + 向上箭头」—— 后者在本 App 里是卡片层那颗按钮的图标
     @ViewBuilder
-    private var chaptersButton: some View {
-        circleButton(glyph: "list.bullet", action: { showingChaptersSheet = true })
-            .accessibilityIdentifier("chaptersButton")
-            .accessibilityLabel(LF("%d Chapters", book?.chapters.count ?? 0))
+    private var shareButton: some View {
+        if let quote = shareQuote {
+            circleButton(glyph: "arrow.up.forward.square") { quoted = quote }
+                .accessibilityIdentifier("shareQuote")
+                .accessibilityLabel(L("Share"))
+        }
     }
 
     /// 圆底图标按钮：视觉与热区规格见 CircleGlyphButton
@@ -262,15 +263,40 @@ struct PlayerView: View {
 
     // MARK: - 章节名（紧贴封面下方）
 
-    /// 章节名是封面的图注，与封面只用小间距，与进度条同属一个播放组
+    /// 章节名是封面的图注，与封面只用小间距，与进度条同属一个播放组；
+    /// 这一行右端是章节入口（原先在右上角，为分享让位挪到这里，与「N 章」弹层是一对）
     private var chapterText: some View {
-        Text(player.currentChapter?.title ?? L("Not Playing"))
-            .font(.subheadline)
-            .foregroundStyle(.white.opacity(0.6))
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
+        HStack(spacing: 0) {
+            Text(player.currentChapter?.title ?? L("Not Playing"))
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            chaptersButton
+        }
+        .padding(.horizontal, 12)
+    }
+
+    /// 章节入口：点开弹出章节列表快捷切章。只用一枚与章节名同色的小图标，
+    /// 不再套玻璃圆底 —— 这一行是文字注脚，不是操作栏
+    ///
+    /// 热区单独扩到 44×32（图标本身只有 ~17pt，擦着边点不中且没有任何反馈），
+    /// 多出来的尺寸用负边距抵掉：图标的视觉位置与这一行的高度都不变
+    private var chaptersButton: some View {
+        Button { showingChaptersSheet = true } label: {
+            Image(systemName: "list.bullet")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(width: 44, height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, -13)
+        .padding(.vertical, -7)
+        .accessibilityIdentifier("chaptersButton")
+        .accessibilityLabel(LF("%d Chapters", book?.chapters.count ?? 0))
     }
 
     // MARK: - 字幕（正在朗读的那一句）
@@ -284,6 +310,29 @@ struct PlayerView: View {
     /// 当前这一章有没有字幕（没转写出来的书整块不占位，不留一行空白）
     private var hasCaption: Bool {
         transcripts.hasTranscript(for: player.currentChapter?.id)
+    }
+
+    /// 摘某一时刻正在读的那句，时刻取这句的起点（与文案页点句同口径）。
+    /// 句间停顿仍算在上一句里（与字幕显示同一判据）。
+    /// fallBackToFirst: 给「还没读到第一句」兜底 —— 右上角那枚分享按钮总得有东西可分享；
+    /// 长按字幕不兜底，那时字幕本身是空的，摘出来会和屏幕上看到的不一致
+    private func quote(at time: TimeInterval, fallBackToFirst: Bool = false) -> Quote? {
+        guard let book, let chapter = player.currentChapter else { return nil }
+        let lines = transcripts.lines(forChapter: chapter.id)
+        let line = transcripts.line(forChapter: chapter.id, at: time)
+            ?? (fallBackToFirst ? lines.first : nil)
+        guard let line else { return nil }
+        return Quote(book: book, chapter: chapter, line: line)
+    }
+
+    /// 长按字幕要摘的那句；还没读到第一句时摘不出来，那就不挂长按菜单
+    private var captionQuote: Quote? {
+        quote(at: scrubTime ?? player.currentTime)
+    }
+
+    /// 右上角分享要摘的那句；这一章压根没字幕（没转写过的书）时返回 nil，按钮整枚不出现
+    private var shareQuote: Quote? {
+        hasCaption ? quote(at: scrubTime ?? player.currentTime, fallBackToFirst: true) : nil
     }
 
     @ViewBuilder
@@ -321,6 +370,8 @@ struct PlayerView: View {
             }
             .buttonStyle(.plain)
             .animation(.easeInOut(duration: 0.28), value: captionText ?? "")
+            // 长按这句 → 摘录卡片（点开还是文案页，两件事不抢同一个手势）
+            .quoteMenu(captionQuote) { quoted = $0 }
             // 上间距加在 if 分支内部：无字幕时整块不出现，不能在外面留下 8pt 空档
             .padding(.top, Self.gapChapterToCaption)
             .padding(.horizontal, 12)
@@ -644,6 +695,8 @@ struct TranscriptView: View {
     let palette: CoverPalette
     let cover: UIImage?
     let onCollapse: () -> Void
+    /// 摘录按钮按下后交给播放页出卡片（卡片层只有一份，挂在那里）
+    let onQuote: (Quote) -> Void
 
     @EnvironmentObject private var player: PlayerService
     @ObservedObject private var transcripts = TranscriptStore.shared
@@ -713,14 +766,25 @@ struct TranscriptView: View {
 
     // MARK: - 顶部
 
-    /// 收起入口 + 书名 + 作者·章节名：层级照 QQ 音乐歌词页那两行（歌名大、歌手小），
+    /// 收起入口 + 摘录入口 + 书名 + 作者·章节名：层级照 QQ 音乐歌词页那两行（歌名大、歌手小），
     /// 也与播放页「书名 > 作者 > 章节名」的记账顺序一致
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            CircleGlyphButton(glyph: "chevron.down", action: onCollapse)
-                .accessibilityLabel(L("Back"))
-                .accessibilityIdentifier("collapseTranscript")
-                .padding(.bottom, 14)
+            HStack {
+                CircleGlyphButton(glyph: "chevron.down", action: onCollapse)
+                    .accessibilityLabel(L("Back"))
+                    .accessibilityIdentifier("collapseTranscript")
+                Spacer()
+                // 摘录这一页正在读的那句。图标与右上角那枚分享完全一致（同一个符号、
+                // 同一个圆底、同一字重），只是这一页是 ScrollView + LazyVStack，
+                // 长按菜单在那个结构里弹不出来，所以入口做成看得见的按钮放在右上角
+                CircleGlyphButton(glyph: "arrow.up.forward.square") {
+                    if let quote = currentQuote { onQuote(quote) }
+                }
+                .accessibilityLabel(L("Share"))
+                .accessibilityIdentifier("quoteCurrentLine")
+            }
+            .padding(.bottom, 14)
 
             // 书名比正文当前句（.title3）还大一档，不然会被歌词式的大字压过去
             Text(book.title)
@@ -738,6 +802,13 @@ struct TranscriptView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
         .padding(.bottom, 18)
+    }
+
+    /// 按钮摘的是哪句：正在读的那句；还没读到第一句就摘第一句（这一页只在有字幕时存在）
+    private var currentQuote: Quote? {
+        let index = activeIndex >= 0 ? activeIndex : 0
+        guard lines.indices.contains(index) else { return nil }
+        return Quote(book: book, chapter: chapter, line: lines[index])
     }
 
     /// 第二行：作者 · 本章名（这本书没标作者就只剩章名，不留个孤零零的分隔点）
@@ -838,9 +909,12 @@ struct CircleGlyphButton: View {
     /// 扩到 68 才容得下手抖
     static let hitDiameter: CGFloat = 68
 
+    /// 圆底图标按钮：视觉尺寸与材质与详情页导航栏返回按钮一致，播放页与文案页共用。
+    /// 图标一律用 .regular 字重 —— 全 App 的描线图标都走 SF Symbols 默认字重，
+    /// 半粗（.semibold）在深色背景上会明显发粗，和同页其他图标摆一起就不成一套了
     var body: some View {
         let icon = Image(systemName: glyph)
-            .font(.system(size: 21, weight: .semibold))
+            .font(.system(size: 21, weight: .regular))
             .foregroundStyle(.white)
             .frame(width: Self.diameter, height: Self.diameter)
         let slop = (Self.hitDiameter - Self.diameter) / 2

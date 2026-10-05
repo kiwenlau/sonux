@@ -62,6 +62,13 @@ final class TranscriptStore: ObservableObject {
         return linesByChapter[id] ?? []
     }
 
+    /// 此刻正在朗读的那一句；落在第一句之前返回 nil（还没开口）
+    func line(forChapter id: String?, at time: TimeInterval) -> TranscriptLine? {
+        let lines = lines(forChapter: id)
+        let index = lineIndex(lines: lines, at: time)
+        return index >= 0 ? lines[index] : nil
+    }
+
     /// 此刻正在朗读的那一句的下标；落在第一句之前返回 -1（文本页靠它认高亮与跟随滚动）
     func lineIndex(forChapter id: String?, at time: TimeInterval) -> Int {
         lineIndex(lines: lines(forChapter: id), at: time)

@@ -15,6 +15,8 @@ struct TextSearchView: View {
     @State private var searching = true
     /// 一本有字幕的书都没扫到（字幕还没同步进沙盒）：空态要说的是这件事，而不是「没找到」
     @State private var hasAnyTranscript = false
+    /// 长按某条命中句挑中的那句：非空就弹出摘录卡片
+    @State private var quoted: Quote?
 
     var body: some View {
         content
@@ -23,6 +25,7 @@ struct TextSearchView: View {
             .navigationTitle(query)
             .navigationBarTitleDisplayMode(.inline)
             .task { await search() }
+            .quoteCardSheet($quoted)
     }
 
     @ViewBuilder
@@ -54,6 +57,8 @@ struct TextSearchView: View {
                         HitCard(match: match, chapterCount: chapterCount(of: group.bookID)) {
                             play(match, in: group.bookID)
                         }
+                        // 长按某句 → 摘录卡片：搜到一句好话，顺手就能摘走
+                        .quoteMenu(quote(for: match)) { quoted = $0 }
                         .listRowSeparator(.hidden)
                         // 行本身透明，白卡由 HitCard 自己画（与书库列表行同一套做法）
                         .listRowBackground(Color.clear)
@@ -119,6 +124,12 @@ struct TextSearchView: View {
     /// 这句所在的书有多少章（只有一章的书不再重复报章名）
     private func chapterCount(of bookID: String) -> Int {
         library.book(id: bookID)?.chapters.count ?? 0
+    }
+
+    /// 这条命中句要摘的那句：书还在库里才摘得出来（搜完到长按之间书可能已被删掉）
+    private func quote(for match: TextMatch) -> Quote? {
+        guard let book = library.book(id: match.bookID) else { return nil }
+        return Quote(book: book, match: match)
     }
 
     /// 点句：装载这一章并从这一句的起点出声，同时展开全屏播放页

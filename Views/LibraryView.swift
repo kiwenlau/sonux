@@ -361,7 +361,7 @@ private struct LibrarySearchBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(.secondary)
 
             // 按规范不出占位文案，所以标题给空字符串，另补无障碍标签
@@ -427,7 +427,7 @@ private struct FullTextSearchRow: View {
         Button(action: onTap) {
             HStack(spacing: 8) {
                 Image(systemName: "text.magnifyingglass")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 15, weight: .regular))
                     .foregroundStyle(.indigo)
 
                 Text(LF("Search All Text for \"%@\"", query))
@@ -438,7 +438,7 @@ private struct FullTextSearchRow: View {
                 Spacer(minLength: 4)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 10)
