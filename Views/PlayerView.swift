@@ -13,6 +13,8 @@ struct PlayerView: View {
     @State private var showingSleepSheet = false
     @State private var showingSpeedSheet = false
     @State private var showingChaptersSheet = false
+    /// 整章文案页（点字幕拉开，盖在播放页上）
+    @State private var showingTranscript = false
     @State private var scrubTime: TimeInterval?
 
     /// 没提取到封面时的兜底背景：沿用原来的紫色系，明暗结构与主色色板一致
@@ -25,12 +27,6 @@ struct PlayerView: View {
 
     /// 竖版封面在没有真实封面时的占位比例
     private static let placeholderRatio: CGFloat = 0.8
-
-    /// 左上返回与右上章节入口圆底共用的直径，取自详情页导航栏返回按钮的实测尺寸
-    private static let circleButtonDiameter: CGFloat = 45
-    /// 圆底按钮的可点范围：比视觉圆大一圈（Apple 建议的最小触控边距是 44pt，
-    /// 视觉 45pt 的圆擦边点不中且没有任何反馈，扩到 68 才容得下手抖）
-    private static let buttonHitDiameter: CGFloat = 68
 
     /// 进度条两侧快退/快进的步长（秒），与锁屏的跳过区间一致
     private static let skipSeconds: TimeInterval = 15
@@ -79,8 +75,23 @@ struct PlayerView: View {
 
     /// 收起全屏播放页（下滑手势/左上角按钮共用）
     private func closePlayer() {
+        showingTranscript = false
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             player.showPlayer = false
+        }
+    }
+
+    /// 点字幕拉开整章文案页（学 QQ 音乐：歌词页就从歌词那一行拉出来）
+    private func openTranscript() {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.9)) {
+            showingTranscript = true
+        }
+    }
+
+    /// 收起文案页：只盖回播放页，动画与打开时对称
+    private func collapseTranscript() {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.9)) {
+            showingTranscript = false
         }
     }
 
@@ -92,6 +103,22 @@ struct PlayerView: View {
     }
 
     var body: some View {
+        ZStack {
+            playerPage
+
+            // 文案页盖在播放页之上：两层各管各的下滑关闭，拖文案不会把播放页一起带走
+            if showingTranscript, let book, let chapter = player.currentChapter,
+               transcripts.hasTranscript(for: chapter.id) {
+                TranscriptView(book: book, chapter: chapter, palette: palette, cover: artworkImage,
+                               onCollapse: collapseTranscript)
+                    .transition(.move(edge: .bottom))
+                    .zIndex(1)
+            }
+        }
+    }
+
+    /// 全屏播放页本体：三段式构图 + 下滑关闭 + 三个弹层
+    private var playerPage: some View {
         ZStack {
             // 主色渐变铺满整页，包括状态栏后面，避免顶部出现突兀的边界
             palette.gradient
@@ -172,39 +199,10 @@ struct PlayerView: View {
             .accessibilityLabel(LF("%d Chapters", book?.chapters.count ?? 0))
     }
 
-    /// 圆底图标按钮：视觉尺寸与材质与详情页导航栏返回按钮一致。
-    /// 热区单独扩到 buttonHitDiameter —— 只有 45pt 的圆擦着边就点不中，而点不中是无声的：
-    /// 播放页还盖在上面，用户以为「后面那几本书点不开了」。扩出来的空间用负边距抵消，
-    /// 排版与画面位置完全不变（负值 = -(热区-视觉)/2）
+    /// 圆底图标按钮：视觉与热区规格见 CircleGlyphButton
     @ViewBuilder
     private func circleButton(glyph name: String, action: @escaping () -> Void) -> some View {
-        let glyph = Image(systemName: name)
-            .font(.system(size: 21, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: Self.circleButtonDiameter, height: Self.circleButtonDiameter)
-        let slop = (Self.buttonHitDiameter - Self.circleButtonDiameter) / 2
-
-        if #available(iOS 26.0, *) {
-            Button(action: action) {
-                glyph.glassEffect(.regular.interactive(), in: Circle())
-                    .frame(width: Self.buttonHitDiameter, height: Self.buttonHitDiameter)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, -slop)
-            .padding(.vertical, -slop)
-        } else {
-            Button(action: action) {
-                glyph
-                    .background(Circle().fill(.ultraThinMaterial))
-                    .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 1))
-                    .frame(width: Self.buttonHitDiameter, height: Self.buttonHitDiameter)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, -slop)
-            .padding(.vertical, -slop)
-        }
+        CircleGlyphButton(glyph: name, action: action)
     }
 
     // MARK: - 封面
@@ -291,26 +289,43 @@ struct PlayerView: View {
     @ViewBuilder
     private var caption: some View {
         if hasCaption {
-            ZStack(alignment: .topLeading) {
-                if let text = captionText {
-                    Text(text)
-                        .font(.footnote)
-                        .multilineTextAlignment(.leading)
-                        .foregroundStyle(.white.opacity(0.85))
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-                        // 只在换句时重建视图，配合 transition 做淡入淡出
-                        .id(text)
-                        .transition(.opacity)
+            // 整块字幕都是入口：点它拉开全章文案页（QQ 音乐的同款交互）。
+            // 右端那枚文本图标属于同一个按钮，不是第二个控件 —— 一行里叠两个按钮只会
+            // 互抢热区；图标负责「看得见有东西可点」，整行负责「哪儿都点得中」
+            Button(action: openTranscript) {
+                HStack(alignment: .top, spacing: 8) {
+                    ZStack(alignment: .topLeading) {
+                        if let text = captionText {
+                            Text(text)
+                                .font(.footnote)
+                                .multilineTextAlignment(.leading)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.85)
+                                // 只在换句时重建视图，配合 transition 做淡入淡出
+                                .id(text)
+                                .transition(.opacity)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                    Image(systemName: "text.page")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.5))
+                        // 与首行文字的光学中线对齐
+                        .offset(y: 1)
                 }
+                .frame(minHeight: Self.captionHeight, alignment: .topLeading)
+                .clipped()
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, minHeight: Self.captionHeight, alignment: .topLeading)
-            .clipped()
+            .buttonStyle(.plain)
             .animation(.easeInOut(duration: 0.28), value: captionText ?? "")
             // 上间距加在 if 分支内部：无字幕时整块不出现，不能在外面留下 8pt 空档
             .padding(.top, Self.gapChapterToCaption)
             .padding(.horizontal, 12)
             .accessibilityIdentifier("caption")
+            .accessibilityLabel(L("Chapter Text"))
         }
     }
 
@@ -617,6 +632,241 @@ struct ChaptersSheet: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.medium, .large])
+    }
+}
+
+/// 整章文案页：学 QQ 音乐的歌词页 —— 封面糊开只晕颜色、正在读的那句最实、
+/// 上下每远一句淡一档，点任意一句跳过去。数据 TranscriptStore 已在手里，纯展示
+struct TranscriptView: View {
+    let book: Book
+    let chapter: Chapter
+    /// 背景主色与封面由播放页算好传进来，两页同一套色，拉开文案页不跳色
+    let palette: CoverPalette
+    let cover: UIImage?
+    let onCollapse: () -> Void
+
+    @EnvironmentObject private var player: PlayerService
+    @ObservedObject private var transcripts = TranscriptStore.shared
+    /// 自动跟随的暂停截止点：自己刚滑过就安静几秒，否则读到的位置会被播放进度一次次拽回去
+    @State private var followHoldUntil = Date.distantPast
+
+    /// 手动滑动之后暂停跟随的秒数：够读几句，又不至于一直不跟
+    private static let followPause: TimeInterval = 8
+    /// 焦点渐变：每远一句淡多少、淡到哪儿为止。文稿页首先得能读，
+    /// 不能像歌词那样把远处的句子抹到看不见，所以留 0.5 的地板
+    private static let fadeStep = 0.12
+    private static let fadeFloor = 0.5
+
+    private var lines: [TranscriptLine] { transcripts.lines(forChapter: chapter.id) }
+
+    /// 此刻正在朗读的那一句（-1 表示还没开口）
+    private var activeIndex: Int { transcripts.lineIndex(forChapter: chapter.id, at: player.currentTime) }
+
+    var body: some View {
+        ZStack {
+            backdrop
+
+            VStack(spacing: 0) {
+                header
+                textList
+            }
+        }
+        // 整页都是这一层的命中区：糊化的底是装饰层（关了命中测试），不铺形状的话
+        // 文字之间的空隙会把点击和下滑整个漏给下面的播放页 —— 表现是「往下滑一下，
+        // 文案页和播放页一起没了」，底部控件也能被隔着点走
+        .contentShape(Rectangle())
+        // 下滑收起（列表区自己吃掉拖动，这一层只在标题与留白处生效）
+        .gesture(
+            DragGesture()
+                .onEnded { value in
+                    if value.translation.height > 100 || value.predictedEndTranslation.height > 250 {
+                        onCollapse()
+                    }
+                }
+        )
+    }
+
+    // MARK: - 底
+
+    /// 主色渐变 + 糊开的封面：只要封面的颜色晕染，不要形状（糊化半径 60 再压一层深色纱，
+    /// 白字才稳）。整块是装饰层，必须关掉命中测试，否则 scaledToFill 撑大的巨物会吞掉点击
+    private var backdrop: some View {
+        ZStack {
+            palette.gradient
+
+            if let cover {
+                Color.clear
+                    .overlay(
+                        Image(uiImage: cover)
+                            .resizable()
+                            .scaledToFill()
+                            .blur(radius: 60)
+                            .opacity(0.45)
+                    )
+                    .clipped()
+                    .overlay(Color.black.opacity(0.22))
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - 顶部
+
+    /// 收起入口 + 书名 + 作者·章节名：层级照 QQ 音乐歌词页那两行（歌名大、歌手小），
+    /// 也与播放页「书名 > 作者 > 章节名」的记账顺序一致
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            CircleGlyphButton(glyph: "chevron.down", action: onCollapse)
+                .accessibilityLabel(L("Back"))
+                .accessibilityIdentifier("collapseTranscript")
+                .padding(.bottom, 14)
+
+            // 书名比正文当前句（.title3）还大一档，不然会被歌词式的大字压过去
+            Text(book.title)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Text(byline)
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 18)
+    }
+
+    /// 第二行：作者 · 本章名（这本书没标作者就只剩章名，不留个孤零零的分隔点）
+    private var byline: String {
+        let author = book.author.flatMap { $0.isEmpty ? nil : $0 }
+        return [author, chapter.title].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    // MARK: - 文案
+
+    private var textList: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                // LazyVStack 只渲染露出来的那十几行：一章最多近五百句，
+                // 全量建视图的话每秒一次的进度刷新都要重排一遍，滚动会发涩
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                        Button { jump(to: line, index: index, proxy: proxy) } label: {
+                            Text(line.text)
+                                // 当前句真换字号（17→20）而不是 scaleEffect 放大：
+                                // 缩放后的字会发虚，行距也不会跟着长
+                                .font(index == activeIndex ? .title3 : .body)
+                                .fontWeight(index == activeIndex ? .bold : .regular)
+                                .multilineTextAlignment(.leading)
+                                .foregroundStyle(.white.opacity(emphasis(index)))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 11)
+                                .contentShape(Rectangle())
+                        }
+                        // 必须是真 Button：只用 onTapGesture 的话无障碍树里这行虽然顶着
+                        // AXButton 的名，AXPress 却什么都不做（点不中也没任何反馈）
+                        .buttonStyle(.plain)
+                        .id(index)
+                        .accessibilityIdentifier("transcriptLine\(index)")
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 40)
+                .animation(.easeInOut(duration: 0.35), value: activeIndex)
+            }
+            .simultaneousGesture(DragGesture(minimumDistance: 0)
+                .onChanged { _ in followHoldUntil = Date().addingTimeInterval(Self.followPause) })
+            .onAppear { land(on: activeIndex, proxy: proxy) }
+            // 读到一半自动续播到下一章：整篇换了，落点也要跟着换到新一章的当前句
+            .onChange(of: chapter.id) { _ in land(on: activeIndex, proxy: proxy) }
+            .onChange(of: activeIndex) { index in
+                guard player.isPlaying, Date() >= followHoldUntil else { return }
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    proxy.scrollTo(index, anchor: .center)
+                }
+            }
+        }
+    }
+
+    /// 离当前句越远越淡
+    private func emphasis(_ index: Int) -> Double {
+        guard activeIndex >= 0 else { return 1 }
+        let distance = abs(index - activeIndex)
+        return max(Self.fadeFloor, 1 - Self.fadeStep * Double(distance))
+    }
+
+    /// 打开文案页先落到正在读的那句，而不是从章头开始翻。
+    /// 页面正从底部滑进来，头几帧 ScrollView 还没量好尺寸，单次 scrollTo 会被忽略
+    /// （实测第一次打开停在章头，重开才落对），所以隔一点时间补两次；
+    /// 期间用户已经自己滑走就不再拽他
+    private func land(on index: Int, proxy: ScrollViewProxy) {
+        guard index >= 0 else { return }
+        for delay in [0.0, 0.15, 0.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard Date() >= self.followHoldUntil else { return }
+                proxy.scrollTo(index, anchor: .center)
+            }
+        }
+    }
+
+    /// 点句：跳过去，并把这句滚到正中 —— 页面不关，句子亮起来居中就是反馈，
+    /// 不用回到播放页确认。暂停中也要滚：那时没有每秒的进度刷新可依赖
+    private func jump(to line: TranscriptLine, index: Int, proxy: ScrollViewProxy) {
+        NSLog("[sonux] ui: 文案页点句，跳到 %.1f s", line.start)
+        player.seek(to: line.start)
+        withAnimation(.easeInOut(duration: 0.3)) {
+            proxy.scrollTo(index, anchor: .center)
+        }
+    }
+}
+
+/// 圆底图标按钮：视觉尺寸与材质与详情页导航栏返回按钮一致，播放页与文案页共用。
+/// 热区单独扩到 hitDiameter —— 只有 45pt 的圆擦着边就点不中，而点不中是无声的：
+/// 播放页还盖在上面，用户以为「后面那几本书点不开了」。扩出来的空间用负边距抵消，
+/// 排版与画面位置完全不变（负值 = -(热区-视觉)/2）
+struct CircleGlyphButton: View {
+    let glyph: String
+    let action: () -> Void
+
+    /// 取自详情页导航栏返回按钮的实测尺寸
+    static let diameter: CGFloat = 45
+    /// Apple 建议的最小触控边距是 44pt，视觉 45pt 的圆擦边点不中且没有任何反馈，
+    /// 扩到 68 才容得下手抖
+    static let hitDiameter: CGFloat = 68
+
+    var body: some View {
+        let icon = Image(systemName: glyph)
+            .font(.system(size: 21, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: Self.diameter, height: Self.diameter)
+        let slop = (Self.hitDiameter - Self.diameter) / 2
+
+        Button(action: action) {
+            icon
+                .modifier(GlassCircleBackground())
+                .frame(width: Self.hitDiameter, height: Self.hitDiameter)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, -slop)
+        .padding(.vertical, -slop)
+    }
+}
+
+/// iOS 26 用系统玻璃圆底（与导航栏返回按钮同材质），更早系统用超细材质圆底近似
+private struct GlassCircleBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: Circle())
+        } else {
+            content
+                .background(Circle().fill(.ultraThinMaterial))
+                .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 1))
+        }
     }
 }
 

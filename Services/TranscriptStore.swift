@@ -1,7 +1,8 @@
 import Foundation
 import QuartzCore
 
-/// 字幕仓库：把 Documents/transcripts/《书名》.json 读进内存，供播放页查「此刻在朗读哪一句」
+/// 字幕仓库：把 Documents/transcripts/《书名》.json 读进内存，
+/// 供播放页查「此刻在朗读哪一句」，也供弹层的整章文本页铺出全章字幕
 ///
 /// 数据由 tools/transcribe.py 转写生成，用 ./sync-transcripts.sh 同步进沙盒。
 /// 只保留当前这本书：一本几百 KB，全库留在内存里没必要，切书时整体换掉。
@@ -46,21 +47,32 @@ final class TranscriptStore: ObservableObject {
     /// 句与句之间的短停顿不清空，否则字幕会随停顿频繁闪没；
     /// 落在第一句之前（片头音乐等）才真的没有内容可显示。
     func text(forChapter id: String?, at time: TimeInterval) -> String? {
-        guard let id, let lines = linesByChapter[id], let first = lines.first else { return nil }
-        if time < first.start { return nil }
-        return lines[lineIndex(lines: lines, at: time)].text
+        let lines = lines(forChapter: id)
+        let index = lineIndex(lines: lines, at: time)
+        return index >= 0 ? lines[index].text : nil
+    }
+
+    /// 整章字幕，按时间排序；没转写出来的章是空数组（文本页据此决定要不要出现）
+    func lines(forChapter id: String?) -> [TranscriptLine] {
+        guard let id else { return [] }
+        return linesByChapter[id] ?? []
+    }
+
+    /// 此刻正在朗读的那一句的下标；落在第一句之前返回 -1（文本页靠它认高亮与跟随滚动）
+    func lineIndex(forChapter id: String?, at time: TimeInterval) -> Int {
+        lineIndex(lines: lines(forChapter: id), at: time)
     }
 
     /// 某章是否有字幕（播放页据此决定要不要留出行位）
     func hasTranscript(for chapterID: String?) -> Bool {
-        guard let chapterID else { return false }
-        return !(linesByChapter[chapterID]?.isEmpty ?? true)
+        !lines(forChapter: chapterID).isEmpty
     }
 
     // MARK: - Private
 
-    /// 二分找「起始时间 ≤ time」的最后一行；调用方保证 time 不早于首行
+    /// 二分找「起始时间 ≤ time」的最后一行；落在第一句之前返回 -1
     private func lineIndex(lines: [TranscriptLine], at time: TimeInterval) -> Int {
+        guard let first = lines.first, time >= first.start else { return -1 }
         var low = 0
         var high = lines.count - 1
         while low < high {
