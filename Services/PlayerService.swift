@@ -48,6 +48,10 @@ final class PlayerService: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     /// 被打断前是否处于播放状态（用于中断结束后自动恢复）
     private var wasPlayingBeforeInterruption = false
+    /// 最后一次出声 / 用户刚摆正位置的时刻：续播时用它算停了多久，停够久才回退
+    private var lastAudibleAt: Date?
+    /// 停播超过这么久再续播才回退：随手暂停马上继续（回个消息、想重听一句）不该被往回拽
+    private static let resumeRewindAfter: TimeInterval = 30
     /// 音频会话是否已激活过：setCategory/setActive 是同步阻塞调用，激活过一次就别每次点播放都重跑
     private var audioSessionActivated = false
     /// 连续语速范围与步进：0.5x–3x，每格 0.1
@@ -128,6 +132,7 @@ final class PlayerService: NSObject, ObservableObject {
             player.play()
 
             startProgressTimer()
+            touchResumeClock()
             listeningAnchor = Date()
             applyRememberedSleepTimerIfNeeded()
             updateNowPlaying()
@@ -156,6 +161,24 @@ final class PlayerService: NSObject, ObservableObject {
         }
     }
 
+    /// 停了再续播时往回退几秒：中断恢复、锁屏播放、切回 App 后人接不上刚才的话
+    /// 停够久才退（随手暂停又继续不该被往回拽），章头几秒不再退
+    /// 只改播放起点，不把回退后的位置写回进度，免得反复续播把位置越退越靠前
+    private func rewindAfterPauseIfNeeded() {
+        guard let player, !player.isPlaying else { return }
+        let pausedFor = lastAudibleAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        guard pausedFor >= Self.resumeRewindAfter, player.currentTime > ProgressPolicy.resumeRewind else { return }
+        let target = player.currentTime - ProgressPolicy.resumeRewind
+        player.currentTime = target
+        currentTime = target
+        NSLog("[sonux] resume: 已停 %.0f s，续播回退到 %.0f s", min(pausedFor, 86400), target)
+    }
+
+    /// 更新续播回退的计时基准：正在出声，或用户刚把位置摆正（拖进度、快进快退）
+    private func touchResumeClock() {
+        lastAudibleAt = Date()
+    }
+
     func togglePlayPause() {
         let t0 = CACurrentMediaTime()
         NSLog("[sonux] togglePlayPause: begin isPlaying=%d", isPlaying ? 1 : 0)
@@ -170,9 +193,11 @@ final class PlayerService: NSObject, ObservableObject {
             NSLog("[sonux] togglePlayPause: paused %.1f ms", (CACurrentMediaTime() - t0) * 1000)
         } else {
             activateAudioSession()
+            rewindAfterPauseIfNeeded()
             player.play()
             player.rate = speed // 暂停期间调整的倍速需重新应用
             isPlaying = true
+            touchResumeClock()
             applyRememberedSleepTimerIfNeeded()
             NSLog("[sonux] togglePlayPause: resumed %.1f ms", (CACurrentMediaTime() - t0) * 1000)
         }
@@ -183,6 +208,8 @@ final class PlayerService: NSObject, ObservableObject {
     func seek(to time: TimeInterval) {
         let clamped = min(max(0, time), player?.duration ?? duration)
         currentTime = clamped
+        // 手动拖过位置就说明人知道自己在听哪儿，这段停顿不再当作「接不上话」处理
+        touchResumeClock()
         reportPosition()
         guard let player = player else {
             // 只挂了位置没装载播放器：记下目标时间，按播放键就从这里出声
@@ -382,10 +409,10 @@ final class PlayerService: NSObject, ObservableObject {
         return ProgressPolicy.resumeTime(time: position.time, duration: chapter.duration)
     }
 
-    /// 章节的历史播放位置（已播完或未记录则从头播放）
+    /// 章节的历史播放位置（已播完或未记录则从头播放）：切章时人还在连续听，不做续播回退
     private func resumeTime(for chapter: Chapter) -> TimeInterval {
         chapterHistory?(chapter.id).map {
-            ProgressPolicy.resumeTime(time: $0.time, duration: chapter.duration)
+            ProgressPolicy.resumeTime(time: $0.time, duration: chapter.duration, rewind: false)
         } ?? 0
     }
 
@@ -410,6 +437,7 @@ final class PlayerService: NSObject, ObservableObject {
                 guard let player = self.player else { return }
                 if player.isPlaying {
                     let t0 = CACurrentMediaTime()
+                    self.touchResumeClock()
                     self.accumulateListening()
                     self.currentTime = player.currentTime
                     self.reportPosition()
@@ -568,8 +596,10 @@ final class PlayerService: NSObject, ObservableObject {
     @MainActor func resumePlayback() {
         if let player = player, !player.isPlaying {
             activateAudioSession()
+            rewindAfterPauseIfNeeded()
             player.play()
             isPlaying = true
+            touchResumeClock()
             startProgressTimer()
             applyRememberedSleepTimerIfNeeded()
             updateNowPlaying()
@@ -662,8 +692,10 @@ extension PlayerService {
         guard let player = player else { return }
         if shouldResume {
             activateAudioSession()
+            rewindAfterPauseIfNeeded()
             player.play()
             isPlaying = true
+            touchResumeClock()
         } else {
             // 不打算续播就别重新占住会话，否则会把中断期间接着放音乐的用户再挤走
             player.pause()

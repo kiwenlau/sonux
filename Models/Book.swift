@@ -45,6 +45,8 @@ enum ProgressPolicy {
     static let epsilon: TimeInterval = 3
     /// 距离结尾 15 秒以内视为已播完
     static let completionThreshold: TimeInterval = 15
+    /// 续播回退秒数：停了一会儿再听，人接不上话，起点往回退几秒找语感（Audible 的同款选项）
+    static let resumeRewind: TimeInterval = 5
 
     static func isStarted(_ time: TimeInterval) -> Bool {
         time > epsilon
@@ -54,8 +56,10 @@ enum ProgressPolicy {
         duration > 0 && duration - time <= completionThreshold
     }
 
-    /// 播完的章节下次从头播放
-    static func resumeTime(time: TimeInterval, duration: TimeInterval) -> TimeInterval {
-        isFinished(time: time, duration: duration) ? 0 : time
+    /// 下次播放的起点：播完的章节从头开始，没播完的续播并回退几秒（章头几秒不再退）
+    /// rewind: false 用于连续播放中的切章——人没离开，不该被往回拽
+    static func resumeTime(time: TimeInterval, duration: TimeInterval, rewind: Bool = true) -> TimeInterval {
+        if isFinished(time: time, duration: duration) { return 0 }
+        return rewind && time > resumeRewind ? time - resumeRewind : time
     }
 }
