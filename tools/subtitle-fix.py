@@ -163,8 +163,15 @@ def parse_model_out(text, editable):
         if i not in editable:
             continue
         if isinstance(obj.get("w"), list):
-            pairs = [(a, b) for a, b in obj["w"]
-                     if isinstance(a, str) and isinstance(b, str) and a and b and a != b]
+            # 模型偶尔回成三元组（多带一个说明）或混进非字符串，原来直接
+            # 「too many values to unpack」把整章打崩（实测 43 章因此反复失败）；
+            # 这里只取前两项，畸形的跳过，绝不让一章因为一条判定全丢
+            pairs = []
+            for item in obj["w"]:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    a, b = str(item[0]), str(item[1])
+                    if a and b and a != b:
+                        pairs.append((a, b))
             if pairs:
                 out.append((i, ("pairs", pairs)))
         elif isinstance(obj.get("t"), str):
@@ -530,7 +537,13 @@ def main():
         items = []
         for f in args.files:
             p = f if os.path.isabs(f) else os.path.join(ROOT, f)
-            items.append((p, os.path.basename(os.path.dirname(p)), os.path.basename(p)))
+            book = os.path.basename(os.path.dirname(p))
+            # 传进来多半是 parts 结果文件（xxx.mp3.json），但 fix_one 用 getsize(路径)
+            # 当 sig：拿 json 的字节数去比音频的 sig 永远对不上，整章会被静默跳过
+            # （表现为「待修 1 章」却「完成 0 章、调用 0 次」）。一律换成音频路径。
+            name = os.path.basename(p)[:-5] if p.endswith(".json") else os.path.basename(p)
+            audio = os.path.join(T.LIB, book, name)
+            items.append((audio if os.path.exists(audio) else p, book, name))
     else:
         items = T.chapters(T.LIB)
         if args.book:
