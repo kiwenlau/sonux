@@ -313,6 +313,21 @@ final class LibraryService: ObservableObject {
         chapterPositions[id]
     }
 
+    /// 全书收听进度 0...1：每章取「听到过的位置」相加再除以全书总时长，供书库卡片进度环使用
+    /// 章节位置都持久化在 chapterPositions 里，所以跳过某章、听了中间某章都能算进来；
+    /// 正在播的那章由播放器每秒上报 recordPosition，进度环会跟着实时增长
+    func listeningProgress(for book: Book) -> Double {
+        let total = book.totalDuration
+        guard total > 0 else { return 0 }
+        let listened = book.chapters.reduce(0.0) { sum, chapter in
+            guard let time = chapterPositions[chapter.id]?.time else { return sum }
+            // 已听完的章按整章计（位置可能差结尾 15 秒内，不该在进度里留个小缺口）
+            if ProgressPolicy.isFinished(time: time, duration: chapter.duration) { return sum + chapter.duration }
+            return sum + min(time, chapter.duration)
+        }
+        return min(max(listened / total, 0), 1)
+    }
+
     /// 播放历史的一条：一本书 + 最后听到的章节与位置 + 最后播放时间
     struct HistoryEntry: Identifiable {
         let book: Book

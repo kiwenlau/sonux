@@ -396,6 +396,7 @@ struct PressableCardStyle: ButtonStyle {
 }
 
 /// 书库卡片视图（双列网格用）：大封面 + 标题 + 作者，封面中央一个从上次位置续播的播放按钮
+/// （与底部迷你播放器同一个 MiniPlayButton，环上是全书收听进度，只多垫一层胶囊底）
 /// 该书正在播放时：封面加靛蓝描边，卡片底色、标题和作者变靛蓝（作者色更浅），不再叠加音柱徽章
 struct BookGridCard: View {
     let book: Book
@@ -404,6 +405,12 @@ struct BookGridCard: View {
     let onOpen: () -> Void
     let onPlay: () -> Void
     @ObservedObject private var store = CoverStore.shared
+    @EnvironmentObject private var library: LibraryService
+    @EnvironmentObject private var player: PlayerService
+
+    /// 这本书此刻是不是真在出声：只有它自己正在播时点按钮才是暂停（播别的书时点它是改播本书，
+    /// 仍画播放三角），换成暂停符号后与迷你播放器同一套语义
+    private var isPlaying: Bool { isNowPlaying && player.isPlaying }
 
     var body: some View {
         // 整卡「打开详情」与封面中央的播放键是平级兄弟：外层 Button 套内层 Button 时，
@@ -468,23 +475,16 @@ struct BookGridCard: View {
         }
     }
 
-    /// 播放按钮居中压在封面上：半透胶囊底保证任何封面都能看清图标
+    /// 播放按钮居中压在封面上：复用迷你播放器那个 MiniPlayButton，形状大小配色都一样（34pt），
+    /// 只多垫一层半透胶囊底（onCover）——封面底色千变万化，靠换线条颜色顾得了这头顾不了那头
     private var playButton: some View {
-        Button(action: onPlay) {
-            Image(systemName: "play.fill")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.indigo)
-                .frame(width: 46, height: 46)
-                .background(Circle().fill(.ultraThinMaterial))
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
-                .shadow(color: .black.opacity(0.25), radius: 4, y: 1)
-                // 视觉只有 46pt，热区扩到 68pt：擦着圆边点要能算点中。它在 overlay 里居中，
-                // 扩出去的部分不会挤到封面与文字的排版
-                .frame(width: 68, height: 68)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(LF("Play \"%@\" from Where You Left Off", book.title))
+        MiniPlayButton(
+            progress: library.listeningProgress(for: book),
+            isPlaying: isPlaying,
+            accessibilityLabelOverride: LF("Play \"%@\" from Where You Left Off", book.title),
+            hitSide: 68,
+            onCover: true
+        ) { onPlay() }
         .accessibilityIdentifier("book-card-play-\(book.id)")
     }
 
