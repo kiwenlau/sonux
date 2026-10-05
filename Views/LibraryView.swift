@@ -16,6 +16,8 @@ struct LibraryView: View {
     /// 自定义搜索框是否聚焦中
     @FocusState private var searchFocused: Bool
     @State private var showImporter = false
+    /// 排序面板是否展开（自绘弹层，见 SortMenuPanel）
+    @State private var showSortMenu = false
     @State private var importMessage: String?
     @State private var bookToDelete: Book?
     @State private var deleteErrorMessage: String?
@@ -155,6 +157,7 @@ struct LibraryView: View {
                 // 作者页也没有导入的语境，同样不显示
                 if author == nil, !isSearching {
                     Button {
+                        closeSortMenu()
                         showImporter = true
                     } label: {
                         Image(systemName: "plus")
@@ -162,22 +165,11 @@ struct LibraryView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                // 排序：三种方式收进一个下拉菜单，选中的打勾，选择记进偏好下次启动沿用。
+                // 排序：点开一块自绘的小面板（见 SortMenuPanel），选中的记进偏好下次启动沿用。
                 // 书库空的时候没得排，不摆这个入口
                 if !sourceBooks.isEmpty {
-                    Menu {
-                        ForEach(LibrarySort.allCases) { option in
-                            Button {
-                                NSLog("[sonux] ui: 书库排序改为 %@", option.rawValue)
-                                sortRaw = option.rawValue
-                            } label: {
-                                if sort == option {
-                                    Label(option.label, systemImage: "checkmark")
-                                } else {
-                                    Text(option.label)
-                                }
-                            }
-                        }
+                    Button {
+                        withAnimation(.easeOut(duration: 0.15)) { showSortMenu.toggle() }
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.system(size: 14))
@@ -189,12 +181,34 @@ struct LibraryView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 // 列表 / 卡片视图切换：两个符号一扁一方，各自一档字号才跟得上旁边两个
                 Button {
+                    closeSortMenu()
                     withAnimation(.easeInOut(duration: 0.2)) { gridView.toggle() }
                 } label: {
                     Image(systemName: gridView ? "list.bullet" : "square.grid.2x2")
                         .font(.system(size: gridView ? 19 : 15))
                 }
                 .accessibilityIdentifier("toggle-view")
+            }
+        }
+        // 排序面板浮在书库之上：一层点得动的空白垫负责「点外面收起」，面板贴右上角
+        .overlay(alignment: .topTrailing) {
+            if showSortMenu {
+                ZStack(alignment: .topTrailing) {
+                    // 空白垫要铺满整屏并自己认领命中区，否则空白处的点击会漏给下层的卡片，
+                    // 收起菜单的同时顺手翻开一本书
+                    Color.black.opacity(0.001)
+                        .contentShape(Rectangle())
+                        .ignoresSafeArea()
+                        .onTapGesture(perform: closeSortMenu)
+                    SortMenuPanel(sort: sort) { option in
+                        NSLog("[sonux] ui: 书库排序改为 %@", option.rawValue)
+                        sortRaw = option.rawValue
+                        closeSortMenu()
+                    }
+                        .padding(.top, 4)
+                        .padding(.trailing, 14)
+                        .transition(.scale(scale: 0.94, anchor: .topTrailing).combined(with: .opacity))
+                }
             }
         }
         .fileImporter(
@@ -253,6 +267,12 @@ struct LibraryView: View {
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { player.showPlayer = true }
     }
 
+    /// 收起排序面板：点面板外、选了一项、按工具栏另外两颗按钮都会走这里
+    private func closeSortMenu() {
+        guard showSortMenu else { return }
+        withAnimation(.easeOut(duration: 0.15)) { showSortMenu = false }
+    }
+
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
@@ -265,6 +285,47 @@ struct LibraryView: View {
         case .failure:
             importMessage = L("Import Failed, Please Try Again")
         }
+    }
+}
+
+/// 排序面板：贴右上角悬在工具栏下方的一小张白卡，样式照 Apple Music 的下拉菜单
+/// —— 圆角比系统 Menu 那套玻璃弹层小得多（跟书库卡片同为 14pt），每行左侧留一条固定宽的
+/// 勾槽，没选中的行槽里空着，几行文字才落在同一条竖线上（系统 Menu 的 Label 会把选中那行
+/// 的文字顶到右边去，左齐做不到）
+private struct SortMenuPanel: View {
+    let sort: LibrarySort
+    let pick: (LibrarySort) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(LibrarySort.allCases) { option in
+                Button { pick(option) } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 14)
+                            .opacity(sort == option ? 1 : 0)
+                            .accessibilityHidden(true)
+                        Text(option.label)
+                            .font(.body)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("library-sort-\(option.rawValue)")
+            }
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 24)
+        // 行尾的 Spacer 会把面板顶成整屏宽，这里按最宽那行的理想宽度收一下：
+        // 面板只占右上角一小块，行与行的点击区又都是满宽
+        .fixedSize()
+        // 底色用书库卡片那层白（页面底是分组灰，再铺一层灰就跟背景糊在一起），只靠阴影分层
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color(.secondarySystemGroupedBackground)))
+        .shadow(color: .black.opacity(0.16), radius: 12, y: 4)
     }
 }
 
