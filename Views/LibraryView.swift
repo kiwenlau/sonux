@@ -249,7 +249,10 @@ struct LibraryView: View {
                 bookToDelete = nil
             }
         } message: {
-            Text(L("This will remove the audio files from your library. This action can't be undone."))
+            // 引用型的书不在沙盒里，说清楚「删的只是引用」，免得以为原文件没了
+            Text(bookToDelete?.isLinked == true
+                 ? L("This will remove the reference from your library. The audio files stay where they are.")
+                 : L("This will remove the audio files from your library. This action can't be undone."))
         }
         .alert(L("Delete Failed"), isPresented: Binding(
             get: { deleteErrorMessage != nil },

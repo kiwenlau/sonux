@@ -1,13 +1,19 @@
 import Foundation
 
-/// 一本书（对应 File Sharing 目录中的一个文件夹，或单个音频文件）
+/// 一本书（对应 File Sharing 目录中的一个文件夹、一个音频文件，或一条指向外部音频的引用）
 struct Book: Identifiable, Codable, Equatable {
     let id: String
     var title: String
     var author: String?
     var chapters: [Chapter]
-    /// 对应 Documents 下的相对路径（文件夹或单个音频文件），用于删除等操作
+    /// 对应「这本书所在书库根目录」下的相对路径（文件夹或单个音频文件），用于删除等操作
     var storagePath: String
+    /// 外部引用的 id：音频原地躺在 iCloud Drive / 「文件」里，只记了个书签；
+    /// nil 表示文件就在 App 的 Documents 下（旧数据没这个键，按 nil 解）
+    var link: String? = nil
+
+    /// 这本书的音频不在沙盒里，删除只能断开引用，不能动用户磁盘上的文件
+    var isLinked: Bool { link != nil }
 
     /// 全书总时长（秒）
     var totalDuration: TimeInterval {

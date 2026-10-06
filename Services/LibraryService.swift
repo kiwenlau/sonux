@@ -49,10 +49,27 @@ final class LibraryService: ObservableObject {
 
     nonisolated static let supportedExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "wav", "wave"]
 
+    /// 一条外部引用：只记下「音频在哪」的书签，不把音频拷进沙盒
+    nonisolated private struct LibraryLink: Codable, Equatable {
+        /// 引用 id：8 位随机串，给进度记账划命名空间用
+        let id: String
+        /// 导入时的条目名：书签读不到时还能在日志里说清是哪一条
+        var name: String
+        /// security-scoped bookmark，指向 iCloud Drive / 「文件」里的文件夹或音频
+        var bookmark: Data
+    }
+
     private let documentsDir: URL
     private let progressURL: URL
     private let metaCacheURL: URL
     private let snapshotURL: URL
+    /// 外部引用清单（一条引用 = 导入时选中的一个条目 = 一本书）
+    private let linksURL: URL
+    private var links: [LibraryLink] = []
+    /// 引用 id → 书签解析出来的条目地址（已占住安全域访问权）
+    private var linkURLs: [String: URL] = [:]
+    /// 引用 id → 记账基准目录，也就是条目自己的父目录：章节的相对路径都以它为底
+    private var linkBases: [String: URL] = [:]
     /// 后台扫描任务防重入：上一次还没跑完时再触发，记下来结束后补扫一次
     private var scanning = false
     private var rescanRequestedWhileScanning = false
@@ -63,6 +80,7 @@ final class LibraryService: ObservableObject {
         progressURL = appSupport.appendingPathComponent("progress.json")
         metaCacheURL = appSupport.appendingPathComponent("audio-meta.json")
         snapshotURL = appSupport.appendingPathComponent("library-snapshot.json")
+        linksURL = appSupport.appendingPathComponent("links.json")
         // 冷启动的第一帧就要有内容：进度和上次扫描出的书库在 init 里同步读盘，
         // 真正的文件扫描留给 bootstrap 异步做，结果没变就不重绘，避免闪空状态
         let t0 = CACurrentMediaTime()
@@ -71,9 +89,10 @@ final class LibraryService: ObservableObject {
         loadSnapshot()
         NSLog("[sonux] init: 读进度 %.1f ms + 读书库快照 %.1f ms（%d 本书）",
               (t1 - t0) * 1000, (CACurrentMediaTime() - t1) * 1000, books.count)
+        loadLinks()
     }
 
-    /// 重新扫描 Documents 目录，生成书库（保留已有进度）
+    /// 重新扫描书库（Documents + 外部引用），生成书目并保留已有进度
     /// 扫描与元数据读取在后台线程执行，避免阻塞主线程（真机上 1300+ 文件同步读时长要 3 秒）
     func rescan() {
         if scanning {
@@ -83,10 +102,17 @@ final class LibraryService: ObservableObject {
         scanning = true
         let documentsDir = self.documentsDir
         let supportedExtensions = Self.supportedExtensions
+        // 书签解析留在主线程：只在「没解析过」或「地址已失效」时才动书签，通常一条都不解析
+        let tLink = CACurrentMediaTime()
+        let linked = ensureLinkAccess()
+        if !linked.isEmpty {
+            NSLog("[sonux] rescan: 解析外部引用 %d 条，耗时 %.1f ms", linked.count, (CACurrentMediaTime() - tLink) * 1000)
+        }
         Task.detached(priority: .userInitiated) {
             let t0 = CACurrentMediaTime()
             NSLog("[sonux] rescan: 后台开始扫描 documentsDir=%@", documentsDir.path)
-            let scanned = Self.scanBooks(in: documentsDir, supportedExtensions: supportedExtensions, cacheURL: self.metaCacheURL)
+            let scanned = Self.scanBooks(in: documentsDir, supportedExtensions: supportedExtensions,
+                                         cacheURL: self.metaCacheURL, linked: linked)
             NSLog("[sonux] rescan: 识别出 %d 本书，耗时 %.1f ms", scanned.count, (CACurrentMediaTime() - t0) * 1000)
             // 书库快照另起低优先级任务落盘，不拖慢结果上屏
             let snapshotURL = self.snapshotURL
@@ -113,23 +139,28 @@ final class LibraryService: ObservableObject {
             self.books = scanned
         }
         let aliveBookIds = Set(scanned.map(\.id))
-        positions = positions.filter { aliveBookIds.contains($0.key) }
         let aliveChapterIds = Set(scanned.flatMap { $0.chapters.map(\.id) })
-        chapterPositions = chapterPositions.filter { aliveChapterIds.contains($0.key) }
-        lastPlayedDates = lastPlayedDates.filter { aliveBookIds.contains($0.key) }
-        addedDates = addedDates.filter { aliveBookIds.contains($0.key) }
+        // 书签这一时会儿解析不出来（iCloud 没连上）不等于书被删了：这些 id 是稳定的，
+        // 进度留着，等引用恢复还能接着听
+        let waiting = Set(links.filter { linkURLs[$0.id] == nil }.map { Self.namespace(forLink: $0.id) })
+        func kept(_ id: String, alive: Set<String>) -> Bool {
+            alive.contains(id) || waiting.contains { id.hasPrefix($0) }
+        }
+        positions = positions.filter { kept($0.key, alive: aliveBookIds) }
+        chapterPositions = chapterPositions.filter { kept($0.key, alive: aliveChapterIds) }
+        lastPlayedDates = lastPlayedDates.filter { kept($0.key, alive: aliveBookIds) }
+        addedDates = addedDates.filter { kept($0.key, alive: aliveBookIds) }
         backfillAddedDates(scanned)
         backfillFinishedBooks()
         saveProgress()
     }
 
     /// 补记「哪天进的书库」：只处理没记过的书（也就是新导入的那几本），
-    /// 取 Documents 里对应条目的创建时间；拿不到就按发现当天记，之后不再改
+    /// 取对应条目的创建时间；拿不到就按发现当天记，之后不再改
     private func backfillAddedDates(_ books: [Book]) {
         for book in books where addedDates[book.id] == nil {
-            let url = documentsDir.appendingPathComponent(book.storagePath)
-            let created = (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
-            addedDates[book.id] = created ?? Date()
+            let values = url(for: book).flatMap { try? $0.resourceValues(forKeys: [.creationDateKey]) }
+            addedDates[book.id] = values?.creationDate ?? Date()
         }
     }
 
@@ -141,8 +172,9 @@ final class LibraryService: ObservableObject {
         }
     }
 
-    /// 第一帧渲染用的书库快照：只存相对路径、标题、时长等纯数据，
-    /// 章节 fileURL 由当前 Documents 路径重建，避免绝对路径在模拟器/真机间失效
+    /// 第一帧渲染用的书库快照：只存 Documents 内条目的相对路径、标题、时长等纯数据，
+    /// 章节 fileURL 由当前 Documents 路径重建，避免绝对路径在模拟器/真机间失效。
+    /// 外部引用不进快照：它的地址要先解析书签才知道，冷启动不该在主线程上等 iCloud
     private struct SnapshotChapter: Codable {
         /// 章节 id：单章文件就是相对路径，内嵌章节的书是「相对路径#章号」
         var path: String
@@ -159,7 +191,7 @@ final class LibraryService: ObservableObject {
             duration = chapter.duration
             // 内嵌章节的书多章共用一个文件：id 带「#章号」后缀，另存文件相对路径，别从 id 里猜
             if chapter.id.contains("#") {
-                let file = LibraryService.relativePath(chapter.fileURL, documentsDir: documentsDir)
+                let file = LibraryService.relativePath(chapter.fileURL, base: documentsDir)
                 audio = file == chapter.id ? nil : file
             }
             start = chapter.fileStart > 0 ? chapter.fileStart : nil
@@ -221,7 +253,8 @@ final class LibraryService: ObservableObject {
     nonisolated private static func writeSnapshot(_ books: [Book], to url: URL, documentsDir: URL) {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        guard let data = try? encoder.encode(books.map { SnapshotBook($0, documentsDir: documentsDir) }) else { return }
+        let local = books.filter { $0.link == nil }
+        guard let data = try? encoder.encode(local.map { SnapshotBook($0, documentsDir: documentsDir) }) else { return }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try data.write(to: url, options: .atomic)
@@ -248,7 +281,11 @@ final class LibraryService: ObservableObject {
     }
 
     /// 后台执行：遍历目录并读取每个音频的时长/作者等元数据（优先命中磁盘缓存）
-    nonisolated private static func scanBooks(in documentsDir: URL, supportedExtensions: Set<String>, cacheURL: URL) -> [Book] {
+    /// - Parameters
+    ///   - documentsDir: 本地书库根目录，这里的条目不带记账命名空间（历史进度才继续有效）
+    ///   - linked: 已解析好的外部引用（引用 id + 条目地址），音频原地躺在 iCloud Drive / 「文件」里
+    nonisolated private static func scanBooks(in documentsDir: URL, supportedExtensions: Set<String>, cacheURL: URL,
+                                              linked: [(id: String, url: URL)]) -> [Book] {
         let fm = FileManager.default
         var books: [Book] = []
         let cache = loadMetaCache(from: cacheURL)
@@ -271,25 +308,23 @@ final class LibraryService: ObservableObject {
 
         for entry in topItems {
             let isDir = (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-            if isDir {
-                if let book = makeBook(fromFolder: entry, documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses) {
-                    books.append(book)
-                }
-            } else if supportedExtensions.contains(entry.pathExtension.lowercased()) {
-                let path = relativePath(entry, documentsDir: documentsDir)
-                let bookId = "file:\(path)"
-                let chapters = makeChapters(file: entry, bookId: bookId, firstIndex: 0,
-                                            documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses)
-                if !chapters.isEmpty {
-                    books.append(Book(
-                        id: bookId,
-                        title: entry.deletingPathExtension().lastPathComponent,
-                        author: fresh[path]?.author,
-                        chapters: chapters,
-                        storagePath: path
-                    ))
-                }
-            }
+            let book = isDir
+                ? makeBook(fromFolder: entry, base: documentsDir, link: nil, cache: cache, fresh: &fresh, misses: &misses)
+                : makeBook(fromFile: entry, base: documentsDir, link: nil,
+                           supportedExtensions: supportedExtensions, cache: cache, fresh: &fresh, misses: &misses)
+            if let book { books.append(book) }
+        }
+
+        // 外部引用：一条引用就是当初选中的那一个条目，跟它被拷进 Documents 时的待遇一致；
+        // 记账基准目录取它的父目录，书名还是它自己的名字，字幕包也还能按同名找到
+        for item in linked {
+            let isDir = (try? item.url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+            let base = item.url.deletingLastPathComponent()
+            let book = isDir
+                ? makeBook(fromFolder: item.url, base: base, link: item.id, cache: cache, fresh: &fresh, misses: &misses)
+                : makeBook(fromFile: item.url, base: base, link: item.id,
+                           supportedExtensions: supportedExtensions, cache: cache, fresh: &fresh, misses: &misses)
+            if let book { books.append(book) }
         }
         // 只保留本次扫描仍存在的有效条目，避免缓存无限增长
         saveMetaCache(fresh, to: cacheURL)
@@ -543,36 +578,46 @@ final class LibraryService: ObservableObject {
         saveProgress()
     }
 
-    /// 删除一本书：移除 Documents 里对应的文件或文件夹，并清理播放进度
+    /// 删除一本书：Documents 里的条目连文件一起删，外部引用只摘掉书签（原地的音频不动），
+    /// 两者都清理播放进度
     /// 整个目录删除失败时（真机上可能因沙盒扩展属性报 EPERM），退化为逐个删除文件再清空目录
     func delete(book: Book, playingBookId: String? = nil, onStopPlaying: (() -> Void)? = nil) throws {
-        NSLog("[sonux] delete: 开始删除《%@》storagePath=%@", book.title, book.storagePath)
+        NSLog("[sonux] delete: 开始删除《%@》storagePath=%@ 引用=%@", book.title, book.storagePath, book.link ?? "无")
         // 若删的正是当前播放的书，先停止播放，避免播放器持有已删除的文件
         if let playingBookId, playingBookId == book.id { onStopPlaying?() }
 
-        let fm = FileManager.default
-        let target = documentsDir.appendingPathComponent(book.storagePath)
-        do {
-            try fm.removeItem(at: target)
-            NSLog("[sonux] delete: removeItem 整体删除成功")
-        } catch {
-            NSLog("[sonux] delete: 整体删除失败 %@，尝试逐个递归删除", String(describing: error))
-            guard removeRecursively(at: target) else {
-                NSLog("[sonux] delete: 递归删除也失败，抛出错误")
-                throw LibraryError.deleteFailed(book.title, underlying: error)
+        if let link = book.link {
+            removeLink(id: link)
+        } else {
+            let fm = FileManager.default
+            let target = documentsDir.appendingPathComponent(book.storagePath)
+            do {
+                try fm.removeItem(at: target)
+                NSLog("[sonux] delete: removeItem 整体删除成功")
+            } catch {
+                NSLog("[sonux] delete: 整体删除失败 %@，尝试逐个递归删除", String(describing: error))
+                guard removeRecursively(at: target) else {
+                    NSLog("[sonux] delete: 递归删除也失败，抛出错误")
+                    throw LibraryError.deleteFailed(book.title, underlying: error)
+                }
+                NSLog("[sonux] delete: 递归删除成功")
             }
-            NSLog("[sonux] delete: 递归删除成功")
         }
 
+        clearBookProgress(book)
+        // 直接从内存书库移除并保存；全量 rescan 会阻塞主线程，改为后台异步补扫一次
+        books.removeAll { $0.id == book.id }
+        saveProgress()
+        rescan()
+    }
+
+    /// 一本书的全部记账：进度、历史位置、最后播放时间、进书库的时间、收听时长
+    private func clearBookProgress(_ book: Book) {
         positions[book.id] = nil
         for chapter in book.chapters { chapterPositions[chapter.id] = nil }
         lastPlayedDates[book.id] = nil
         addedDates[book.id] = nil
         listening.removeBook(book.id)
-        // 直接从内存书库移除并保存；全量 rescan 会阻塞主线程，改为后台异步补扫一次
-        books.removeAll { $0.id == book.id }
-        saveProgress()
-        rescan()
     }
 
     /// 递归删除：先删尽目录内所有文件，再从最深层开始删空目录；全部成功返回 true
@@ -596,7 +641,10 @@ final class LibraryService: ObservableObject {
         return !fm.fileExists(atPath: url.path)
     }
 
-    /// 从「文件」App 导入音频文件或文件夹：复制进 Documents 后重新扫描
+    // MARK: - 外部引用：导入只记书签，不拷音频
+
+    /// 从「文件」App 导入音频文件或文件夹：登记一条指向原地的 security-scoped 书签，
+    /// 不把音频拷进沙盒——34 本、1300+ 文件复制一份等于同一批音频占两份空间
     /// - 文件夹 → 一本多章节书；单个音频 → 一本书（章节数由该文件的内嵌 TOC 决定）
     /// - 返回成功导入的条目数
     @discardableResult
@@ -606,42 +654,137 @@ final class LibraryService: ObservableObject {
             let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
             let isAudio = Self.supportedExtensions.contains(url.pathExtension.lowercased())
             guard isDir || isAudio else { continue }
-
-            let dest = uniqueDestination(forName: url.lastPathComponent)
-            do {
-                if FileManager.default.fileExists(atPath: dest.path) {
-                    try FileManager.default.removeItem(at: dest)
-                }
-                try FileManager.default.copyItem(at: url, to: dest)
-                imported += 1
-            } catch {
-                // 单个条目复制失败则跳过，不影响其余
+            // 「文件」里能看到 Sonux 自己的 Documents，从那儿挑的条目本来就在书库里，不用再引一遍
+            guard !Self.isInside(documentsDir, url) else { continue }
+            // fileImporter 给的是「只在回调期间有效」的临时访问权，书签必须在这里当场建好
+            guard let bookmark = Self.makeBookmark(for: url) else { continue }
+            guard !alreadyLinked(to: url) else {
+                NSLog("[sonux] import: 「%@」已经引用过，跳过", url.lastPathComponent)
                 continue
             }
+            links.append(LibraryLink(id: Self.newLinkID(), name: url.lastPathComponent, bookmark: bookmark))
+            imported += 1
         }
-        if imported > 0 { rescan() }
+        guard imported > 0 else { return 0 }
+        saveLinks()
+        rescan()
         return imported
     }
 
-    /// 生成不与现有文件冲突的目标路径（重名时追加 " (2)" 等后缀）
-    private func uniqueDestination(forName name: String) -> URL {
-        let direct = documentsDir.appendingPathComponent(name)
-        guard FileManager.default.fileExists(atPath: direct.path) else { return direct }
+    /// 同一个条目记两份书签会在书库里出现两本同名书，所以先比一比书签指向哪儿
+    private func alreadyLinked(to url: URL) -> Bool {
+        let target = Self.normalized(url).path
+        for link in links {
+            // 只为比对而解析：读的是路径字符串，不必占安全域访问权，也不关心书签有没有过期
+            var stale = false
+            guard let resolved = try? URL(resolvingBookmarkData: link.bookmark, options: [],
+                                          relativeTo: nil, bookmarkDataIsStale: &stale) else { continue }
+            if Self.normalized(resolved).path == target { return true }
+        }
+        return false
+    }
 
-        let base = (name as NSString).deletingPathExtension
-        let ext = (name as NSString).pathExtension
-        var index = 2
-        while true {
-            let candidateName = ext.isEmpty ? "\(base) (\(index))" : "\(base) (\(index)).\(ext)"
-            let candidate = documentsDir.appendingPathComponent(candidateName)
-            if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
-            index += 1
+    /// 解析全部外部引用并占住安全域访问权：之后扫描元数据和播放器读文件都靠这一次授权。
+    /// 每条引用只在「没解析过」或「原地址已经不在了」时才动书签，反复授权会把计数叠上去
+    private func ensureLinkAccess() -> [(id: String, url: URL)] {
+        let fm = FileManager.default
+        var refreshed = false
+        for index in links.indices {
+            let link = links[index]
+            if let url = linkURLs[link.id], fm.fileExists(atPath: url.path) { continue }
+            if let old = linkURLs[link.id] { old.stopAccessingSecurityScopedResource() }
+            linkURLs[link.id] = nil
+            linkBases[link.id] = nil
+            guard let resolved = Self.acquire(link.bookmark) else {
+                NSLog("[sonux] link: 引用「%@」这次读不到，等下次扫描再试", link.name)
+                continue
+            }
+            linkURLs[link.id] = resolved.url
+            linkBases[link.id] = resolved.url.deletingLastPathComponent()
+            // 书签会因卷标改名之类过期：解析出来的新书签就地换掉，下次启动就不用兜底
+            if let data = resolved.refreshed { links[index].bookmark = data; refreshed = true }
+            NSLog("[sonux] link: 引用「%@」指向 %@", link.name, resolved.url.path)
+        }
+        if refreshed { saveLinks() }
+        return links.compactMap { link in linkURLs[link.id].map { (id: link.id, url: $0) } }
+    }
+
+    /// 摘掉一条外部引用：交回访问权、删掉书签。磁盘上的音频一点没动
+    private func removeLink(id: String) {
+        if let url = linkURLs[id] { url.stopAccessingSecurityScopedResource() }
+        linkURLs[id] = nil
+        linkBases[id] = nil
+        links.removeAll { $0.id == id }
+        saveLinks()
+    }
+
+    /// 一本书对应的磁盘位置：本地条目在 Documents 下，外部引用在它自己的基准目录下
+    private func url(for book: Book) -> URL? {
+        guard let link = book.link else { return documentsDir.appendingPathComponent(book.storagePath) }
+        guard let base = linkBases[link] else { return nil }
+        return base.appendingPathComponent(book.storagePath)
+    }
+
+    /// 给选中的条目建安全域书签：这是「不拷文件也能长期读到它」的唯一办法
+    nonisolated private static func makeBookmark(for url: URL) -> Data? {
+        let started = url.startAccessingSecurityScopedResource()
+        defer { if started { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? url.bookmarkData(options: [.minimalBookmark],
+                                               includingResourceValuesForKeys: nil, relativeTo: nil) else {
+            NSLog("[sonux] import: 建书签失败 %@", url.lastPathComponent)
+            return nil
+        }
+        return data
+    }
+
+    /// 解析书签并占住安全域访问权；第二个返回值是刷新过的书签（原书签过期时才给）
+    nonisolated private static func acquire(_ bookmark: Data) -> (url: URL, refreshed: Data?)? {
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: bookmark, options: [],
+                                 relativeTo: nil, bookmarkDataIsStale: &stale) else {
+            NSLog("[sonux] link: 书签解析失败")
+            return nil
+        }
+        guard url.startAccessingSecurityScopedResource() else {
+            NSLog("[sonux] link: 拿不到安全域访问权 %@", url.lastPathComponent)
+            return nil
+        }
+        guard stale else { return (url, nil) }
+        return (url, try? url.bookmarkData(options: [.minimalBookmark],
+                                          includingResourceValuesForKeys: nil, relativeTo: nil))
+    }
+
+    /// 引用 id：8 位随机串，短到能读进日志，也够避开碰撞
+    nonisolated private static func newLinkID() -> String {
+        String(UUID().uuidString.prefix(8)).lowercased()
+    }
+
+    private func loadLinks() {
+        guard let data = try? Data(contentsOf: linksURL),
+              let stored = try? JSONDecoder().decode([LibraryLink].self, from: data) else { return }
+        links = stored
+        NSLog("[sonux] loadLinks: %d 条外部引用", stored.count)
+    }
+
+    private func saveLinks() {
+        let encoder = JSONEncoder()
+        // 书签是 base64 大串，排序键让每次落盘的 diff 稳定
+        encoder.outputFormatting = .sortedKeys
+        guard let data = try? encoder.encode(links) else { return }
+        do {
+            // Data.write 不会创建中间目录，而 iOS 不预建 Application Support
+            try FileManager.default.createDirectory(at: linksURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: linksURL, options: .atomic)
+        } catch {
+            NSLog("[sonux] saveLinks: 写入失败 %@", error.localizedDescription)
         }
     }
 
     // MARK: - Private
 
-    nonisolated private static func makeBook(fromFolder folder: URL, documentsDir: URL, cache: [String: AudioFileMeta], fresh: inout [String: AudioFileMeta], misses: inout Int) -> Book? {
+    nonisolated private static func makeBook(fromFolder folder: URL, base: URL, link: String?,
+                                             cache: [String: AudioFileMeta], fresh: inout [String: AudioFileMeta],
+                                             misses: inout Int) -> Book? {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: folder,
@@ -658,35 +801,60 @@ final class LibraryService: ObservableObject {
         guard !audioFiles.isEmpty else { return nil }
 
         audioFiles.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        let bookId = "dir:\(relativePath(folder, documentsDir: documentsDir))"
+        let namespace = namespace(forLink: link)
+        let path = relativePath(folder, base: base)
+        let bookId = namespace + "dir:\(path)"
         // 一个文件可能展开成多个逻辑章节（内嵌 TOC），章号按全书顺序累加
         var chapters: [Chapter] = []
         for file in audioFiles {
             chapters += makeChapters(file: file, bookId: bookId, firstIndex: chapters.count,
-                                     documentsDir: documentsDir, cache: cache, fresh: &fresh, misses: &misses)
+                                     base: base, link: link, cache: cache, fresh: &fresh, misses: &misses)
         }
         guard !chapters.isEmpty else { return nil }
 
         return Book(
             id: bookId,
             title: folder.lastPathComponent,
-            author: fresh[relativePath(audioFiles[0], documentsDir: documentsDir)]?.author,
+            author: fresh[namespace + relativePath(audioFiles[0], base: base)]?.author,
             chapters: chapters,
-            storagePath: relativePath(folder, documentsDir: documentsDir)
+            storagePath: path,
+            link: link
+        )
+    }
+
+    /// 单个音频文件 = 一本书（章节数由它的内嵌 TOC 决定）
+    nonisolated private static func makeBook(fromFile file: URL, base: URL, link: String?,
+                                             supportedExtensions: Set<String>, cache: [String: AudioFileMeta],
+                                             fresh: inout [String: AudioFileMeta], misses: inout Int) -> Book? {
+        guard supportedExtensions.contains(file.pathExtension.lowercased()) else { return nil }
+        let path = relativePath(file, base: base)
+        let bookId = namespace(forLink: link) + "file:\(path)"
+        let chapters = makeChapters(file: file, bookId: bookId, firstIndex: 0,
+                                    base: base, link: link, cache: cache, fresh: &fresh, misses: &misses)
+        guard !chapters.isEmpty else { return nil }
+        return Book(
+            id: bookId,
+            title: file.deletingPathExtension().lastPathComponent,
+            author: fresh[namespace(forLink: link) + path]?.author,
+            chapters: chapters,
+            storagePath: path,
+            link: link
         )
     }
 
     /// 一个音频文件展开成若干章节：
     /// - 有内嵌章节 TOC（m4b 一类）：同一个 fileURL 拆成 N 个逻辑章节，各带自己的起点，
-    ///   id 形如「相对路径#章号」，进度、字幕、定时关闭都按这一章的粒度记账
-    /// - 没有 TOC（或 TOC 只有一条）：仍是「一个文件 = 一章」，id 就是相对路径，历史进度不失效
-    nonisolated private static func makeChapters(file: URL, bookId: String, firstIndex: Int, documentsDir: URL,
+    ///   id 形如「记账键#章号」，进度、字幕、定时关闭都按这一章的粒度记账
+    /// - 没有 TOC（或 TOC 只有一条）：仍是「一个文件 = 一章」，id 就是记账键，历史进度不失效
+    /// 记账键 = 命名空间 + 相对基准目录的路径：外部引用冠上「link:<id>:」，
+    /// 免得 iCloud 里的「XX/01.mp3」跟 Documents 里的同名文件串了进度
+    nonisolated private static func makeChapters(file: URL, bookId: String, firstIndex: Int, base: URL, link: String?,
                                                  cache: [String: AudioFileMeta], fresh: inout [String: AudioFileMeta],
                                                  misses: inout Int) -> [Chapter] {
-        let path = relativePath(file, documentsDir: documentsDir)
-        let meta = meta(for: file, path: path, cache: cache, fresh: &fresh, misses: &misses)
+        let key = namespace(forLink: link) + relativePath(file, base: base)
+        let meta = meta(for: file, path: key, cache: cache, fresh: &fresh, misses: &misses)
         guard var toc = meta.chapters, meta.duration > 0 else {
-            return [Chapter(id: path, bookId: bookId, index: firstIndex, title: chapterTitle(from: file),
+            return [Chapter(id: key, bookId: bookId, index: firstIndex, title: chapterTitle(from: file),
                             duration: meta.duration, fileURL: file)]
         }
         // TOC 的第一条可能不从 0 开始（片头没打点）：把开头空隙并进第一章，否则那一段永远听不到
@@ -697,7 +865,7 @@ final class LibraryService: ObservableObject {
             // 本章到下一章的起点为止；最后一章取到文件结尾，免得结尾一小段没有章认领
             let end = offset + 1 < toc.count ? toc[offset + 1].start : meta.duration
             return Chapter(
-                id: "\(path)#\(offset)",
+                id: "\(key)#\(offset)",
                 bookId: bookId,
                 index: firstIndex + offset,
                 title: item.title.isEmpty ? "\(firstIndex + offset + 1)" : item.title,
@@ -708,15 +876,29 @@ final class LibraryService: ObservableObject {
         }
     }
 
-    nonisolated private static func relativePath(_ url: URL, documentsDir: URL) -> String {
-        // 不能用字符串前缀裁剪：真机上 documentsDir.path 带 /private 前缀而目录遍历结果不带，
-        // 前缀替换会残留 “private”。先统一规范化，再按路径分量逐段比较裁剪
-        let base = Self.normalized(documentsDir).pathComponents
+    /// 外部引用的记账命名空间；Documents 里的条目不带前缀，老进度数据才继续有效
+    nonisolated private static func namespace(forLink link: String?) -> String {
+        guard let link else { return "" }
+        return "link:\(link):"
+    }
+
+    nonisolated private static func relativePath(_ url: URL, base: URL) -> String {
+        relativeComponents(url, under: base)?.joined(separator: "/") ?? url.path
+    }
+
+    /// url 是否落在 dir 里面
+    nonisolated private static func isInside(_ dir: URL, _ url: URL) -> Bool {
+        relativeComponents(url, under: dir) != nil
+    }
+
+    /// url 在 base 之下时返回去掉 base 之后的路径分量，否则返回 nil
+    /// 不能用字符串前缀裁剪：真机上基准目录.path 带 /private 前缀而目录遍历结果不带，
+    /// 前缀替换会残留 “private”。先统一规范化，再按路径分量逐段比较裁剪
+    nonisolated private static func relativeComponents(_ url: URL, under base: URL) -> [String]? {
+        let baseParts = Self.normalized(base).pathComponents
         let parts = Self.normalized(url).pathComponents
-        guard parts.count > base.count, Array(parts.prefix(base.count)) == base else {
-            return url.path
-        }
-        return parts.dropFirst(base.count).joined(separator: "/")
+        guard parts.count > baseParts.count, Array(parts.prefix(baseParts.count)) == baseParts else { return nil }
+        return Array(parts.dropFirst(baseParts.count))
     }
 
     /// 去掉 /var 路径的 /private 前缀，统一两种写法便于比较

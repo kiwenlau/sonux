@@ -38,7 +38,9 @@ targets:
             CFBundleURLSchemes: [sonux]
         UILaunchScreen: {}
         UIFileSharingEnabled: true
-        LSSupportsOpeningDocumentsInPlace: false
+        # 原地打开：导入走书签引用，必须拿到「文件」里那份原文件的路径；
+        # 关掉它系统会把文档拷一份进沙盒，书签就指向那份临时副本了
+        LSSupportsOpeningDocumentsInPlace: true
         UIBackgroundModes:
           - audio
         CFBundleDocumentTypes:

@@ -15967,6 +15967,203 @@
         }
       }
     },
+    "This will remove the reference from your library. The audio files stay where they are." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ستتم إزالة المرجع من المكتبة. ملفات الصوت تبقى في مكانها."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'eliminarà la referència de la biblioteca. Els fitxers d'àudio romanen on són."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Odkaz bude z knihovny odebrán. Zvukové soubory zůstanou na místě."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Referencen fjernes fra biblioteket. Lydfilerne bliver liggende."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Verweis wird aus der Mediathek entfernt. Die Audiodateien bleiben an ihrem Platz."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η αναφορά θα αφαιρεθεί από τη βιβλιοθήκη. Τα αρχεία ήχου παραμένουν στη θέση τους."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La referencia se quitará de la biblioteca. Los archivos de audio siguen donde están."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La référence sera retirée de la bibliothèque. Les fichiers audio restent en place."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההפניה תוסר מהספרייה. קובצי השמע נשארים במקומם."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "संदर्भ लाइब्रेरी से हटा दिया जाएगा। ऑडियो फ़ाइलें अपने स्थान पर रहेंगी।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Referenca će se ukloniti iz knjižnice. Zvučne datoteke ostaju na mjestu."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A hivatkozás eltávolításra kerül a könyvtárból. A hangfájlok helyükön maradnak."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Referensi akan dihapus dari Pustaka. Berkas audio tetap di tempatnya."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il riferimento verrà rimosso dalla libreria. I file audio restano dove sono."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "参照がライブラリから削除されます。音声ファイルは元の場所にそのまま残ります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "참조가 라이브러리에서 제거됩니다. 오디오 파일은 원래 자리에 그대로 있습니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rujukan akan dialih keluar daripada Pustaka. Fail audio kekal di tempatnya."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Referansen fjernes fra biblioteket. Lydfilene blir hvor de er."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De verwijzing wordt uit de bibliotheek verwijderd. De audiobestanden blijven liggen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Odwołanie zostanie usunięte z biblioteki. Pliki audio pozostaną na miejscu."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A referência será removida da biblioteca. Os arquivos de áudio continuam onde estão."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A referência será removida da biblioteca. Os ficheiros de áudio continuam onde estão."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Referința va fi eliminată din Bibliotecă. Fișierele audio rămân unde sunt."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ссылка будет удалена из библиотеки. Аудиофайлы останутся на месте."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Odkaz bude odstránený z knižnice. Zvukové súbory zostanú na mieste."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Referensen tas bort från biblioteket. Ljudfilerna ligger kvar där de är."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การอ้างอิงนี้จะถูกลบจากคลัง แต่ไฟล์เสียงยังอยู่ที่เดิม"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bağlantı kütüphaneden kaldırılacak. Ses dosyaları yerlerinde kalır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Посилання буде вилучено з бібліотеки. Аудіофайли залишаться на місці."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tham chiếu sẽ bị xóa khỏi Thư viện. Tệp âm thanh vẫn ở nguyên chỗ cũ."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只会从书库中移除该引用，音频文件仍在原处。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只會從書庫中移除該參照，音訊檔案仍在原處。"
+          }
+        }
+      }
+    },
     "Today" : {
       "extractionState" : "manual",
       "localizations" : {

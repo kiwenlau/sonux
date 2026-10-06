@@ -51,12 +51,14 @@ struct SonuxApp: App {
     /// 底部「继续收听」条常显：播放器里没挂书时（冷启动、播完、删书），
     /// 把最近收听的那本连进度一起挂上，不装载播放器也不抢音频焦点
     private func restoreContinueListening() {
-        // 挂着没播的那本已被删掉：先卸掉，再挂下一本
-        if !player.hasPlayer, let prepared = player.currentBook, library.book(id: prepared.id) == nil {
+        let latest = library.historyEntries().first
+        // 挂着没播的那本已被删掉，或扫描后又冒出更近收听的一本（外部引用的书不在冷启动快照里，
+        // 要等后台扫描才回到书库）：先卸掉再挂对的这本
+        if !player.hasPlayer, let prepared = player.currentBook, prepared.id != latest?.book.id {
             player.unloadPrepared()
         }
         guard !player.hasPlayer, player.currentBook == nil else { return }
-        guard let entry = library.historyEntries().first,
+        guard let entry = latest,
               let chapter = entry.chapter ?? entry.book.chapters.first else { return }
         player.prepareToResume(book: entry.book, chapter: chapter, at: entry.position?.time ?? 0)
     }
