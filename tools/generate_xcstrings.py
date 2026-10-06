@@ -849,6 +849,51 @@ add("Recently Played", ar="تمت التشغيل مؤخرًا", ca="Reproduïts 
     tr="Son çalınan", uk="Нещодавно прослухані", vi="Gần đây đã phát",
     zhhs="最近收听", zhtt="最近收聽")
 
+add("Playback", ar="التشغيل", ca="Reproducció", hr="Reprodukcija", cs="Přehrávání", da="Afspilning",
+    nl="Afspelen", fr="Lecture", de="Wiedergabe", el="Αναπαραγωγή", he="השמעה", hi="प्लेबैक",
+    hu="Lejátszás", id="Pemutaran", it="Riproduzione", ja="再生", ko="재생", ms="Main semula",
+    nb="Avspilling", pl="Odtwarzanie", ptbr="Reprodução", ptpt="Reprodução", ro="Redare",
+    ru="Воспроизведение", sk="Prehrávanie", es="Reproducción", sv="Uppspelning", th="การเล่น",
+    tr="Oynatma", uk="Відтворення", vi="Phát lại", zhhs="播放", zhtt="播放")
+
+add("Trim Silence", ar="تخطّ الصمت", ca="Omet el silenci", hr="Preskoči tišinu", cs="Přeskočit ticho",
+    da="Spring stilhed over", nl="Stilte overslaan", fr="Sauter les silences", de="Stille überspringen",
+    el="Παράλειψη σιωπής", he="דילוג על שתיקות", hi="मौनता छोड़ें", hu="Csend átugrása",
+    id="Lewati keheningan", it="Salta i silenzi", ja="無音をスキップ", ko="무음 건너뛰기",
+    ms="Langkau senyap", nb="Hopp over stillhet", pl="Pomiń ciszę", ptbr="Pular silêncios",
+    ptpt="Saltar silêncios", ro="Omite liniștea", ru="Пропуск тишины", sk="Preskočiť ticho",
+    es="Omitir silencios", sv="Hoppa över tystnad", th="ข้ามความเงียบ", tr="Sessizliği atla",
+    uk="Пропуск тиші", vi="Bỏ qua đoạn im", zhhs="跳过静音", zhtt="跳過靜音")
+
+add("Voice Boost", ar="تعزيز الصوت", ca="Realç de veu", hr="Pojačanje glasa", cs="Zvýraznění hlasu",
+    da="Stemmeforstærker", nl="Stemversterking", fr="Amplification de la voix", de="Sprachverstärkung",
+    el="Ενίσχυση φωνής", he="הגברת דיבור", hi="आवाज़ बूस्ट", hu="Hangkiemelés", id="Penguat suara",
+    it="Potenziamento voce", ja="音声ブースト", ko="음성 부스트", ms="Perkasa suara",
+    nb="Forsterk tale", pl="Wzmocnienie głosu", ptbr="Realce de voz", ptpt="Realce de voz",
+    ro="Amplificare voce", ru="Усиление речи", sk="Zvýraznenie reči", es="Realce de voz",
+    sv="Röstförstärkning", th="เสริมเสียงพูด", tr="Ses güçlendirme", uk="Підсилення мовлення",
+    vi="Tăng cường giọng nói", zhhs="语音增强", zhtt="語音增強")
+
+# 跳过静音的三档：分段控件里的短词，宁可对仗也不要长
+add("Light", ar="خفيف", ca="Lleuger", hr="Blago", cs="Mírně", da="Let", nl="Licht", fr="Léger",
+    de="Leicht", el="Ελαφρύ", he="קל", hi="हल्का", hu="Enyhe", id="Ringan", it="Leggero",
+    ja="軽め", ko="가볍게", ms="Ringan", nb="Lett", pl="Łagodnie", ptbr="Suave", ptpt="Suave",
+    ro="Ușor", ru="Лёгкий", sk="Mierne", es="Ligero", sv="Lätt", th="เบา", tr="Hafif",
+    uk="Легкий", vi="Nhẹ", zhhs="轻度", zhtt="輕度")
+
+add("Standard", ar="قياسي", ca="Estàndard", hr="Standardno", cs="Standardní", da="Standard",
+    nl="Standaard", fr="Standard", de="Standard", el="Πρότυπο", he="סטנדרטי", hi="मानक",
+    hu="Szabványos", id="Standar", it="Standard", ja="標準", ko="표준", ms="Standard",
+    nb="Standard", pl="Standardowo", ptbr="Padrão", ptpt="Padrão", ro="Standard", ru="Обычный",
+    sk="Štandard", es="Estándar", sv="Standard", th="มาตรฐาน", tr="Standart", uk="Стандартний",
+    vi="Tiêu chuẩn", zhhs="标准", zhtt="標準")
+
+add("Heavy", ar="قوي", ca="Fort", hr="Jako", cs="Silně", da="Kraftig", nl="Sterk", fr="Fort",
+    de="Stark", el="Ισχυρό", he="חזק", hi="तेज़", hu="Erős", id="Berat", it="Forte", ja="強め",
+    ko="강하게", ms="Berat", nb="Kraftig", pl="Mocno", ptbr="Forte", ptpt="Forte", ro="Puternic",
+    ru="Сильный", sk="Silno", es="Fuerte", sv="Kraftig", th="หนัก", tr="Güçlü", uk="Сильний",
+    vi="Mạnh", zhhs="重度", zhtt="重度")
+
 
 # ---------------- 生成 ----------------
 

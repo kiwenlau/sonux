@@ -82,6 +82,21 @@ final class PlayerService: NSObject, ObservableObject {
     /// 秒与 CMTime 往返回采用的刻度：600 能整除常见音频时间基，换算不丢精度
     private static let timescale: Int32 = 600
 
+    // MARK: - 跳过静音 / 语音增强的记账
+
+    /// 静音地图的缓存：键是章节 id。字幕整本一次读进来，逐章的空档表没必要每次重算
+    private var silenceGaps: [String: [SilenceGap]] = [:]
+    /// 这份地图属于哪本书：换书必须整份丢掉，否则章 id 撞上就拿着旧地图跳
+    private var silenceGapsBookId: String?
+    /// 本次播放累计跳过的音频秒数：跳过静音的全部意义就是这个数字，日志里要说清
+    private var silenceSkipped: TimeInterval = 0
+    /// 音轨 id 缓存：混音上的处理链要指名挂到哪条音轨，问资产要音轨是异步的，别每章都问
+    private var audioTrackIDs: [URL: CMPersistentTrackID] = [:]
+    /// 已经问过音轨 id 的文件：问不到就不重复问，免得每章都开一次资产
+    private var trackLookupTried: Set<URL> = []
+    /// 进度计时走了多少格：语音增强的处理链每 10 格报一次心跳
+    private var progressTicks = 0
+
     // MARK: - 定时关闭记忆（参考微信读书：下次播放自动沿用上次设置）
 
     private static let lastSleepModeKey = "sleepTimer.lastMode"
@@ -124,6 +139,7 @@ final class PlayerService: NSObject, ObservableObject {
         super.init()
         setupRemoteCommands()
         observeInterruptions()
+        observePlaybackSettings()
     }
 
     // MARK: - 播放控制
@@ -160,6 +176,7 @@ final class PlayerService: NSObject, ObservableObject {
     private func loadItem(for chapter: Chapter, atFileTime seconds: TimeInterval) {
         let item = AVPlayerItem(url: chapter.fileURL)
         item.audioTimePitchAlgorithm = .spectral
+        attachVoiceBoost(to: item, for: chapter.fileURL)
         watch(item)
         ensurePlayer().replaceCurrentItem(with: item)
         loadedFileURL = chapter.fileURL
@@ -351,6 +368,13 @@ final class PlayerService: NSObject, ObservableObject {
     }
 
     func stop() {
+        // 收了就报一声：跳过静音到底省了多少时间，日志里得有个总数（验收也看这一行）
+        if silenceSkipped > 0 {
+            NSLog("[sonux] silenceSkip: 本次播放共跳过 %.0f s 静音", silenceSkipped)
+        }
+        silenceSkipped = 0
+        silenceGaps = [:]
+        silenceGapsBookId = nil
         flushListening()
         reportPosition()
         player?.pause()
@@ -389,6 +413,90 @@ final class PlayerService: NSObject, ObservableObject {
         player?.replaceCurrentItem(with: nil)
         loadedFileURL = nil
         seekIssuedAt = nil
+    }
+
+    // MARK: - 跳过静音
+
+    /// 此刻正落在一段该跳的静音里吗？是就把播放位置挪到下一句开口之前，返回跳过的秒数
+    ///
+    /// 静音地图来自字幕（见 SilenceGaps）：没有字幕的书、还没读到内存的书都不介入，
+    /// 宁可什么都不跳，也不凭猜去挪用户的位置。
+    private func skipSilenceIfNeeded(chapter: Chapter, local: TimeInterval) -> TimeInterval? {
+        guard let minGap = PlaybackSettings.shared.silenceMode.minGap else { return nil }
+        if silenceGapsBookId != chapter.bookId {
+            silenceGapsBookId = chapter.bookId
+            silenceGaps = [:]
+        }
+        if silenceGaps[chapter.id] == nil {
+            let lines = TranscriptStore.shared.lines(forChapter: chapter.id)
+            guard !lines.isEmpty else {
+                // 字幕还没读进来（从锁屏、小组件直接开播就不会走播放页）：催一次，下一格再判
+                if let book = currentBook { Task { await TranscriptStore.shared.load(book: book) } }
+                return nil
+            }
+            silenceGaps[chapter.id] = SilenceGaps.gaps(from: lines, chapterDuration: chapter.duration)
+        }
+        guard let gaps = silenceGaps[chapter.id],
+              let target = SilenceGaps.skipTarget(in: gaps, at: local, minGap: minGap),
+              target - local > 0.05 else { return nil }
+        let jumped = target - local
+        silenceSkipped += jumped
+        currentTime = target
+        seekPrecise(toFileTime: chapter.fileTime(target))
+        reportPosition()
+        NSLog("[sonux] silenceSkip: 《%@》跳过 %.1f s 静音落到 %.0f s（本次累计 %.0f s）",
+              chapter.title, jumped, target, silenceSkipped)
+        return jumped
+    }
+
+    // MARK: - 语音增强
+
+    /// 把处理链挂到这条音轨的混音上。
+    ///
+    /// 只在「打开」时接链，关掉时不拆：拆 mix 会让音频链路重接一次，正听着就是「卡一下」，
+    /// 而 tap 关着的时候一个采样都不动，白占一点 CPU 换来不卡顿。
+    private func attachVoiceBoost(to item: AVPlayerItem, for url: URL) {
+        guard PlaybackSettings.shared.voiceBoost, item.audioMix == nil, VoiceTap.shared.ref != nil else { return }
+        if let trackID = audioTrackIDs[url] {
+            item.audioMix = VoiceTap.shared.audioMix(trackID: trackID)
+            return
+        }
+        guard !trackLookupTried.contains(url) else { return }
+        trackLookupTried.insert(url)
+        // 音轨 id 要问资产要（异步），而 item 已经要开始出声了：到手再补 mix，
+        // 最迟只晚几百毫秒，换来切章不用等
+        let asset = item.asset
+        Task { [weak self] in
+            let tracks = (try? await asset.loadTracks(withMediaType: .audio)) ?? []
+            guard let trackID = tracks.first?.trackID, trackID != 0, let self else {
+                NSLog("[sonux] voiceBoost: 拿不到 %@ 的音轨 id，增强不生效", url.lastPathComponent)
+                return
+            }
+            self.audioTrackIDs[url] = trackID
+            guard self.player?.currentItem === item, PlaybackSettings.shared.voiceBoost else { return }
+            item.audioMix = VoiceTap.shared.audioMix(trackID: trackID)
+        }
+    }
+
+    /// 设置页上的开关要当下就生效，不能等下一章：增强在这里补链接
+    private func observePlaybackSettings() {
+        PlaybackSettings.shared.voiceBoostChanges
+            .sink { [weak self] on in
+                guard on else { return }
+                Task { @MainActor in
+                    guard let self, let item = self.player?.currentItem, let url = self.loadedFileURL else { return }
+                    self.attachVoiceBoost(to: item, for: url)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// 每 10 格报一次处理链的动静：帧数为 0 就说明链没接上，日志里一眼能看出来
+    private func reportVoiceBoostHeartbeat() {
+        guard PlaybackSettings.shared.voiceBoost else { return }
+        let stats = VoiceTap.shared.drainStats()
+        NSLog("[sonux] voiceBoost: 近 10 s 过链 %d 次 / %d 帧，峰值 %.3f（%@）",
+              stats.calls, stats.frames, stats.peak, stats.format)
     }
 
     // MARK: - 定时关闭
@@ -588,9 +696,15 @@ final class PlayerService: NSObject, ObservableObject {
                         // 内嵌章节的书：一章只是文件里的一段，到点得在这儿自己判（文件没播完不会来 didPlayToEnd）
                         self.finishCurrentChapter()
                     } else {
-                        self.currentTime = chapter.map { $0.localTime(fileTime) } ?? fileTime
-                        self.reportPosition()
+                        let local = chapter.map { $0.localTime(fileTime) } ?? fileTime
+                        self.currentTime = local
+                        // 跳过静音：落在字幕空档里就把位置挪到下一句开口前，跳过了就不再重复报进度
+                        var jumped: TimeInterval?
+                        if let chapter { jumped = self.skipSilenceIfNeeded(chapter: chapter, local: local) }
+                        if jumped == nil { self.reportPosition() }
                     }
+                    self.progressTicks += 1
+                    if self.progressTicks % 10 == 0 { self.reportVoiceBoostHeartbeat() }
                     let ms = (CACurrentMediaTime() - t0) * 1000
                     if ms > 50 { NSLog("[sonux] progressTick: 耗时 %.1f ms", ms) }
                 } else {

@@ -23,9 +23,13 @@
 		40000000000000000000000F /* MeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000000F /* MeView.swift */; };
 		400000000000000000000010 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000010 /* Localization.swift */; };
 		400000000000000000000011 /* LanguageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000011 /* LanguageView.swift */; };
+		400000000000000000000025 /* PlaybackSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000025 /* PlaybackSettingsView.swift */; };
 		400000000000000000000012 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000012 /* Localizable.xcstrings */; };
 		400000000000000000000013 /* Transcript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000013 /* Transcript.swift */; };
 		400000000000000000000014 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000014 /* TranscriptStore.swift */; };
+		400000000000000000000024 /* VoiceProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000024 /* VoiceProcessor.swift */; };
+		400000000000000000000023 /* SilenceGaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000023 /* SilenceGaps.swift */; };
+		400000000000000000000022 /* PlaybackSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000022 /* PlaybackSettings.swift */; };
 		400000000000000000000015 /* TextSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000015 /* TextSearch.swift */; };
 		400000000000000000000016 /* TextSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000016 /* TextSearchView.swift */; };
 		400000000000000000000017 /* Quote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000017 /* Quote.swift */; };
@@ -83,9 +87,13 @@
 		30000000000000000000000F /* MeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeView.swift; sourceTree = "<group>"; };
 		300000000000000000000010 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		300000000000000000000011 /* LanguageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageView.swift; sourceTree = "<group>"; };
+		300000000000000000000025 /* PlaybackSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSettingsView.swift; sourceTree = "<group>"; };
 		300000000000000000000012 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		300000000000000000000013 /* Transcript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcript.swift; sourceTree = "<group>"; };
 		300000000000000000000014 /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
+		300000000000000000000024 /* VoiceProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProcessor.swift; sourceTree = "<group>"; };
+		300000000000000000000023 /* SilenceGaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceGaps.swift; sourceTree = "<group>"; };
+		300000000000000000000022 /* PlaybackSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSettings.swift; sourceTree = "<group>"; };
 		300000000000000000000015 /* TextSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSearch.swift; sourceTree = "<group>"; };
 		300000000000000000000016 /* TextSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSearchView.swift; sourceTree = "<group>"; };
 		300000000000000000000017 /* Quote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quote.swift; sourceTree = "<group>"; };
@@ -193,6 +201,9 @@
 				300000000000000000000003 /* LibraryService.swift */,
 				300000000000000000000004 /* PlayerService.swift */,
 				300000000000000000000014 /* TranscriptStore.swift */,
+				300000000000000000000024 /* VoiceProcessor.swift */,
+				300000000000000000000023 /* SilenceGaps.swift */,
+				300000000000000000000022 /* PlaybackSettings.swift */,
 				300000000000000000000015 /* TextSearch.swift */,
 				30000000000000000000001B /* WidgetSync.swift */,
 			);
@@ -212,6 +223,7 @@
 				30000000000000000000000C /* HistoryView.swift */,
 				30000000000000000000000F /* MeView.swift */,
 				300000000000000000000011 /* LanguageView.swift */,
+				300000000000000000000025 /* PlaybackSettingsView.swift */,
 				300000000000000000000016 /* TextSearchView.swift */,
 				300000000000000000000018 /* QuoteCard.swift */,
 				300000000000000000000019 /* ListeningReportView.swift */,
@@ -368,8 +380,12 @@
 				40000000000000000000000F /* MeView.swift in Sources */,
 				400000000000000000000010 /* Localization.swift in Sources */,
 				400000000000000000000011 /* LanguageView.swift in Sources */,
+				400000000000000000000025 /* PlaybackSettingsView.swift in Sources */,
 				400000000000000000000013 /* Transcript.swift in Sources */,
 				400000000000000000000014 /* TranscriptStore.swift in Sources */,
+				400000000000000000000024 /* VoiceProcessor.swift in Sources */,
+				400000000000000000000023 /* SilenceGaps.swift in Sources */,
+				400000000000000000000022 /* PlaybackSettings.swift in Sources */,
 				400000000000000000000015 /* TextSearch.swift in Sources */,
 				400000000000000000000016 /* TextSearchView.swift in Sources */,
 				400000000000000000000017 /* Quote.swift in Sources */,

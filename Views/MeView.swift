@@ -39,28 +39,61 @@ struct MeView: View {
     }
 }
 
-/// 设置卡片：目前只有语言一项，样式与累计时长卡片一致
+/// 设置卡片：语言与播放两行，样式与累计时长卡片一致
 private struct SettingsCard: View {
+    @ObservedObject private var settings = PlaybackSettings.shared
+
     var body: some View {
-        NavigationLink {
-            LanguageView()
-        } label: {
-            HStack {
-                Text(L("Language"))
-                Spacer()
-                Text(AppLanguageSetting.followsSystem
-                     ? L("System Default")
-                     : AppLanguageSetting.all.first { $0.code == AppLanguageSetting.effectiveCode }?.nativeName ?? AppLanguageSetting.effectiveCode)
-                    .foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            NavigationLink {
+                LanguageView()
+            } label: {
+                settingsRow(id: "me-language-row",
+                            title: L("Language"),
+                            value: AppLanguageSetting.followsSystem
+                                 ? L("System Default")
+                                 : AppLanguageSetting.all.first { $0.code == AppLanguageSetting.effectiveCode }?.nativeName ?? AppLanguageSetting.effectiveCode)
             }
-            .contentShape(Rectangle())
+            hairline
+
+            NavigationLink {
+                PlaybackSettingsView()
+            } label: {
+                // 尾巴上只报跳过静音的档位：它是会挪播放位置的那一项，最值得先看一眼
+                settingsRow(id: "me-playback-row",
+                            title: L("Playback"),
+                            value: L(settings.silenceMode.labelKey))
+            }
         }
+        // 两行都别长成系统蓝链接：卡片里的导航沿用整卡点击的原样式
         .buttonStyle(.plain)
-        .padding(.vertical, 4)
-        .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
-        .accessibilityIdentifier("me-language-row")
+    }
+
+    private func settingsRow(id: String, title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        // 先声明「这一行是一个整体」再挂标识：不然 SwiftUI 会把整卡两行并成一个元素，
+        // 标识只剩最外层那个，自动化点不到具体一行
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(id)
+    }
+
+    /// 行间细线：卡片里两行之间要有归属关系，但分隔线不该顶到卡片边
+    private var hairline: some View {
+        Rectangle()
+            .fill(Color(.separator))
+            .frame(height: 0.5)
+            .padding(.leading, 16)
+            .padding(.vertical, 2)
     }
 }
 
