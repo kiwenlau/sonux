@@ -33,17 +33,10 @@ private struct NowPlayingEntry: TimelineEntry {
     let cover: UIImage?
 
     var isPlaying: Bool { snapshot?.isPlaying ?? false }
-    var time: TimeInterval { snapshot?.time(at: date) ?? 0 }
-    var duration: TimeInterval { snapshot?.duration ?? 0 }
-    var remaining: TimeInterval { max(duration - time, 0) }
-    var progress: Double { snapshot?.progress(at: date) ?? 0 }
 }
 
 private struct NowPlayingProvider: TimelineProvider {
-    /// 播着时每条条目之间隔多久、往外排多久：一小时内的收听基本不用系统再问一次
-    private static let step: TimeInterval = 30
-    private static let span: TimeInterval = 20 * 60
-    /// 没在播时的兜底刷新间隔：位置不会自己变，留个很长的间隔等 App 来敲门
+    /// 没在播时的兜底刷新间隔：内容不会自己变，留个很长的间隔等 App 来敲门
     private static let idleRefresh: TimeInterval = 6 * 60 * 60
 
     /// 读共享数据拼一条「此刻」的条目
@@ -61,27 +54,12 @@ private struct NowPlayingProvider: TimelineProvider {
         completion(currentEntry())
     }
 
+    /// 组件上没有会自己走的东西（不画进度条），所以一次只排一条：
+    /// 换书、播停、切章都由 App 请系统刷新（见 WidgetSync），不必自己往外排一串时间点
     func getTimeline(in context: Context, completion: @escaping (Timeline<NowPlayingEntry>) -> Void) {
-        let snapshot = WidgetBridge.readSnapshot()
-        let cover = WidgetBridge.readCover(maxPixel: 320)
-        let now = Date()
-
-        guard let snapshot, snapshot.isPlaying else {
-            // 停着：位置不会再往前走，一条就够，等 App 播起来时请求刷新
-            let entry = NowPlayingEntry(date: now, snapshot: snapshot, cover: cover)
-            completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(Self.idleRefresh))))
-            return
-        }
-
-        // 播着：每 30 秒排一条、往外排 20 分钟。进度由快照时间戳算出来（各条只差 date），
-        // 所以小组件不用 App 在后台敲门也能一格一格往前走
-        var entries: [NowPlayingEntry] = []
-        var offset: TimeInterval = 0
-        while offset <= Self.span {
-            entries.append(NowPlayingEntry(date: now.addingTimeInterval(offset), snapshot: snapshot, cover: cover))
-            offset += Self.step
-        }
-        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(Self.span))))
+        let entry = currentEntry()
+        completion(Timeline(entries: [entry],
+                            policy: .after(entry.date.addingTimeInterval(Self.idleRefresh))))
     }
 }
 
@@ -105,25 +83,25 @@ private struct NowPlayingView: View {
     }
 }
 
-/// 小号：整块封面铺满，底部压一层黑纱放书名，最底一条进度
+/// 小号：整块封面铺满，底部压一层黑纱放书名与作者，左上角一枚播放标记
 private struct SmallNowPlayingView: View {
     let entry: NowPlayingEntry
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if entry.isPlaying {
-                Image(systemName: "waveform")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-            }
+            PlayingBadge(isPlaying: entry.isPlaying, onCover: true)
             Spacer(minLength: 0)
             Text(entry.snapshot?.bookTitle ?? "")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-            ProgressTrack(progress: entry.progress, fill: .white, track: .white.opacity(0.3))
-                .padding(.top, 3)
+            if let author = entry.snapshot?.author, !author.isEmpty {
+                Text(author)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .widgetBackground {
@@ -132,7 +110,8 @@ private struct SmallNowPlayingView: View {
     }
 }
 
-/// 中号：糊化的封面出血打底（与 App 底部面板一个做法），左边封面、右边书名章节名、底下一条进度
+/// 中号：糊化的封面出血打底（与 App 底部面板一个做法），左边封面、右边书名作者章节名，
+/// 右上角一枚播放标记
 private struct MediumNowPlayingView: View {
     let entry: NowPlayingEntry
 
@@ -146,27 +125,18 @@ private struct MediumNowPlayingView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .lineLimit(1)
                     Spacer(minLength: 4)
-                    if let snapshot = entry.snapshot, snapshot.chapterCount > 1 {
-                        Text("\(snapshot.chapterIndex)/\(snapshot.chapterCount)")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
-                    }
+                    PlayingBadge(isPlaying: entry.isPlaying, onCover: false)
+                }
+                if let author = entry.snapshot?.author, !author.isEmpty {
+                    Text(author)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 Text(entry.snapshot?.chapterTitle ?? "")
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-
-                Spacer(minLength: 6)
-
-                ProgressTrack(progress: entry.progress)
-                HStack {
-                    Text(TimeFormat.time(entry.time))
-                    Spacer()
-                    Text("-" + TimeFormat.time(entry.remaining))
-                }
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -189,25 +159,33 @@ private struct NothingPlayingView: View {
     }
 }
 
-/// 进度条：整条轨道 + 一段随进度增长的实心胶囊
-private struct ProgressTrack: View {
-    let progress: Double
-    var fill: Color = .indigo
-    var track: Color = Color.secondary.opacity(0.25)
-    var height: CGFloat = 3
+/// 播放标记：出声时画音柱，暂停时画播放三角。
+/// 它只是状态标记，不是一枚按钮——音频只能由主 App 播，小组件（另一个进程）播不出声，
+/// 整块组件点下去是回 App 的播放页
+private struct PlayingBadge: View {
+    let isPlaying: Bool
+    /// 压在封面上时垫一层毛玻璃圆底（与书库卡片那枚播放键同一做法）：封面深浅不定，
+    /// 不垫底细线条压上去就看不见
+    var onCover: Bool
+
+    private static let side: CGFloat = 20
 
     var body: some View {
-        Capsule()
-            .fill(track)
-            .frame(height: height)
-            .overlay(alignment: .leading) {
-                GeometryReader { geo in
-                    Capsule()
-                        .fill(fill)
-                        .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)), height: height)
-                }
+        ZStack {
+            if onCover {
+                Circle().fill(.ultraThinMaterial)
+                Circle().strokeBorder(Color.white.opacity(0.45), lineWidth: 0.5)
+            } else {
+                Circle().fill(Color.indigo.opacity(0.12))
             }
-            .accessibilityHidden(true)
+            Image(systemName: isPlaying ? "waveform" : "play.fill")
+                .font(.system(size: isPlaying ? 8 : 9, weight: .semibold))
+                .foregroundStyle(onCover ? Color.white : Color.indigo)
+                // 三角形重心偏左，往右挪一点才真正居中
+                .offset(x: isPlaying ? 0 : 0.5)
+        }
+        .frame(width: Self.side, height: Self.side)
+        .accessibilityHidden(true)
     }
 }
 

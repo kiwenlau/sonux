@@ -54,14 +54,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.kiwenlau.sonux
         INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
   SonuxWidget:
-    # 桌面「正在收听」小组件：与主 App 共用 Localization / TimeFormat / WidgetBridge 三份源码
+    # 桌面「正在收听」小组件：与主 App 共用 Localization / WidgetBridge 两份源码
     type: app-extension
     platform: iOS
     sources:
       - Widget
       - Shared/WidgetBridge.swift
       - App/Localization.swift
-      - Views/TimeFormat.swift
       - Support/Localizable.xcstrings
     dependencies:
       - target: Sonux

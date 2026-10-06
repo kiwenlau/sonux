@@ -78,41 +78,24 @@ struct NowPlayingSnapshot: Codable, Equatable {
     var bookTitle: String
     var author: String?
     var chapterTitle: String
-    /// 本章是全书第几章、一共几章（1 起算），小组件上画成「7/20」这种数字对照
-    var chapterIndex: Int
-    var chapterCount: Int
-    /// 本章内的秒数与本章时长（与 App 里进度条同一套记账口径）
-    var time: TimeInterval
-    var duration: TimeInterval
+    /// 此刻是否在出声：决定那枚播放图标画三角还是音柱
     var isPlaying: Bool
-    /// 倍速：外推进度时按它换算，1.5 倍速听一分钟等于走了一分半
-    var speed: Double
-    /// 这份快照是哪一刻拍的：小组件拿它对表推算现在走到哪
-    var stampedAt: Date
     /// 封面是音频自带的还是按书名画的占位图：占位图上已经写着书名，
     /// 小组件再叠一层书名就成了两行重复，所以这时要把底图糊开只留颜色
     var hasArtwork: Bool
 
     init(bookId: String, bookTitle: String, author: String?, chapterTitle: String,
-         chapterIndex: Int, chapterCount: Int, time: TimeInterval, duration: TimeInterval,
-         isPlaying: Bool, speed: Double, stampedAt: Date, hasArtwork: Bool = false) {
+         isPlaying: Bool, hasArtwork: Bool = false) {
         self.bookId = bookId
         self.bookTitle = bookTitle
         self.author = author
         self.chapterTitle = chapterTitle
-        self.chapterIndex = chapterIndex
-        self.chapterCount = chapterCount
-        self.time = time
-        self.duration = duration
         self.isPlaying = isPlaying
-        self.speed = speed
-        self.stampedAt = stampedAt
         self.hasArtwork = hasArtwork
     }
 
     private enum CodingKeys: String, CodingKey {
-        case bookId, bookTitle, author, chapterTitle, chapterIndex, chapterCount
-        case time, duration, isPlaying, speed, stampedAt, hasArtwork
+        case bookId, bookTitle, author, chapterTitle, isPlaying, hasArtwork
     }
 
     init(from decoder: Decoder) throws {
@@ -121,29 +104,8 @@ struct NowPlayingSnapshot: Codable, Equatable {
         bookTitle = try container.decodeIfPresent(String.self, forKey: .bookTitle) ?? ""
         author = try container.decodeIfPresent(String.self, forKey: .author)
         chapterTitle = try container.decodeIfPresent(String.self, forKey: .chapterTitle) ?? ""
-        chapterIndex = try container.decodeIfPresent(Int.self, forKey: .chapterIndex) ?? 1
-        chapterCount = try container.decodeIfPresent(Int.self, forKey: .chapterCount) ?? 1
-        time = try container.decodeIfPresent(TimeInterval.self, forKey: .time) ?? 0
-        duration = try container.decodeIfPresent(TimeInterval.self, forKey: .duration) ?? 0
         isPlaying = try container.decodeIfPresent(Bool.self, forKey: .isPlaying) ?? false
-        speed = try container.decodeIfPresent(Double.self, forKey: .speed) ?? 1
-        stampedAt = try container.decodeIfPresent(Date.self, forKey: .stampedAt) ?? Date()
         hasArtwork = try container.decodeIfPresent(Bool.self, forKey: .hasArtwork) ?? false
-    }
-
-    /// 快照之后又播到的位置：还在播就按墙钟时间往外推，推满本章就封顶
-    /// （本章确实播完了）；暂停着则原样返回，不跟着时间走
-    func time(at date: Date) -> TimeInterval {
-        let base = min(max(time, 0), max(duration, 0))
-        guard isPlaying, date > stampedAt, duration > base else { return base }
-        let wallPlayed = date.timeIntervalSince(stampedAt) * max(speed, 0.1)
-        return base + min(wallPlayed, duration - base)
-    }
-
-    /// 本章进度 0...1
-    func progress(at date: Date) -> Double {
-        guard duration > 0 else { return 0 }
-        return min(max(time(at: date) / duration, 0), 1)
     }
 
     /// 小组件在组件画廊里的占位数据：拿一段真实感的排版演示样式
@@ -152,12 +114,6 @@ struct NowPlayingSnapshot: Codable, Equatable {
         bookTitle: "百年孤独",
         author: "加西亚·马尔克斯",
         chapterTitle: "第七章",
-        chapterIndex: 7,
-        chapterCount: 20,
-        time: 612,
-        duration: 2043,
-        isPlaying: true,
-        speed: 1,
-        stampedAt: Date()
+        isPlaying: true
     )
 }

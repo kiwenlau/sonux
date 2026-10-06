@@ -36,7 +36,6 @@
 		40000000000000000000001C /* SonuxWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000010 /* SonuxWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		40000000000000000000001D /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000001A /* WidgetBridge.swift */; };
 		40000000000000000000001E /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000010 /* Localization.swift */; };
-		40000000000000000000001F /* TimeFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000005 /* TimeFormat.swift */; };
 		400000000000000000000020 /* NowPlayingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000001C /* NowPlayingWidget.swift */; };
 		400000000000000000000021 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000012 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
@@ -388,7 +387,6 @@
 				400000000000000000000020 /* NowPlayingWidget.swift in Sources */,
 				40000000000000000000001D /* WidgetBridge.swift in Sources */,
 				40000000000000000000001E /* Localization.swift in Sources */,
-				40000000000000000000001F /* TimeFormat.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

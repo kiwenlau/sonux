@@ -4,7 +4,7 @@ import WidgetKit
 
 /// 把播放状态推给桌面小组件：写一份快照到 App Group，再请系统刷新时间线。
 /// 刷新是有日预算的（系统按天限额，超了就限速），所以只在状态真的变了的时候敲门——
-/// 播/停/切章/变速/拖完进度；一秒一秒的前进由小组件拿快照时间戳自己算，不占预算。
+/// 播/停/切章/变速/拖完进度。小组件上没画进度条，一秒一秒的前进不必报，也就不占预算。
 @MainActor
 enum WidgetSync {
     /// 两次刷新之间的最小间隔：拖进度条时一秒能收到十来次 seek，全发出去预算立刻就没了
@@ -23,23 +23,15 @@ enum WidgetSync {
     private static let coverMaxPixel: CGFloat = 320
 
     /// 上报一次当前收听状态。封面只在换书或换了一版图（占位图→真封面）时重写（见 coverStamp）
-    static func publish(book: Book, chapter: Chapter, chapterIndex: Int,
-                        time: TimeInterval, duration: TimeInterval,
-                        isPlaying: Bool, speed: Float) {
+    static func publish(book: Book, chapter: Chapter, isPlaying: Bool) {
         let hasArtwork = CoverStore.shared.hasEmbeddedCover(for: book)
         let snapshot = NowPlayingSnapshot(
             bookId: book.id,
             bookTitle: book.title,
             author: book.author,
             chapterTitle: chapter.title,
-            chapterIndex: chapterIndex,
-            chapterCount: book.chapters.count,
-            time: time,
-            duration: duration,
             isPlaying: isPlaying,
-            speed: Double(speed),
-            stampedAt: Date(),
-            // 有没有真封面决定小组件是「铺满封面」还是「把占位图糊成底色」，见 NowPlayingSnapshot
+            // 有没有真封面决定小组件是「铺满封面」还是「把书名占位图糊成底色」，见 NowPlayingSnapshot
             hasArtwork: hasArtwork
         )
         let stamp = "\(book.id):\(hasArtwork ? "artwork" : "placeholder")"

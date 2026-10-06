@@ -619,13 +619,9 @@ final class PlayerService: NSObject, ObservableObject {
         if ms > 30 { NSLog("[sonux] updateNowPlaying: 耗时 %.1f ms", ms) }
     }
 
-    /// 把当前收听状态推给桌面小组件。与锁屏信息同一时机上报（播、停、切章、变速、拖过进度），
-    /// 每秒的进度前进不在这儿报——小组件会拿快照里的时间戳自己算
+    /// 把当前收听状态推给桌面小组件。与锁屏信息同一时机上报（播、停、切章、变速、拖过进度）
     private func syncWidget(book: Book, chapter: Chapter) {
-        let index = book.chapters.firstIndex(where: { $0.id == chapter.id }).map { $0 + 1 } ?? 1
-        WidgetSync.publish(book: book, chapter: chapter, chapterIndex: index,
-                           time: currentTime, duration: chapter.duration,
-                           isPlaying: isPlaying, speed: speed)
+        WidgetSync.publish(book: book, chapter: chapter, isPlaying: isPlaying)
     }
 
     /// 封面刚提取到手时重发一次快照：小组件据此决定铺真封面还是把书名占位图糊成底色
