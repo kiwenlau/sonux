@@ -115,42 +115,45 @@ private struct SmallNowPlayingView: View {
 }
 
 /// 中号：糊化的封面出血打底（与 App 底部面板一个做法），左边封面、右边书名作者章节名，
-/// 章节名那行右侧一枚播放标记
+/// 章节名那行右侧一枚播放标记。
+/// 封面边长取内容区的实际高度、文字列与它等高顶对齐，这样封面与文字的上下边线齐平，
+/// 四周只剩系统那圈统一边距，不会一边挤一边空
 private struct MediumNowPlayingView: View {
-    /// 封面边长：撑住整块组件的高度，免得底部空一大片
-    private static let coverSide: CGFloat = 96
-
     let entry: NowPlayingEntry
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            CoverThumb(cover: entry.cover, side: Self.coverSide)
+        GeometryReader { geo in
+            let side = min(geo.size.height, geo.size.width * 0.42)
+            HStack(alignment: .top, spacing: 12) {
+                CoverThumb(cover: entry.cover, side: side)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.snapshot?.bookTitle ?? "")
-                    .font(.system(size: 15, weight: .semibold))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                if let author = entry.snapshot?.author, !author.isEmpty {
-                    Text(author)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.snapshot?.bookTitle ?? "")
+                        .font(.system(size: 15, weight: .semibold))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    if let author = entry.snapshot?.author, !author.isEmpty {
+                        Text(author)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    HStack(alignment: .center, spacing: 8) {
+                        Text(entry.snapshot?.chapterTitle ?? "")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        PlayingBadge(isPlaying: entry.isPlaying)
+                    }
                 }
-
-                Spacer(minLength: 8)
-
-                HStack(alignment: .center, spacing: 8) {
-                    Text(entry.snapshot?.chapterTitle ?? "")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                    PlayingBadge(isPlaying: entry.isPlaying)
-                }
+                .frame(height: side, alignment: .top)
             }
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .widgetBackground { BleedBackdrop(cover: entry.cover) }
     }
 }
