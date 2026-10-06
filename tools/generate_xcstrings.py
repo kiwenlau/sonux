@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""生成 Support/Localizable.xcstrings（String Catalog）。
+"""生成 Support/Localizable.xcstrings 与 Support/AppShortcuts.xcstrings（String Catalog）。
 
 用法：python3 tools/generate_xcstrings.py
-键的来源：代码里的 L("…") / LF("…") 字面量（自动扫描，防止表和代码脱节）。
+Localizable 的键来自两处：
+① 代码里的 L("…") / LF("…") 字面量（自动扫描，防止表和代码脱节）；
+② App Intents 的标题、参数名、摘要 —— 那些句子不经 L()（系统要在编译期读它们），
+   所以列在 INTENT_KEYS 里，主函数会回查 Intents/*.swift 确认字面量还一模一样。
+AppShortcuts 那几句说法（SHORTCUT_KEYS）不进 catalog：iOS 16 只读经典的
+Support/AppShortcuts/<语言>.lproj/AppShortcuts.strings，所以单独逐语言落文件。
 表里缺任何代码里用到的键、或多出代码里没有的键，都会报错退出。
 源语言 en（键即英文原文），下面 TR 给其余 32 种语言的译文。
 """
@@ -928,6 +933,259 @@ add("Heavy", ar="قوي", ca="Fort", hr="Jako", cs="Silně", da="Kraftig", nl="S
     vi="Mạnh", zhhs="重度", zhtt="重度")
 
 
+# 下面六条是从 Support/Localizable.xcstrings 里回捞回来的：上次做收听报告页时
+# 只把键写进了 catalog，没进这张表，脚本一跑就会把它们删掉。补齐后表与 catalog 一致。
+add("%d Books", ar="%d كتب", ca="%d llibres", hr="%d knjiga", cs="%d knih", da="%d bøger", nl="%d boeken",
+    fr="%d livres", de="%d Bücher", el="%d βιβλία", he="%d ספרים", hi="%d किताबें", hu="%d könyv", id="%d buku",
+    it="%d libri", ja="%d 冊", ko="%d권", ms="%d buku", nb="%d bøker", pl="%d książek", ptbr="%d livros",
+    ptpt="%d livros", ro="%d cărți", ru="%d книг", sk="%d kníh", es="%d libros", sv="%d böcker", th="%d เล่ม",
+    tr="%d kitap", uk="%d книг", vi="%d cuốn", zhhs="%d 本", zhtt="%d 本")
+add("%d Listening Report", ar="تقرير الاستماع %d", ca="Informe d'escolta %d", hr="Izvještaj slušanja %d",
+    cs="Přehled poslechu %d", da="Lytterapport %d", nl="Luisteroverzicht %d", fr="Rapport d'écoute %d",
+    de="Hörbericht %d", el="Έκθεση ακρόασης %d", he="דוח האזנה %d", hi="सुनने की रिपोर्ट %d",
+    hu="Hallgatási riport %d", id="Laporan mendengarkan %d", it="Report di ascolto %d", ja="%d 年の再生レポート",
+    ko="%d년 듣기 리포트", ms="Laporan mendengar %d", nb="Lytterapport %d", pl="Raport słuchania %d",
+    ptbr="Relatório de escuta %d", ptpt="Relatório de escuta %d", ro="Raport de ascultare %d",
+    ru="Отчёт прослушивания %d", sk="Prehľad posluchu %d", es="Informe de escucha %d", sv="Lyssningsrapport %d",
+    th="รายงานการฟัง %d", tr="Dinleme raporu %d", uk="Звіт прослуховування %d", vi="Báo cáo nghe %d",
+    zhhs="%d 年收听报告", zhtt="%d 年收聽報告")
+add("Books Finished", ar="كتب مُنهية", ca="Llibres acabats", hr="Dovršene knjige", cs="Dokončené knihy",
+    da="Færdige bøger", nl="Voltooide boeken", fr="Livres écoutés", de="Abgeschlossene Bücher",
+    el="Ολοκληρωμένα βιβλία", he="ספרים שהושלמו", hi="पूरी किताबें", hu="Befejezett könyvek", id="Buku tuntas",
+    it="Libri terminati", ja="聴き終わった本", ko="듣기 마친 책", ms="Buku tamat", nb="Ferdige bøker", pl="Ukończone książki",
+    ptbr="Livros concluídos", ptpt="Livros concluídos", ro="Cărți terminate", ru="Дослушанные книги",
+    sk="Dokončené knihy", es="Libros terminados", sv="Avklarade böcker", th="หนังสือที่ฟังจบ",
+    tr="Tamamlanan kitaplar", uk="Дослухані книги", vi="Sách đã nghe xong", zhhs="听完", zhtt="聽完")
+add("Days Listened", ar="أيام الاستماع", ca="Dies d'escolta", hr="Dana slušanja", cs="Dny poslechu", da="Lyttedage",
+    nl="Luisterdagen", fr="Jours d'écoute", de="Hörtage", el="Ημέρες ακρόασης", he="ימי האזנה", hi="सुनने के दिन",
+    hu="Hallgatási napok", id="Hari mendengarkan", it="Giorni di ascolto", ja="再生日数", ko="듣기 일수",
+    ms="Hari mendengar", nb="Lyttedager", pl="Dni słuchania", ptbr="Dias de escuta", ptpt="Dias de escuta",
+    ro="Zile de ascultare", ru="Дни прослушивания", sk="Dny posluchu", es="Días de escucha", sv="Lyssningsdagar",
+    th="วันที่ฟัง", tr="Dinleme günü", uk="Дні прослуховування", vi="Ngày nghe", zhhs="收听天数", zhtt="收聽天數")
+add("Listening Time", ar="وقت الاستماع", ca="Temps d'escolta", hr="Vrijeme slušanja", cs="Čas poslechu",
+    da="Lyttetid", nl="Luistertijd", fr="Temps d'écoute", de="Hörzeit", el="Χρόνος ακρόασης", he="זמן האזנה",
+    hi="सुनने का समय", hu="Hallgatási idő", id="Waktu mendengarkan", it="Tempo di ascolto", ja="再生時間", ko="듣기 시간",
+    ms="Masa mendengar", nb="Lyttetid", pl="Czas słuchania", ptbr="Tempo de escuta", ptpt="Tempo de escuta",
+    ro="Timp de ascultare", ru="Время прослушивания", sk="Čas posluchu", es="Tiempo de escucha", sv="Lyssningstid",
+    th="เวลาฟัง", tr="Dinleme süresi", uk="Час прослуховування", vi="Thời gian nghe", zhhs="收听时长", zhtt="收聽時長")
+add("This Month", ar="هذا الشهر", ca="Aquest mes", hr="Ovaj mjesec", cs="Tento měsíc", da="Denne måned",
+    nl="Deze maand", fr="Ce mois-ci", de="Dieser Monat", el="Αυτός ο μήνας", he="החודש הזה", hi="इस महीने",
+    hu="Ez a hónap", id="Bulan ini", it="Questo mese", ja="今月", ko="이번 달", ms="Bulan ini", nb="Denne måneden",
+    pl="Ten miesiąc", ptbr="Este mês", ptpt="Este mês", ro="Luna aceasta", ru="Этот месяц", sk="Tento mesiac",
+    es="Este mes", sv="Denna månad", th="เดือนนี้", tr="Bu ay", uk="Цей місяць", vi="Tháng này", zhhs="本月",
+    zhtt="本月")
+
+
+add("Your library is empty.", ar="مكتبتك فارغة.", ca="La vostra biblioteca és buida.",
+    hr="Tvoja biblioteka je prazna.", cs="Vaše knihovna je prázdná.", da="Dit bibliotek er tomt.",
+    nl="Je bibliotheek is leeg.", fr="Votre bibliothèque est vide.", de="Deine Bibliothek ist leer.",
+    el="Η βιβλιοθήκη σας είναι άδεια.", he="הספרייה שלך ריקה.", hi="आपकी लाइब्रेरी खाली है।",
+    hu="A könyvtárad üres.", id="Pustaka Anda kosong.", it="La tua libreria è vuota.",
+    ja="ライブラリは空です。", ko="라이브러리가 비어 있습니다.", ms="Pustaka anda kosong.",
+    nb="Biblioteket ditt er tomt.", pl="Twoja biblioteka jest pusta.", ptbr="Sua biblioteca está vazia.",
+    ptpt="A tua biblioteca está vazia.", ro="Biblioteca ta este goală.", ru="Ваша библиотека пуста.",
+    sk="Vaša knižnica je prázdna.", es="Tu biblioteca está vacía.", sv="Ditt bibliotek är tomt.",
+    th="คลังของคุณว่างเปล่า", tr="Kitaplığın boş.", uk="Ваша бібліотека порожня.",
+    vi="Thư viện của bạn đang trống.", zhhs="你的书库是空的。", zhtt="你的書庫是空的。")
+
+add("I couldn’t find that book in Sonux.", ar="تعذّر العثور على هذا الكتاب في Sonux.",
+    ca="No s’ha trobat aquest llibre a Sonux.", hr="Knjiga nije pronađena u Sonuxu.",
+    cs="Tato kniha nebyla v Sonuxu nalezena.", da="Bogen blev ikke fundet i Sonux.",
+    nl="Dat boek is niet gevonden in Sonux.", fr="Ce livre est introuvable dans Sonux.",
+    de="Dieses Buch wurde in Sonux nicht gefunden.", el="Το βιβλίο δεν βρέθηκε στο Sonux.",
+    he="ספר זה לא נמצא ב־Sonux.", hi="यह किताब Sonux में नहीं मिली।",
+    hu="A könyv nem található a Sonux alkalmazásban.", id="Buku itu tidak ditemukan di Sonux.",
+    it="Il libro non è stato trovato in Sonux.", ja="その本は Sonux に見つかりませんでした。",
+    ko="해당 책을 Sonux에서 찾을 수 없습니다.", ms="Buku itu tidak ditemui dalam Sonux.",
+    nb="Boken ble ikke funnet i Sonux.", pl="Nie znaleziono tej książki w Sonux.",
+    ptbr="Esse livro não foi encontrado no Sonux.", ptpt="Este livro não foi encontrado no Sonux.",
+    ro="Cartea nu a fost găsită în Sonux.", ru="Эта книга не найдена в Sonux.",
+    sk="Táto kniha sa v Sonux nenašla.", es="No se encontró ese libro en Sonux.",
+    sv="Boken hittades inte i Sonux.", th="ไม่พบหนังสือ đóใน Sonux", tr="Bu kitap Sonux’ta bulunamadı.",
+    uk="Цю книгу не знайдено в Sonux.", vi="Không tìm thấy cuốn sách đó trong Sonux.",
+    zhhs="在 Sonux 里找不到那本书。", zhtt="在 Sonux 裡找不到那本書。")
+
+add("Nothing is playing in Sonux yet.", ar="لا يوجد شيء قيد التشغيل في Sonux بعد.",
+    ca="Encara no sona res a Sonux.", hr="Ništa se ne reproducira u Sonuxu.",
+    cs="V Sonuxu se právě nic nepřehrává.", da="Der afspilles ikke noget i Sonux.",
+    nl="Er speelt momenteel niets in Sonux.", fr="Rien n’est en cours de lecture dans Sonux.",
+    de="In Sonux läuft gerade keine Wiedergabe.", el="Δεν παίζει κάτι στο Sonux προς το παρόν.",
+    he="שום דבר לא מנגן כרגע ב־Sonux.", hi="Sonux में अभी कुछ नहीं चल रहा।",
+    hu="Jelenleg semmi sem szól a Sonuxban.", id="Tidak ada yang diputar di Sonux.",
+    it="Non c’è nulla in riproduzione in Sonux.", ja="Sonux で再生中のものはありません。",
+    ko="Sonux에서 재생 중인 항목이 없습니다.", ms="Tiada apa-apa dimainkan dalam Sonux.",
+    nb="Ingenting spilles av i Sonux nå.", pl="Nic nie jest odtwarzane w Sonux.",
+    ptbr="Nada está sendo reproduzido no Sonux.", ptpt="Nada está a ser reproduzido no Sonux.",
+    ro="Nimic nu rulează în Sonux.", ru="В Sonux сейчас ничего не играет.",
+    sk="V Sonux sa práve nič neprehráva.", es="No hay nada sonando en Sonux.",
+    sv="Inget spelas upp i Sonux just nu.", th="ยังไม่มีอะไรเล่นใน Sonux",
+    tr="Sonux’ta şu anda çalan bir şey yok.", uk="У Sonux зараз нічого не відтворюється.",
+    vi="Không có gì đang phát trong Sonux.", zhhs="Sonux 里还没有正在播放的内容。",
+    zhtt="Sonux 裡還沒有正在播放的內容。")
+
+
+# ---------------- App Intents（Siri 与快捷指令）的文案 ----------------
+#
+# 这些句子不走 L()：App Intents 的标题、参数名、说法都要求编译期就能定位，
+# 系统在构建时把它们抽进 Sonux.app/Metadata.appintents 与 nlu.appintents 里，
+# 运行时再按这里的键取词。所以键必须和 Intents/*.swift 里的字面量一字不差 ——
+# 主函数会逐个回查代码，改了字面量忘了同步这张表，构建脚本报错退出。
+INTENT_KEYS = [
+    "Play a Book",
+    "Play a book from your Sonux library.",
+    "Next Chapter",
+    "Previous Chapter",
+    "Book",
+    "Play ${book}",
+]
+
+# Siri 那几句说法在另一张表里（编译成 AppShortcuts.strings，不在 Localizable 里），
+# 键里的 ${applicationName} 就是代码里写的 \(.applicationName)
+SHORTCUT_KEYS = [
+    "Play my book in ${applicationName}",
+    "Continue listening in ${applicationName}",
+    "Next chapter in ${applicationName}",
+    "Previous chapter in ${applicationName}",
+]
+
+add("Play a Book", ar="تشغيل كتاب", ca="Reprodueix un llibre", hr="Reproduciraj knjigu",
+    cs="Přehrát knihu", da="Afspil en bog", nl="Boek afspelen", fr="Lire un livre",
+    de="Buch wiedergeben", el="Αναπαραγωγή βιβλίου", he="נגן ספר", hi="किताब चलाएँ",
+    hu="Könyv lejátszása", id="Putar buku", it="Riproduci un libro", ja="本を再生",
+    ko="책 재생", ms="Main buku", nb="Spill av en bok", pl="Odtwórz książkę",
+    ptbr="Reproduzir um livro", ptpt="Reproduzir um livro", ro="Redă o carte",
+    ru="Воспроизвести книгу", sk="Prehrať knihu", es="Reproducir un libro",
+    sv="Spela upp en bok", th="เล่นหนังสือ", tr="Kitap oynat", uk="Відтворити книгу",
+    vi="Phát một cuốn sách", zhhs="播放一本书", zhtt="播放一本書")
+
+add("Play a book from your Sonux library.", ar="شغّل كتابًا من مكتبتك في Sonux.",
+    ca="Reprodueix un llibre de la vostra biblioteca de Sonux.",
+    hr="Reproduciraj knjigu iz svoje Sonux biblioteke.",
+    cs="Přehraj knihu ze své knihovny Sonux.", da="Afspil en bog fra dit Sonux-bibliotek.",
+    nl="Speel een boek af uit je Sonux-bibliotheek.", fr="Lisez un livre de votre bibliothèque Sonux.",
+    de="Spiele ein Buch aus deiner Sonux-Bibliothek wieder.",
+    el="Αναπαραγωγή βιβλίου από τη βιβλιοθήκη σας στο Sonux.", he="נגן ספר מהספרייה שלך ב־Sonux.",
+    hi="Sonux लाइब्रेरी से किताब चलाएँ।", hu="Könyv lejátszása a Sonux-könyvtáradban.",
+    id="Putar buku dari pustaka Sonux Anda.", it="Riproduci un libro dalla tua libreria Sonux.",
+    ja="Sonux ライブラリの本を再生します。", ko="Sonux 라이브러리의 책을 재생합니다.",
+    ms="Main buku daripada pustaka Sonux anda.", nb="Spill av en bok fra Sonux-biblioteket ditt.",
+    pl="Odtwórz książkę z Twojej biblioteki Sonux.", ptbr="Reproduz um livro da sua biblioteca no Sonux.",
+    ptpt="Reproduz um livro da tua biblioteca no Sonux.", ro="Redă o carte din biblioteca ta Sonux.",
+    ru="Воспроизвести книгу из библиотеки Sonux.", sk="Prehrať knihu z tvojej knižnice Sonux.",
+    es="Reproduce un libro de tu biblioteca de Sonux.", sv="Spela upp en bok från ditt Sonux-bibliotek.",
+    th="เล่นหนังสือจากคลัง Sonux ของคุณ", tr="Sonux kitaplığından bir kitap oynatın.",
+    uk="Відтворити книгу з вашої бібліотеки Sonux.", vi="Phát một cuốn sách từ thư viện Sonux của bạn.",
+    zhhs="播放你 Sonux 书库里的一本书。", zhtt="播放你 Sonux 書庫裡的一本書。")
+
+add("Next Chapter", ar="الفصل التالي", ca="Capítol següent", hr="Sljedeće poglavlje",
+    cs="Další kapitola", da="Næste kapitel", nl="Volgend hoofdstuk", fr="Chapitre suivant",
+    de="Nächstes Kapitel", el="Επόμενο κεφάλαιο", he="הפרק הבא", hi="अगला अध्याय",
+    hu="Következő fejezet", id="Bab berikutnya", it="Capitolo successivo", ja="次の章",
+    ko="다음 장", ms="Bab seterusnya", nb="Neste kapittel", pl="Następny rozdział",
+    ptbr="Próximo capítulo", ptpt="Capítulo seguinte", ro="Capitolul următor",
+    ru="Следующая глава", sk="Ďalšia kapitola", es="Siguiente capítulo", sv="Nästa kapitel",
+    th="บทถัดไป", tr="Sonraki bölüm", uk="Наступний розділ", vi="Chương tiếp theo",
+    zhhs="下一章", zhtt="下一章")
+
+add("Previous Chapter", ar="الفصل السابق", ca="Capítol anterior", hr="Prethodno poglavlje",
+    cs="Předchozí kapitola", da="Forrige kapitel", nl="Vorige hoofdstuk", fr="Chapitre précédent",
+    de="Vorheriges Kapitel", el="Προηγούμενο κεφάλαιο", he="הפרק הקודם", hi="पिछला अध्याय",
+    hu="Előző fejezet", id="Bab sebelumnya", it="Capitolo precedente", ja="前の章",
+    ko="이전 장", ms="Bab sebelumnya", nb="Forrige kapittel", pl="Poprzedni rozdział",
+    ptbr="Capítulo anterior", ptpt="Capítulo anterior", ro="Capitolul anterior",
+    ru="Предыдущая глава", sk="Predchádzajúca kapitola", es="Capítulo anterior",
+    sv="Föregående kapitel", th="บทก่อนหน้า", tr="Önceki bölüm", uk="Попередній розділ",
+    vi="Chương trước", zhhs="上一章", zhtt="上一章")
+
+add("Book", ar="كتاب", ca="Llibre", hr="Knjiga", cs="Kniha", da="Bog", nl="Boek", fr="Livre",
+    de="Buch", el="Βιβλίο", he="ספר", hi="किताब", hu="Könyv", id="Buku", it="Libro", ja="本",
+    ko="책", ms="Buku", nb="Bok", pl="Książka", ptbr="Livro", ptpt="Livro", ro="Carte",
+    ru="Книга", sk="Kniha", es="Libro", sv="Bok", th="หนังสือ", tr="Kitap", uk="Книга",
+    vi="Cuốn sách", zhhs="书", zhtt="書")
+
+add("Play ${book}", ar="شغّل ${book}", ca="Reprodueix ${book}", hr="Reproduciraj ${book}",
+    cs="Přehrát ${book}", da="Afspil ${book}", nl="${book} afspelen", fr="Lire ${book}",
+    de="${book} wiedergeben", el="Αναπαραγωγή ${book}", he="נגן את ${book}", hi="${book} चलाएँ",
+    hu="${book} lejátszása", id="Putar ${book}", it="Riproduci ${book}", ja="${book}を再生",
+    ko="${book} 재생", ms="Main ${book}", nb="Spill av ${book}", pl="Odtwórz ${book}",
+    ptbr="Reproduzir ${book}", ptpt="Reproduzir ${book}", ro="Redă ${book}",
+    ru="Воспроизвести ${book}", sk="Prehrať ${book}", es="Reproducir ${book}",
+    sv="Spela upp ${book}", th="เล่น ${book}", tr="${book} oynat", uk="Відтворити ${book}",
+    vi="Phát ${book}", zhhs="播放${book}", zhtt="播放${book}")
+
+add("Play my book in ${applicationName}", ar="شغّل كتابي في ${applicationName}",
+    ca="Reprodueix el meu llibre a ${applicationName}", hr="Reproduciraj moju knjigu u ${applicationName}",
+    cs="Přehrát mou knihu v ${applicationName}", da="Afspil min bog i ${applicationName}",
+    nl="Mijn boek afspelen in ${applicationName}", fr="Lis mon livre dans ${applicationName}",
+    de="Mein Buch in ${applicationName} wiedergeben", el="Αναπαραγωγή του βιβλίου μου στο ${applicationName}",
+    he="נגן את הספר שלי ב־${applicationName}", hi="${applicationName} में मेरी किताब चलाएँ",
+    hu="A könyvem lejátszása a ${applicationName} alkalmazásban", id="Putar buku saya di ${applicationName}",
+    it="Riproduci il mio libro in ${applicationName}", ja="${applicationName}で本を再生",
+    ko="${applicationName}에서 내 책 재생", ms="Main buku saya dalam ${applicationName}",
+    nb="Spill av boken min i ${applicationName}", pl="Odtwórz moją książkę w ${applicationName}",
+    ptbr="Reproduzir meu livro no ${applicationName}", ptpt="Reproduzir o meu livro no ${applicationName}",
+    ro="Redă cartea mea în ${applicationName}", ru="Воспроизвести мою книгу в ${applicationName}",
+    sk="Prehrať moju knihu v ${applicationName}", es="Reproducir mi libro en ${applicationName}",
+    sv="Spela min bok i ${applicationName}", th="เล่นหนังสือของฉันใน ${applicationName}",
+    tr="${applicationName} içinde kitabımı oynat", uk="Відтворити мою книгу в ${applicationName}",
+    vi="Phát cuốn sách của tôi trong ${applicationName}", zhhs="在${applicationName}里播放我的书",
+    zhtt="在${applicationName}裡播放我的書")
+
+add("Continue listening in ${applicationName}", ar="أكمل الاستماع في ${applicationName}",
+    ca="Continua escoltant a ${applicationName}", hr="Nastavi slušati u ${applicationName}",
+    cs="Pokračovat v poslechu v ${applicationName}", da="Fortsæt med at lytte i ${applicationName}",
+    nl="Verder luisteren in ${applicationName}", fr="Continuer l'écoute dans ${applicationName}",
+    de="Weiterhören in ${applicationName}", el="Συνέχεια ακρόασης στο ${applicationName}",
+    he="המשך להאזין ב־${applicationName}", hi="${applicationName} में सुनना जारी रखें",
+    hu="Folytasd a hallgatást a ${applicationName} alkalmazásban", id="Lanjutkan mendengarkan di ${applicationName}",
+    it="Continua ad ascoltare in ${applicationName}", ja="${applicationName}で聴き続ける",
+    ko="${applicationName}에서 계속 듣기", ms="Teruskan mendengar dalam ${applicationName}",
+    nb="Fortsett å lytte i ${applicationName}", pl="Kontynuuj słuchanie w ${applicationName}",
+    ptbr="Continuar ouvindo no ${applicationName}", ptpt="Continuar a ouvir no ${applicationName}",
+    ro="Continuă ascultarea în ${applicationName}", ru="Продолжить слушать в ${applicationName}",
+    sk="Pokračovať v počúvaní v ${applicationName}", es="Seguir escuchando en ${applicationName}",
+    sv="Fortsätt lyssna i ${applicationName}", th="ฟังต่อใน ${applicationName}",
+    tr="${applicationName} içinde dinlemeye devam et", uk="Продовжити слухати в ${applicationName}",
+    vi="Tiếp tục nghe trong ${applicationName}", zhhs="在${applicationName}里继续听",
+    zhtt="在${applicationName}裡繼續聽")
+
+add("Next chapter in ${applicationName}", ar="الفصل التالي في ${applicationName}",
+    ca="Capítol següent a ${applicationName}", hr="Sljedeće poglavlje u ${applicationName}",
+    cs="Další kapitola v ${applicationName}", da="Næste kapitel i ${applicationName}",
+    nl="Volgend hoofdstuk in ${applicationName}", fr="Chapitre suivant dans ${applicationName}",
+    de="Nächstes Kapitel in ${applicationName}", el="Επόμενο κεφάλαιο στο ${applicationName}",
+    he="הפרק הבא ב־${applicationName}", hi="${applicationName} में अगला अध्याय",
+    hu="Következő fejezet a ${applicationName} alkalmazásban", id="Bab berikutnya di ${applicationName}",
+    it="Capitolo successivo in ${applicationName}", ja="${applicationName}で次の章",
+    ko="${applicationName}에서 다음 장", ms="Bab seterusnya dalam ${applicationName}",
+    nb="Neste kapittel i ${applicationName}", pl="Następny rozdział w ${applicationName}",
+    ptbr="Próximo capítulo no ${applicationName}", ptpt="Capítulo seguinte no ${applicationName}",
+    ro="Capitolul următor în ${applicationName}", ru="Следующая глава в ${applicationName}",
+    sk="Ďalšia kapitola v ${applicationName}", es="Siguiente capítulo en ${applicationName}",
+    sv="Nästa kapitel i ${applicationName}", th="บทถัดไปใน ${applicationName}",
+    tr="${applicationName} içinde sonraki bölüm", uk="Наступний розділ у ${applicationName}",
+    vi="Chương tiếp theo trong ${applicationName}", zhhs="在${applicationName}里下一章",
+    zhtt="在${applicationName}裡下一章")
+
+add("Previous chapter in ${applicationName}", ar="الفصل السابق في ${applicationName}",
+    ca="Capítol anterior a ${applicationName}", hr="Prethodno poglavlje u ${applicationName}",
+    cs="Předchozí kapitola v ${applicationName}", da="Forrige kapitel i ${applicationName}",
+    nl="Vorige hoofdstuk in ${applicationName}", fr="Chapitre précédent dans ${applicationName}",
+    de="Vorheriges Kapitel in ${applicationName}", el="Προηγούμενο κεφάλαιο στο ${applicationName}",
+    he="הפרק הקודם ב־${applicationName}", hi="${applicationName} में पिछला अध्याय",
+    hu="Előző fejezet a ${applicationName} alkalmazásban", id="Bab sebelumnya di ${applicationName}",
+    it="Capitolo precedente in ${applicationName}", ja="${applicationName}で前の章",
+    ko="${applicationName}에서 이전 장", ms="Bab sebelumnya dalam ${applicationName}",
+    nb="Forrige kapittel i ${applicationName}", pl="Poprzedni rozdział w ${applicationName}",
+    ptbr="Capítulo anterior no ${applicationName}", ptpt="Capítulo anterior no ${applicationName}",
+    ro="Capitolul anterior în ${applicationName}", ru="Предыдущая глава в ${applicationName}",
+    sk="Predchádzajúca kapitola v ${applicationName}", es="Capítulo anterior en ${applicationName}",
+    sv="Föregående kapitel i ${applicationName}", th="บทก่อนหน้าใน ${applicationName}",
+    tr="${applicationName} içinde önceki bölüm", uk="Попередній розділ у ${applicationName}",
+    vi="Chương trước trong ${applicationName}", zhhs="在${applicationName}里上一章",
+    zhtt="在${applicationName}裡上一章")
+
+
 # ---------------- 生成 ----------------
 
 LITERAL = re.compile(r'\bLF?\(\s*"((?:[^"\\]|\\.)*)"')
@@ -947,23 +1205,99 @@ def collect_keys() -> set[str]:
             keys.add(swift_unescape(m.group(1)))
     return keys
 
+# L() 的参数是运行时才算出来的（播放设置页那句 Text(L(mode.labelKey))），扫描器看不见
+# 这样的键，只能手工列出来；主函数同样会回查代码里还写着这几个字面量
+DYNAMIC_KEYS = ["Light", "Standard", "Heavy"]
+
+def swift_sources(*folders: str) -> str:
+    """把几个目录里的 Swift 源码拼成一大坨文本，用来回查字面量还在不在"""
+    return "\n".join(p.read_text(encoding="utf-8")
+                     for folder in folders
+                     for p in sorted((ROOT / folder).glob("*.swift")))
+
+def code_form(key: str) -> str:
+    """把抽出来的本地化键还原成代码里的写法，用来回查字面量有没有改漏。
+    系统抽取时把字符串插值换成占位符：App 名 \\(.applicationName) → ${applicationName}，
+    意图参数 \\(\\.$book) → ${book}，这里反着换算回去"""
+    def repl(match):
+        name = match.group(1)
+        # 参数插值在代码里写成 \(\.$name)，App 名写成 \(.applicationName)
+        return "\\(.applicationName)" if name == "applicationName" else "\\(\\.$" + name + ")"
+    return re.sub(r"\$\{(\w+)\}", repl, key)
+
+def check_hand_listed_keys() -> None:
+    """INTENT_KEYS / SHORTCUT_KEYS / DYNAMIC_KEYS 都是手工列的键：
+    逐条回查代码里确实还写着这句，改名或删句子时忘了同步，这里就停"""
+    intents = swift_sources("Intents")
+    stale = [k for k in INTENT_KEYS + SHORTCUT_KEYS if f'"{code_form(k)}"' not in intents]
+    if stale:
+        sys.exit("Intents/ 里已经找不到这些文案了（改了字面量就要同步翻译表）：\n" + "\n".join(stale))
+    app = swift_sources("App", "Views", "Services", "Models")
+    stale = [k for k in DYNAMIC_KEYS if f'"{k}"' not in app]
+    if stale:
+        sys.exit("代码里已经找不到这些动态键了（L(mode.labelKey) 那一类）：\n" + "\n".join(stale))
+
+def catalog(keys: list[str]) -> dict:
+    strings = {}
+    for key in keys:
+        # 语言按代码字母序落，与 Xcode 回写这张表的顺序一致（照 add() 里的顺序写会让每个键都重排一遍）
+        locs = {code: {"stringUnit": {"state": "translated", "value": val}} for code, val in sorted(TR[key].items())}
+        strings[key] = {"extractionState": "manual", "localizations": locs}
+    return {"sourceLanguage": "en", "strings": strings, "version": "1.0"}
+
+def ordered_keys(table: set[str], out: Path) -> list[str]:
+    """键的顺序沿用 catalog 里已有的那份，新键按字母补在末尾。
+    Xcode 自己回写这张表时不按码点排序，整份重排会让每次改文案的 diff 变成几千行，看不出真正动了什么"""
+    if not out.exists():
+        return sorted(table)
+    kept = [k for k in json.loads(out.read_text(encoding="utf-8"))["strings"] if k in table]
+    return kept + sorted(table - set(kept))
+
+def dump(obj: dict) -> str:
+    """排版对齐 Xcode 写 catalog 的样式：键与值之间是 " : "，文件末尾不留换行"""
+    return json.dumps(obj, ensure_ascii=False, indent=2, separators=(",", " : "))
+
+def write_app_shortcut_strings() -> int:
+    """Siri 的说法不能用 String Catalog 那份表：AppShortcuts.xcstrings 要 iOS 17 才认，
+    本 App 的部署目标是 16.4，iOS 16 只读经典的 <语言>.lproj/AppShortcuts.strings。
+    所以这里逐语言落一个 .strings 到 Support/AppShortcuts/ 下（工程里是一个变体组）。
+    键与值里的 ${applicationName} 是占位符，系统自己换成 App 名；
+    没生成的 en 不用管：查不到词条就退回键本身，而键就是英文原句"""
+    out_dir = ROOT / "Support" / "AppShortcuts"
+    for code in LANGS.values():
+        folder = out_dir / f"{code}.lproj"
+        folder.mkdir(parents=True, exist_ok=True)
+        lines = ["/* 由 tools/generate_xcstrings.py 生成，别手改：改文案去那张翻译表 */"]
+        for key in sorted(SHORTCUT_KEYS):
+            value = TR[key].get(code, "")
+            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f'"{key}" = "{escaped}";')
+        (folder / "AppShortcuts.strings").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # 只留当前这张表会生成的那几份；翻译表删过语言或改过键时，别把孤儿文件留在工程里
+    keep = {out_dir / f"{code}.lproj" / "AppShortcuts.strings" for code in LANGS.values()}
+    for stale in out_dir.rglob("AppShortcuts.strings"):
+        if stale not in keep:
+            stale.unlink()
+    for empty in sorted(out_dir.glob("*.lproj"), reverse=True):
+        if not any(empty.iterdir()):
+            empty.rmdir()
+    return len(LANGS)
+
 def main():
-    keys = collect_keys()
+    keys = collect_keys() | set(DYNAMIC_KEYS)
+    check_hand_listed_keys()
     missing = keys - set(TR)
-    extra = set(TR) - keys
+    extra = set(TR) - keys - set(INTENT_KEYS) - set(SHORTCUT_KEYS)
     if missing:
         sys.exit("代码用到但翻译表缺的键：\n" + "\n".join(repr(k) for k in sorted(missing)))
     if extra:
         sys.exit("翻译表多余（代码里已不用）的键：\n" + "\n".join(repr(k) for k in sorted(extra)))
 
-    strings = {}
-    for key in sorted(TR):
-        locs = {code: {"stringUnit": {"state": "translated", "value": val}} for code, val in TR[key].items()}
-        strings[key] = {"extractionState": "manual", "localizations": locs}
-    catalog = {"sourceLanguage": "en", "strings": strings, "version": "1.0"}
     out = ROOT / "Support" / "Localizable.xcstrings"
-    out.write_text(json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"{out}: {len(strings)} 键 × {1 + len(LANGS)} 语言（含源语言 en）")
+    table = keys | set(INTENT_KEYS)
+    out.write_text(dump(catalog(ordered_keys(table, out))), encoding="utf-8")
+    print(f"{out}: {len(table)} 键 × {1 + len(LANGS)} 语言（含源语言 en）")
+    print(f"{ROOT / 'Support' / 'AppShortcuts'}: {len(SHORTCUT_KEYS)} 条说法 × {write_app_shortcut_strings()} 语言")
 
 if __name__ == "__main__":
     main()

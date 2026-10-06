@@ -1,0 +1,5 @@
+/* 由 tools/generate_xcstrings.py 生成，别手改：改文案去那张翻译表 */
+"Continue listening in ${applicationName}" = "Nastavi slušati u ${applicationName}";
+"Next chapter in ${applicationName}" = "Sljedeće poglavlje u ${applicationName}";
+"Play my book in ${applicationName}" = "Reproduciraj moju knjigu u ${applicationName}";
+"Previous chapter in ${applicationName}" = "Prethodno poglavlje u ${applicationName}";

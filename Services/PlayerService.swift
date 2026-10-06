@@ -428,6 +428,9 @@ final class PlayerService: NSObject, ObservableObject {
         displayLinkTimer?.invalidate()
         displayLinkTimer = nil
         cancelSleepTimer()
+        // 锁屏与车载上那一行字得跟着撤：不清就留着一张「还在播这本」的假卡片，
+        // 人在车里按播放键，手上却没书，什么也不会发生
+        updateNowPlaying()
     }
 
     /// 彻底放手：连播放器实例一起丢，内存与音频链路都还给系统
@@ -851,6 +854,10 @@ final class PlayerService: NSObject, ObservableObject {
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? speedValue() : 0.0,
             MPMediaItemPropertyTitle: chapter.title,
             MPMediaItemPropertyAlbumTitle: book.title,
+            // 第几章 / 一共几章：锁屏不显示，但 CarPlay 的现在播放与方向盘那两枚
+            // 上一曲/下一曲靠这两个数知道自己在整本书的哪儿，播报进度时也用它
+            MPNowPlayingInfoPropertyChapterNumber: chapter.index + 1,
+            MPNowPlayingInfoPropertyChapterCount: book.chapters.count,
         ]
         if let author = book.author {
             info[MPMediaItemPropertyArtist] = author
@@ -1083,7 +1090,14 @@ extension PlayerService {
                         self.isPlaying = false
                         self.updateNowPlaying()
                     case .ended:
-                        self.handleInterruption(shouldResume: self.wasPlayingBeforeInterruption)
+                        // 中断期间声音已经重新出来了（语音意图刚开播、锁屏上按了播放），
+                        // 就别再拿「中断前没在播」去把它掐掉——那句「嘿 Siri，播放我的书」
+                        // 正是这样被自己刚起的播覆盖掉的
+                        if self.isPlaying {
+                            NSLog("[sonux] interrupt: 中断结束时已在播放，保持不动")
+                        } else {
+                            self.handleInterruption(shouldResume: self.wasPlayingBeforeInterruption)
+                        }
                         self.wasPlayingBeforeInterruption = false
                     @unknown default:
                         break

@@ -42,6 +42,11 @@
 		40000000000000000000001E /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000010 /* Localization.swift */; };
 		400000000000000000000020 /* NowPlayingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30000000000000000000001C /* NowPlayingWidget.swift */; };
 		400000000000000000000021 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000012 /* Localizable.xcstrings */; };
+		400000000000000000000026 /* SonuxRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000026 /* SonuxRuntime.swift */; };
+		400000000000000000000027 /* BookEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000027 /* BookEntity.swift */; };
+		400000000000000000000028 /* PlayBookIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000028 /* PlayBookIntent.swift */; };
+		400000000000000000000029 /* SonuxAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000029 /* SonuxAppShortcuts.swift */; };
+		40000000000000000000002A /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 600000000000000000000001 /* AppShortcuts.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -105,6 +110,42 @@
 		30000000000000000000001D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		30000000000000000000001E /* Sonux.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Sonux.entitlements; sourceTree = "<group>"; };
 		30000000000000000000001F /* Widget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Widget.entitlements; sourceTree = "<group>"; };
+		300000000000000000000101 /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000102 /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = ca.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000103 /* hr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = hr; path = hr.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000104 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000105 /* da */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = da; path = da.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000106 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000107 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000108 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000109 /* el */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = el; path = el.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000010A /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = he; path = he.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000010B /* hi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = hi; path = hi.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000010C /* hu */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = hu; path = hu.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000010D /* id */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = id; path = id.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000010E /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000010F /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000110 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000111 /* ms */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ms; path = ms.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000112 /* nb */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nb; path = nb.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000113 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000114 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt-BR; path = pt-BR.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000115 /* pt-PT */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt-PT; path = pt-PT.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000116 /* ro */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ro; path = ro.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000117 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000118 /* sk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = sk; path = sk.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000119 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000011A /* sv */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = sv; path = sv.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000011B /* th */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = th; path = th.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000011C /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000011D /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000011E /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		30000000000000000000011F /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = zh-Hans; path = zh-Hans.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000120 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = zh-Hant; path = zh-Hant.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		300000000000000000000026 /* SonuxRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxRuntime.swift; sourceTree = "<group>"; };
+		300000000000000000000027 /* BookEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookEntity.swift; sourceTree = "<group>"; };
+		300000000000000000000028 /* PlayBookIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayBookIntent.swift; sourceTree = "<group>"; };
+		300000000000000000000029 /* SonuxAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxAppShortcuts.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -129,12 +170,14 @@
 			isa = PBXGroup;
 			children = (
 				500000000000000000000001 /* App */,
+				500000000000000000000008 /* Intents */,
 				500000000000000000000002 /* Models */,
 				500000000000000000000003 /* Services */,
 				500000000000000000000006 /* Shared */,
 				500000000000000000000004 /* Views */,
 				500000000000000000000007 /* Widget */,
 				500000000000000000000005 /* Support */,
+				500000000000000000000009 /* AppShortcuts */,
 				1A0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -155,6 +198,24 @@
 				300000000000000000000010 /* Localization.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		500000000000000000000008 /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000027 /* BookEntity.swift */,
+				300000000000000000000028 /* PlayBookIntent.swift */,
+				300000000000000000000029 /* SonuxAppShortcuts.swift */,
+			);
+			path = Intents;
+			sourceTree = "<group>";
+		};
+		500000000000000000000009 /* AppShortcuts */ = {
+			isa = PBXGroup;
+			children = (
+				600000000000000000000001 /* AppShortcuts.strings */,
+			);
+			path = Support/AppShortcuts;
 			sourceTree = "<group>";
 		};
 		500000000000000000000005 /* Support */ = {
@@ -200,6 +261,7 @@
 			children = (
 				300000000000000000000003 /* LibraryService.swift */,
 				300000000000000000000004 /* PlayerService.swift */,
+				300000000000000000000026 /* SonuxRuntime.swift */,
 				300000000000000000000014 /* TranscriptStore.swift */,
 				300000000000000000000024 /* VoiceProcessor.swift */,
 				300000000000000000000023 /* SilenceGaps.swift */,
@@ -346,6 +408,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				400000000000000000000012 /* Localizable.xcstrings in Resources */,
+				40000000000000000000002A /* AppShortcuts.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -393,6 +456,10 @@
 				400000000000000000000019 /* ListeningReportView.swift in Sources */,
 				40000000000000000000001A /* WidgetBridge.swift in Sources */,
 				40000000000000000000001B /* WidgetSync.swift in Sources */,
+				400000000000000000000026 /* SonuxRuntime.swift in Sources */,
+				400000000000000000000027 /* BookEntity.swift in Sources */,
+				400000000000000000000028 /* PlayBookIntent.swift in Sources */,
+				400000000000000000000029 /* SonuxAppShortcuts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -415,6 +482,48 @@
 			targetProxy = 1A0000000000000000000016 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		600000000000000000000001 /* AppShortcuts.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				300000000000000000000101 /* ar */,
+				300000000000000000000102 /* ca */,
+				300000000000000000000103 /* hr */,
+				300000000000000000000104 /* cs */,
+				300000000000000000000105 /* da */,
+				300000000000000000000106 /* nl */,
+				300000000000000000000107 /* fr */,
+				300000000000000000000108 /* de */,
+				300000000000000000000109 /* el */,
+				30000000000000000000010A /* he */,
+				30000000000000000000010B /* hi */,
+				30000000000000000000010C /* hu */,
+				30000000000000000000010D /* id */,
+				30000000000000000000010E /* it */,
+				30000000000000000000010F /* ja */,
+				300000000000000000000110 /* ko */,
+				300000000000000000000111 /* ms */,
+				300000000000000000000112 /* nb */,
+				300000000000000000000113 /* pl */,
+				300000000000000000000114 /* pt-BR */,
+				300000000000000000000115 /* pt-PT */,
+				300000000000000000000116 /* ro */,
+				300000000000000000000117 /* ru */,
+				300000000000000000000118 /* sk */,
+				300000000000000000000119 /* es */,
+				30000000000000000000011A /* sv */,
+				30000000000000000000011B /* th */,
+				30000000000000000000011C /* tr */,
+				30000000000000000000011D /* uk */,
+				30000000000000000000011E /* vi */,
+				30000000000000000000011F /* zh-Hans */,
+				300000000000000000000120 /* zh-Hant */,
+			);
+			name = AppShortcuts.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		1A000000000000000000000C /* Debug */ = {

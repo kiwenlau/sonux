@@ -1,0 +1,5 @@
+/* 由 tools/generate_xcstrings.py 生成，别手改：改文案去那张翻译表 */
+"Continue listening in ${applicationName}" = "Folytasd a hallgatást a ${applicationName} alkalmazásban";
+"Next chapter in ${applicationName}" = "Következő fejezet a ${applicationName} alkalmazásban";
+"Play my book in ${applicationName}" = "A könyvem lejátszása a ${applicationName} alkalmazásban";
+"Previous chapter in ${applicationName}" = "Előző fejezet a ${applicationName} alkalmazásban";

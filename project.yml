@@ -17,11 +17,14 @@ targets:
     platform: iOS
     sources:
       - App
+      - Intents
       - Models
       - Services
       - Shared
       - Views
       - Support/Localizable.xcstrings
+      # Siri 的说法不进 catalog（AppShortcuts.xcstrings 要 iOS 17 才认），用经典的逐语言 .strings
+      - Support/AppShortcuts
     entitlements:
       path: Support/Sonux.entitlements
       properties:

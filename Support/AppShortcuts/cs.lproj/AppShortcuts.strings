@@ -1,0 +1,5 @@
+/* 由 tools/generate_xcstrings.py 生成，别手改：改文案去那张翻译表 */
+"Continue listening in ${applicationName}" = "Pokračovat v poslechu v ${applicationName}";
+"Next chapter in ${applicationName}" = "Další kapitola v ${applicationName}";
+"Play my book in ${applicationName}" = "Přehrát mou knihu v ${applicationName}";
+"Previous chapter in ${applicationName}" = "Předchozí kapitola v ${applicationName}";

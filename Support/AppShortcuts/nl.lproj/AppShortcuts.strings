@@ -1,0 +1,5 @@
+/* 由 tools/generate_xcstrings.py 生成，别手改：改文案去那张翻译表 */
+"Continue listening in ${applicationName}" = "Verder luisteren in ${applicationName}";
+"Next chapter in ${applicationName}" = "Volgend hoofdstuk in ${applicationName}";
+"Play my book in ${applicationName}" = "Mijn boek afspelen in ${applicationName}";
+"Previous chapter in ${applicationName}" = "Vorige hoofdstuk in ${applicationName}";
