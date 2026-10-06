@@ -79,6 +79,11 @@ final class PlayerService: NSObject, ObservableObject {
     /// 连续语速范围与步进：0.5x–3x，每格 0.1
     static let speedRange: ClosedRange<Double> = 0.5...3.0
     static let speedStep: Double = 0.1
+    /// 限制在语速范围内并对齐到 0.1 步进，避免浮点误差累积
+    private static func normalizedSpeed(_ value: Float) -> Float {
+        let clamped = min(max(value, Float(speedRange.lowerBound)), Float(speedRange.upperBound))
+        return (clamped * 10).rounded() / 10
+    }
     /// 秒与 CMTime 往返回采用的刻度：600 能整除常见音频时间基，换算不丢精度
     private static let timescale: Int32 = 600
 
@@ -135,6 +140,35 @@ final class PlayerService: NSObject, ObservableObject {
     /// 否则只恢复剩余时间，避免暂停再播放就满额重计、永无止境
     private var sleepTimerDidExpire = false
 
+    // MARK: - 每本书的倍速记忆（小说和商书想要的速度不一样）
+
+    /// 一本书一个速度：字典键是 bookId，值是倍速。全库几十本书，合成一个键存就够了
+    private static let speedByBookKey = "playback.speedByBook"
+
+    /// 这本书上次用的倍速；没设置过的书从 1.0 起
+    private static func rememberedSpeed(forBook bookId: String) -> Float {
+        guard let stored = UserDefaults.standard.dictionary(forKey: speedByBookKey)?[bookId] as? NSNumber else {
+            return 1.0
+        }
+        return normalizedSpeed(stored.floatValue)
+    }
+
+    /// 把倍速记在当前这本书名下。倍速只在播放页改，手上没书时没什么可记
+    private static func remember(speed: Float, forBook bookId: String?) {
+        guard let bookId else { return }
+        var store = UserDefaults.standard.dictionary(forKey: speedByBookKey) ?? [:]
+        store[bookId] = speed
+        UserDefaults.standard.set(store, forKey: speedByBookKey)
+    }
+
+    /// 丢掉已删除书籍的倍速记忆
+    func forgetSpeed(bookId: String) {
+        var store = UserDefaults.standard.dictionary(forKey: Self.speedByBookKey) ?? [:]
+        guard store[bookId] != nil else { return }
+        store[bookId] = nil
+        UserDefaults.standard.set(store, forKey: Self.speedByBookKey)
+    }
+
     override init() {
         super.init()
         setupRemoteCommands()
@@ -158,6 +192,8 @@ final class PlayerService: NSObject, ObservableObject {
         let local = clampedLocalTime(fromTime, in: chapter)
         currentBook = book
         currentChapter = chapter
+        // 倍速跟着书走：先换成这本书自己记着的速度，下面才按它出声
+        speed = Self.rememberedSpeed(forBook: book.id)
         duration = chapter.duration
         currentTime = local
 
@@ -328,15 +364,15 @@ final class PlayerService: NSObject, ObservableObject {
     }
 
     func setSpeed(_ value: Float) {
-        // 限制在语速范围内并对齐到 0.1 步进，避免浮点误差累积
-        let clamped = min(max(value, Float(Self.speedRange.lowerBound)), Float(Self.speedRange.upperBound))
-        let rounded = (clamped * 10).rounded() / 10
+        let rounded = Self.normalizedSpeed(value)
         speed = rounded
         // 只给「已经要出声」的播放器改速率：AVPlayer 一给非 0 的 rate 就真播了，
         // 拖着倍速滑杆会把暂停着的书悄悄放出来
         if let player, player.rate != 0 {
             player.rate = rounded
         }
+        // 记在这本书名下：下次回到它自动用自己的速度，不受别的书影响
+        Self.remember(speed: rounded, forBook: currentBook?.id)
         updateNowPlaying()
     }
 
@@ -350,6 +386,8 @@ final class PlayerService: NSObject, ObservableObject {
         guard !hasPlayer else { return }
         currentBook = book
         currentChapter = chapter
+        // 挂着没出声也要把倍速摆成这本书的：播放页显示的就得是按下播放键后会用的速度
+        speed = Self.rememberedSpeed(forBook: book.id)
         duration = chapter.duration
         currentTime = min(max(0, time), max(chapter.duration, 0))
         isPlaying = false

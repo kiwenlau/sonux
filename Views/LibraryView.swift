@@ -240,6 +240,7 @@ struct LibraryView: View {
                             playingBookId: player.currentBook?.id
                         ) { player.stop() }
                         CoverStore.shared.remove(bookId: book.id)
+                        player.forgetSpeed(bookId: book.id)
                     } catch {
                         NSLog("[sonux] ui: 删除抛出错误 %@", error.localizedDescription)
                         deleteErrorMessage = error.localizedDescription
