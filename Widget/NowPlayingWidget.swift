@@ -11,8 +11,8 @@ struct SonuxWidgetBundle: WidgetBundle {
 }
 
 /// 「正在收听」小组件：把此刻在听的那本书摆到桌面，点一下回 App 的播放页接着听。
-/// 数据来自 App 写进 App Group 的快照（见 WidgetBridge），进度靠快照时间戳往外推，
-/// 因此不需要 App 在后台一遍遍请求刷新——小组件刷新是有日预算的。
+/// 数据来自 App 写进 App Group 的快照（见 WidgetBridge）；组件上没有会自己走的东西，
+/// 换书、播停、切章都由 App 请系统刷新（见 WidgetSync），所以不占小组件的刷新预算。
 struct NowPlayingWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "NowPlayingWidget", provider: NowPlayingProvider()) { entry in
@@ -83,13 +83,13 @@ private struct NowPlayingView: View {
     }
 }
 
-/// 小号：整块封面铺满，底部压一层黑纱放书名与作者，左上角一枚播放标记
+/// 小号：整块封面铺满，底部压一层黑纱放书名、作者与章节名，左上角一枚播放标记
 private struct SmallNowPlayingView: View {
     let entry: NowPlayingEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            PlayingBadge(isPlaying: entry.isPlaying, onCover: true)
+        VStack(alignment: .leading, spacing: 6) {
+            PlayingBadge(isPlaying: entry.isPlaying)
             Spacer(minLength: 0)
             Text(entry.snapshot?.bookTitle ?? "")
                 .font(.system(size: 14, weight: .semibold))
@@ -99,9 +99,13 @@ private struct SmallNowPlayingView: View {
             if let author = entry.snapshot?.author, !author.isEmpty {
                 Text(author)
                     .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(1)
             }
+            Text(entry.snapshot?.chapterTitle ?? "")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .widgetBackground {
@@ -111,35 +115,42 @@ private struct SmallNowPlayingView: View {
 }
 
 /// 中号：糊化的封面出血打底（与 App 底部面板一个做法），左边封面、右边书名作者章节名，
-/// 右上角一枚播放标记
+/// 章节名那行右侧一枚播放标记
 private struct MediumNowPlayingView: View {
+    /// 封面边长：撑住整块组件的高度，免得底部空一大片
+    private static let coverSide: CGFloat = 96
+
     let entry: NowPlayingEntry
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            CoverThumb(cover: entry.cover, side: 68)
+        HStack(alignment: .center, spacing: 12) {
+            CoverThumb(cover: entry.cover, side: Self.coverSide)
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(entry.snapshot?.bookTitle ?? "")
-                        .font(.system(size: 14, weight: .semibold))
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                    PlayingBadge(isPlaying: entry.isPlaying, onCover: false)
-                }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.snapshot?.bookTitle ?? "")
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                 if let author = entry.snapshot?.author, !author.isEmpty {
                     Text(author)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                Text(entry.snapshot?.chapterTitle ?? "")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                HStack(alignment: .center, spacing: 8) {
+                    Text(entry.snapshot?.chapterTitle ?? "")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    PlayingBadge(isPlaying: entry.isPlaying)
+                }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .widgetBackground { BleedBackdrop(cover: entry.cover) }
     }
 }
@@ -159,31 +170,28 @@ private struct NothingPlayingView: View {
     }
 }
 
-/// 播放标记：出声时画音柱，暂停时画播放三角。
-/// 它只是状态标记，不是一枚按钮——音频只能由主 App 播，小组件（另一个进程）播不出声，
+/// 播放标记：出声时画音柱，暂停时画播放三角。两枚组件共用这一种画法。
+/// 样式沿用书库卡片那枚播放键：糊化底 + 白描边 + 品牌靛蓝符号 + 柔影，
+/// 因为封面与出血底色深浅不定，没有一块中性底，细线条压上去就看不见。
+/// 它只是状态指示，不是一枚按钮——音频只能由主 App 播，小组件（另一个进程）出不了声，
 /// 整块组件点下去是回 App 的播放页
 private struct PlayingBadge: View {
     let isPlaying: Bool
-    /// 压在封面上时垫一层毛玻璃圆底（与书库卡片那枚播放键同一做法）：封面深浅不定，
-    /// 不垫底细线条压上去就看不见
-    var onCover: Bool
 
-    private static let side: CGFloat = 20
+    private static let side: CGFloat = 28
+    private static let lineWidth: CGFloat = 0.75
 
     var body: some View {
         ZStack {
-            if onCover {
-                Circle().fill(.ultraThinMaterial)
-                Circle().strokeBorder(Color.white.opacity(0.45), lineWidth: 0.5)
-            } else {
-                Circle().fill(Color.indigo.opacity(0.12))
-            }
+            Circle().fill(.ultraThinMaterial)
+            Circle().strokeBorder(Color.white.opacity(0.5), lineWidth: Self.lineWidth)
             Image(systemName: isPlaying ? "waveform" : "play.fill")
-                .font(.system(size: isPlaying ? 8 : 9, weight: .semibold))
-                .foregroundStyle(onCover ? Color.white : Color.indigo)
+                .font(.system(size: isPlaying ? 11 : 12, weight: .semibold))
+                .foregroundStyle(Color.indigo)
                 // 三角形重心偏左，往右挪一点才真正居中
-                .offset(x: isPlaying ? 0 : 0.5)
+                .offset(x: isPlaying ? 0 : 1)
         }
+        .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
         .frame(width: Self.side, height: Self.side)
         .accessibilityHidden(true)
     }
