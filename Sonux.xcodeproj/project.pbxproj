@@ -32,6 +32,7 @@
 		441A98951A9411B8ECCC5FD2 /* ViewInspector in Frameworks */ = {isa = PBXBuildFile; productRef = F084CFD24BE4BDB8E23BC359 /* ViewInspector */; };
 		46079DE477E4AA019EEA4A2F /* VoiceBookQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE22F6A6F5D9595B12C7CEF /* VoiceBookQueryTests.swift */; };
 		47A42F28428D5F5957952078 /* VoiceProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C50E45441EBA192B40683DA /* VoiceProcessor.swift */; };
+		4C5D5E0BF32F1AFFB81E37F0 /* SimpleViewsInspectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C9785E8545C82E2CF2FA23 /* SimpleViewsInspectorTests.swift */; };
 		4DF7D677A4FA1C751713994F /* TimeFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53BCC071714E938854D62AAD /* TimeFormatTests.swift */; };
 		4F161C39E3A0DB3D6EBD64A0 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = A56F4B34368D9CB964DAFB06 /* AppShortcuts.strings */; };
 		525F5EA2E4D2978C989A4D42 /* TranscriptStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B5F589D8A879FBF6881D2D5 /* TranscriptStoreTests.swift */; };
@@ -147,6 +148,7 @@
 		2112DAD77E6C427D6AFC7B40 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = it.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		21C2B3BC646CADE9AC192BDF /* SonuxApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxApp.swift; sourceTree = "<group>"; };
 		2201C9AE2A8C56221CA87085 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = sv.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		24C9785E8545C82E2CF2FA23 /* SimpleViewsInspectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleViewsInspectorTests.swift; sourceTree = "<group>"; };
 		28877EE71C85137F178A40D3 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ar.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		2A8141F39485A40D2EC15061 /* SonuxRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxRuntimeTests.swift; sourceTree = "<group>"; };
 		2B9264DC039C51C5883ECD92 /* VoiceEnhancerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceEnhancerTests.swift; sourceTree = "<group>"; };
@@ -280,6 +282,7 @@
 				95CBAC356F0082EE0DC3228A /* QuoteTests.swift */,
 				DD0A17B93D81482D6355CD7A /* SilenceGapsTests.swift */,
 				2E28D934472DE8D69EFDD3B2 /* SilenceSkipModeTests.swift */,
+				24C9785E8545C82E2CF2FA23 /* SimpleViewsInspectorTests.swift */,
 				2A8141F39485A40D2EC15061 /* SonuxRuntimeTests.swift */,
 				53BCC071714E938854D62AAD /* TimeFormatTests.swift */,
 				E279C52C4084D1D5B88ED32A /* TranscriptFileTests.swift */,
@@ -646,6 +649,7 @@
 				F1860291BB477172FAE396EF /* QuoteTests.swift in Sources */,
 				FD0F321D4BA8110E28583840 /* SilenceGapsTests.swift in Sources */,
 				AD1AD7A7E086D7A3AE6B19AD /* SilenceSkipModeTests.swift in Sources */,
+				4C5D5E0BF32F1AFFB81E37F0 /* SimpleViewsInspectorTests.swift in Sources */,
 				CE139C7A1A8B1C8B55482957 /* SonuxRuntimeTests.swift in Sources */,
 				4DF7D677A4FA1C751713994F /* TimeFormatTests.swift in Sources */,
 				BFC0F5FAC557F5BF022465CE /* TranscriptFileTests.swift in Sources */,
