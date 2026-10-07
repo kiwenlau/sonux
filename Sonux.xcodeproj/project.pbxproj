@@ -88,6 +88,7 @@
 		E06403C61C28C766885142A1 /* LibraryServiceContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35FF1410884AE33D17481C3 /* LibraryServiceContractTests.swift */; };
 		E0E52CCDADACEC6BABF25D1E /* BookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F093772B5A677D09AEA2CB4 /* BookDetailView.swift */; };
 		E221A8A78742E49502F364CF /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = F95249A416B410514ED10DD9 /* AppShortcuts.strings */; };
+		E4AFA1846DAFA5822A7EE095 /* LibraryServiceInstanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B86ED8BF4563F902ACC5B13 /* LibraryServiceInstanceTests.swift */; };
 		E524A3B3E9F9468BE13BC85F /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = FA2CFDAFC0DF18DF65A48BF8 /* AppShortcuts.strings */; };
 		EB40E29AF70B0508CFE225C2 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0C9FC4EC645DA1F6D2DBE332 /* AppShortcuts.strings */; };
 		EBD8A2236807D8FF0C777356 /* PlaybackSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0FD539BFB65C3E2C63FE5A /* PlaybackSettingsView.swift */; };
@@ -153,6 +154,7 @@
 		42C66AE5DE6CABC55C64C5D7 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		44D2914DC14643E5FB74A78E /* LibraryAuthorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryAuthorTests.swift; sourceTree = "<group>"; };
 		45F9546C07DEC20E9A6B7D47 /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
+		4B86ED8BF4563F902ACC5B13 /* LibraryServiceInstanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryServiceInstanceTests.swift; sourceTree = "<group>"; };
 		4B9437435CFC2C6D3E1A5B67 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = nb.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		4C7F9FB9571DDBD62136C49C /* LibraryTextSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryTextSearchTests.swift; sourceTree = "<group>"; };
 		4E1CF52668867562C62C33E5 /* SilenceGaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceGaps.swift; sourceTree = "<group>"; };
@@ -246,6 +248,7 @@
 				2D2552C01D3ACE88E246DC09 /* EdgeCaseTests.swift */,
 				44D2914DC14643E5FB74A78E /* LibraryAuthorTests.swift */,
 				A35FF1410884AE33D17481C3 /* LibraryServiceContractTests.swift */,
+				4B86ED8BF4563F902ACC5B13 /* LibraryServiceInstanceTests.swift */,
 				59BEFED84E745C29E5A6015C /* LibrarySnapshotAndSettingsTests.swift */,
 				4C7F9FB9571DDBD62136C49C /* LibraryTextSearchTests.swift */,
 				5960DA636C67C949E3CBC31D /* ListeningStatsTests.swift */,
@@ -603,6 +606,7 @@
 				94CF00C4DE5AE93DEC7D0861 /* EdgeCaseTests.swift in Sources */,
 				8F204D3FFA228E65F050D860 /* LibraryAuthorTests.swift in Sources */,
 				E06403C61C28C766885142A1 /* LibraryServiceContractTests.swift in Sources */,
+				E4AFA1846DAFA5822A7EE095 /* LibraryServiceInstanceTests.swift in Sources */,
 				39C749576E7B1912F4720A5C /* LibrarySnapshotAndSettingsTests.swift in Sources */,
 				1B0CDC1B7DDAD1C5DA415F61 /* LibraryTextSearchTests.swift in Sources */,
 				F7C413767216B60B5305C5A3 /* ListeningStatsTests.swift in Sources */,
