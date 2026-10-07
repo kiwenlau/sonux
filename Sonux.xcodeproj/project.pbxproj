@@ -24,6 +24,7 @@
 		27E6CAA39B6A9C0C7655751A /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = D9CA9FA478C3A5E5AE2B2E3B /* AppShortcuts.strings */; };
 		335415C0D568D7524B586404 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDEBCF786530DEE9C4465D15 /* WidgetBridge.swift */; };
 		367495CA1A93250C3C9093B7 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0C36542D480482C37C17F044 /* AppShortcuts.strings */; };
+		3A122FA033F10E669227DAFC /* PlayerServicePreparedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1148F452A33B75AFE3D6B3 /* PlayerServicePreparedTests.swift */; };
 		42E7A32C373D5ED0CA43974D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 42C66AE5DE6CABC55C64C5D7 /* Localizable.xcstrings */; };
 		47A42F28428D5F5957952078 /* VoiceProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C50E45441EBA192B40683DA /* VoiceProcessor.swift */; };
 		4DF7D677A4FA1C751713994F /* TimeFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53BCC071714E938854D62AAD /* TimeFormatTests.swift */; };
@@ -126,6 +127,7 @@
 		108C1C446B0076387AB34F32 /* PlayBookIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayBookIntent.swift; sourceTree = "<group>"; };
 		11765CDA301605C71D6F583C /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = "pt-PT.lproj/AppShortcuts.strings"; sourceTree = "<group>"; };
 		1A0FD539BFB65C3E2C63FE5A /* PlaybackSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSettingsView.swift; sourceTree = "<group>"; };
+		1A1148F452A33B75AFE3D6B3 /* PlayerServicePreparedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerServicePreparedTests.swift; sourceTree = "<group>"; };
 		1B6E3FF8FEDC2D1984729B12 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ro.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		1CEF10FC0FBCF672012CAB5E /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ru.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		2112DAD77E6C427D6AFC7B40 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = it.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 				4C7F9FB9571DDBD62136C49C /* LibraryTextSearchTests.swift */,
 				5960DA636C67C949E3CBC31D /* ListeningStatsTests.swift */,
 				68718BAC3A61EAC1401A4167 /* PlayerContractTests.swift */,
+				1A1148F452A33B75AFE3D6B3 /* PlayerServicePreparedTests.swift */,
 				505A823F7B7C2F69849272AD /* ProgressPolicyTests.swift */,
 				CF3BD1DBDC11041016F983B5 /* ProgressValueTests.swift */,
 				95CBAC356F0082EE0DC3228A /* QuoteTests.swift */,
@@ -581,6 +584,7 @@
 				1B0CDC1B7DDAD1C5DA415F61 /* LibraryTextSearchTests.swift in Sources */,
 				F7C413767216B60B5305C5A3 /* ListeningStatsTests.swift in Sources */,
 				B00D35E2ABA3824B11FD24DD /* PlayerContractTests.swift in Sources */,
+				3A122FA033F10E669227DAFC /* PlayerServicePreparedTests.swift in Sources */,
 				ECDE5E90E89C825991B62C60 /* ProgressPolicyTests.swift in Sources */,
 				B7DE950F2EBD4AD3B7BB7EA0 /* ProgressValueTests.swift in Sources */,
 				F1860291BB477172FAE396EF /* QuoteTests.swift in Sources */,
