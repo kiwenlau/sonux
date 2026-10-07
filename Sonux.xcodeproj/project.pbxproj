@@ -22,6 +22,7 @@
 		229EDCB62EFCEC42F94637A3 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 86975BDC8249B75975D53C19 /* AppShortcuts.strings */; };
 		24AED04D1602A09E28C0D454 /* SonuxApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C2B3BC646CADE9AC192BDF /* SonuxApp.swift */; };
 		27E6CAA39B6A9C0C7655751A /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = D9CA9FA478C3A5E5AE2B2E3B /* AppShortcuts.strings */; };
+		33269E7AD4331E53015276AE /* TranscriptStoreInstanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DF1144228E0AB5B3C3507E /* TranscriptStoreInstanceTests.swift */; };
 		335415C0D568D7524B586404 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDEBCF786530DEE9C4465D15 /* WidgetBridge.swift */; };
 		367495CA1A93250C3C9093B7 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0C36542D480482C37C17F044 /* AppShortcuts.strings */; };
 		3A122FA033F10E669227DAFC /* PlayerServicePreparedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1148F452A33B75AFE3D6B3 /* PlayerServicePreparedTests.swift */; };
@@ -74,6 +75,7 @@
 		C7F78AB9565D0EB275966488 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 77F42B5DFEF78E6326ADC625 /* AppShortcuts.strings */; };
 		C9DD6DD1DE04FBBAC54CCD6D /* ListeningStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA7FF3FB213DE93B67269024 /* ListeningStats.swift */; };
 		CD9AB64ECB3496EB81C58EEB /* SonuxAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA85ACBCF129048D0E1D4BE /* SonuxAppShortcuts.swift */; };
+		CE139C7A1A8B1C8B55482957 /* SonuxRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A8141F39485A40D2EC15061 /* SonuxRuntimeTests.swift */; };
 		D0C57157F93DEFAF81D23A94 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 646BBB9600784218A1BE60CC /* AppShortcuts.strings */; };
 		D125FFA0E4A5811F1DD01B42 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = E87190AC6BF870280F4DB04A /* AppShortcuts.strings */; };
 		D432A8AA2FEB6562B2DC6F48 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E2219DFE2196B418595ADCD /* Localization.swift */; };
@@ -134,6 +136,7 @@
 		21C2B3BC646CADE9AC192BDF /* SonuxApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxApp.swift; sourceTree = "<group>"; };
 		2201C9AE2A8C56221CA87085 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = sv.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		28877EE71C85137F178A40D3 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ar.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		2A8141F39485A40D2EC15061 /* SonuxRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxRuntimeTests.swift; sourceTree = "<group>"; };
 		2E28D934472DE8D69EFDD3B2 /* SilenceSkipModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceSkipModeTests.swift; sourceTree = "<group>"; };
 		2F093772B5A677D09AEA2CB4 /* BookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDetailView.swift; sourceTree = "<group>"; };
 		35400643DF7F2E80CA5C5F91 /* SonuxTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SonuxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -174,6 +177,7 @@
 		88E9CE9E64BE04368A7FA7FD /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = de.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		8D1DCD39E805C11DB79563C6 /* Quote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quote.swift; sourceTree = "<group>"; };
 		900128DDC107DCB6BB7CBD5C /* TextSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSearch.swift; sourceTree = "<group>"; };
+		91DF1144228E0AB5B3C3507E /* TranscriptStoreInstanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStoreInstanceTests.swift; sourceTree = "<group>"; };
 		95CBAC356F0082EE0DC3228A /* QuoteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteTests.swift; sourceTree = "<group>"; };
 		9930C0241167C834D56F834B /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		9E2219DFE2196B418595ADCD /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
@@ -240,8 +244,10 @@
 				95CBAC356F0082EE0DC3228A /* QuoteTests.swift */,
 				DD0A17B93D81482D6355CD7A /* SilenceGapsTests.swift */,
 				2E28D934472DE8D69EFDD3B2 /* SilenceSkipModeTests.swift */,
+				2A8141F39485A40D2EC15061 /* SonuxRuntimeTests.swift */,
 				53BCC071714E938854D62AAD /* TimeFormatTests.swift */,
 				E279C52C4084D1D5B88ED32A /* TranscriptFileTests.swift */,
+				91DF1144228E0AB5B3C3507E /* TranscriptStoreInstanceTests.swift */,
 				0B5F589D8A879FBF6881D2D5 /* TranscriptStoreTests.swift */,
 				0483CD06588A02801003A738 /* WidgetBridgeTests.swift */,
 			);
@@ -590,8 +596,10 @@
 				F1860291BB477172FAE396EF /* QuoteTests.swift in Sources */,
 				FD0F321D4BA8110E28583840 /* SilenceGapsTests.swift in Sources */,
 				AD1AD7A7E086D7A3AE6B19AD /* SilenceSkipModeTests.swift in Sources */,
+				CE139C7A1A8B1C8B55482957 /* SonuxRuntimeTests.swift in Sources */,
 				4DF7D677A4FA1C751713994F /* TimeFormatTests.swift in Sources */,
 				BFC0F5FAC557F5BF022465CE /* TranscriptFileTests.swift in Sources */,
+				33269E7AD4331E53015276AE /* TranscriptStoreInstanceTests.swift in Sources */,
 				525F5EA2E4D2978C989A4D42 /* TranscriptStoreTests.swift in Sources */,
 				82445BA4F8F0F28D861A99E8 /* WidgetBridgeTests.swift in Sources */,
 			);
