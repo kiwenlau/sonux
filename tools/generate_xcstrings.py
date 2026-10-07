@@ -519,14 +519,6 @@ add("Not Playing", ar="غير قيد التشغيل", ca="No s'està reproduint"
     sk="Neprehráva sa", es="No se está reproduciendo", sv="Inget spelas upp", th="ไม่ได้เล่นอยู่",
     tr="Çalmıyor", uk="Не відтворюється", vi="Không đang phát", zhhs="未在播放", zhtt="未在播放")
 
-add("This Chapter", ar="هذا الفصل", ca="Aquest capítol", hr="Ovo poglavlje", cs="Tato kapitola",
-    da="Dette kapitel", nl="Dit hoofdstuk", fr="Ce chapitre", de="Dieses Kapitel",
-    el="Αυτό το κεφάλαιο", he="הפרק הזה", hi="यह अध्याय", hu="Ez a fejezet", id="Bab ini",
-    it="Questo capitolo", ja="この章", ko="이 장", ms="Bab ini", nb="Dette kapittelet",
-    pl="Ten rozdział", ptbr="Este capítulo", ptpt="Este capítulo", ro="Acest capitol",
-    ru="Эта глава", sk="Táto kapitola", es="Este capítulo", sv="Det här kapitlet", th="บทนี้",
-    tr="Bu bölüm", uk="Цей розділ", vi="Chương này", zhhs="本章", zhtt="本章")
-
 # 「听完 N 章」：挂章睡的人不肯在章中途停，只在每一章播完时减一格
 add("Off After %d Chapters", ar="الإيقاف بعد %d فصول", ca="S'apaga després de %d capítols",
     hr="Gasit nakon %d poglavlja", cs="Vypne po %d kapitolách", da="Sluk efter %d kapitler",

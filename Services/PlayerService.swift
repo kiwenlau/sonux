@@ -12,11 +12,10 @@ enum SleepTimerMode: Equatable {
     /// 所以它不计时长，只在每一章真播完的那一刻减一格
     case chapters(Int)
 
-    /// 滑动条可设置的分钟范围与步进：0–90，每格 1 分钟
+    /// 分钟轴的范围：0–90，一格 1 分钟
     static let range: ClosedRange<Double> = 0...90
-    static let step: Double = 1
-    /// 章数可设范围：1–10 章，再多就等于没定时
-    static let chapterRange: ClosedRange<Int> = 1...10
+    /// 章数轴的范围：1–5 章，再多就等于没定时。轴固定画到 5，不随剩下的章数伸缩
+    static let chapterRange: ClosedRange<Int> = 1...5
 }
 
 /// 播放服务：基于 AVPlayer，负责播放、进度回调、锁屏控制与定时关闭
@@ -645,6 +644,36 @@ final class PlayerService: NSObject, ObservableObject {
         sleepTimer = timer
     }
 
+    // MARK: - 定时关闭的章数与时间换算
+
+    /// 定时关闭还要多少墙钟秒：分钟定时是秒表读数，章数定时换算成听完这些章要多久。
+    /// 面板标题与播放页那枚时钟角标都读它，两处报的是同一个数
+    var sleepSecondsLeft: TimeInterval {
+        if case .chapters(let count) = sleepMode { return sleepMinutes(forChapters: count) * 60 }
+        return sleepRemaining
+    }
+
+    /// 听完 count 章大约还要多少墙钟分钟：本章剩下的那点算第一章，本章已经听完就从下一章整章起算，
+    /// 再按当前倍速折算成人坐在耳机前的时间
+    func sleepMinutes(forChapters count: Int) -> Double {
+        guard let seconds = audioSeconds(forChapters: count) else { return 0 }
+        return seconds / 60 / Double(max(speed, 0.1))
+    }
+
+    /// 从现在起听完 count 章要听多少音频秒；手上没书没章节时给不出数
+    private func audioSeconds(forChapters count: Int) -> TimeInterval? {
+        guard let book = currentBook, let chapter = currentChapter,
+              let idx = book.chapters.firstIndex(where: { $0.id == chapter.id }) else { return nil }
+        let remaining = max(chapter.duration - currentTime, 0)
+        var legs: [TimeInterval] = remaining < 1 ? [] : [remaining]
+        var at = idx + 1
+        while legs.count < count, book.chapters.indices.contains(at) {
+            legs.append(book.chapters[at].duration)
+            at += 1
+        }
+        return legs.reduce(0, +)
+    }
+
     // MARK: - Private
 
     private func speedValue() -> Float {
@@ -810,6 +839,8 @@ final class PlayerService: NSObject, ObservableObject {
         let next = idx + 1
         guard book.chapters.indices.contains(next) else {
             NSLog("[sonux] advance: 《%@》已播到最后一章", book.title)
+            // 整本书听到头了，章数定时还挂着几章也等不到，别留一个永远走不完的读数
+            if case .chapters = sleepMode { clearSleepTimer() }
             isPlaying = false
             updateNowPlaying()
             return
