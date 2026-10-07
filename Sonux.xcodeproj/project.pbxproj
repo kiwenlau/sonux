@@ -40,6 +40,7 @@
 		64D60793D120D261C8FA6E7B /* Quote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D1DCD39E805C11DB79563C6 /* Quote.swift */; };
 		65DFF1E0B7CE9477527D218F /* TextSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F07B05DD8EFF1A0E2441DCAD /* TextSearchView.swift */; };
 		6708F6F61963ECC2DC6DD714 /* QuoteCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEBDD8653D338DDB0EB381DB /* QuoteCard.swift */; };
+		6C9826E13C90259B3386F485 /* CoverPaletteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB74831F056F6392A77EE02A /* CoverPaletteTests.swift */; };
 		6D291E2B63FDDB4FB75980D2 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 688BF21240910AF4CA4A01DE /* AppShortcuts.strings */; };
 		73E0374B43568F2B304A275E /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 2112DAD77E6C427D6AFC7B40 /* AppShortcuts.strings */; };
 		78D467952E2AE028AA16D506 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = EF8F1E961824E2DEB93149EA /* AppShortcuts.strings */; };
@@ -176,6 +177,7 @@
 		A4E740F463B5354E1F1E3D20 /* PlaybackSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSettings.swift; sourceTree = "<group>"; };
 		A56F4B34368D9CB964DAFB06 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = sk.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		A5A2274D76D3094852A0A885 /* ListeningReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningReportView.swift; sourceTree = "<group>"; };
+		AB74831F056F6392A77EE02A /* CoverPaletteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverPaletteTests.swift; sourceTree = "<group>"; };
 		AF920E64224E2106C697A1C5 /* SonuxRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxRuntime.swift; sourceTree = "<group>"; };
 		AFC386C80B1D44F08E725E61 /* LanguageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageView.swift; sourceTree = "<group>"; };
 		B4CDF53E1CAED1DC5A258AEA /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = da.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
@@ -222,6 +224,7 @@
 				DB862080E55DAB493D1D6D3A /* BookEntityTests.swift */,
 				6FF0BE5E1C06650A53695F58 /* BookTests.swift */,
 				7EDF2ABEB3F64E7473040447 /* ChapterTests.swift */,
+				AB74831F056F6392A77EE02A /* CoverPaletteTests.swift */,
 				44D2914DC14643E5FB74A78E /* LibraryAuthorTests.swift */,
 				A35FF1410884AE33D17481C3 /* LibraryServiceContractTests.swift */,
 				4C7F9FB9571DDBD62136C49C /* LibraryTextSearchTests.swift */,
@@ -569,6 +572,7 @@
 				827B04B0FB1A2E7CCB2EEBE6 /* BookEntityTests.swift in Sources */,
 				B8352A02BC7ABFE00278F56E /* BookTests.swift in Sources */,
 				20F531BBF8486AB2A3B5471C /* ChapterTests.swift in Sources */,
+				6C9826E13C90259B3386F485 /* CoverPaletteTests.swift in Sources */,
 				8F204D3FFA228E65F050D860 /* LibraryAuthorTests.swift in Sources */,
 				E06403C61C28C766885142A1 /* LibraryServiceContractTests.swift in Sources */,
 				1B0CDC1B7DDAD1C5DA415F61 /* LibraryTextSearchTests.swift in Sources */,
