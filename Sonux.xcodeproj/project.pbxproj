@@ -29,6 +29,7 @@
 		39C749576E7B1912F4720A5C /* LibrarySnapshotAndSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BEFED84E745C29E5A6015C /* LibrarySnapshotAndSettingsTests.swift */; };
 		3A122FA033F10E669227DAFC /* PlayerServicePreparedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1148F452A33B75AFE3D6B3 /* PlayerServicePreparedTests.swift */; };
 		42E7A32C373D5ED0CA43974D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 42C66AE5DE6CABC55C64C5D7 /* Localizable.xcstrings */; };
+		441A98951A9411B8ECCC5FD2 /* ViewInspector in Frameworks */ = {isa = PBXBuildFile; productRef = F084CFD24BE4BDB8E23BC359 /* ViewInspector */; };
 		46079DE477E4AA019EEA4A2F /* VoiceBookQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE22F6A6F5D9595B12C7CEF /* VoiceBookQueryTests.swift */; };
 		47A42F28428D5F5957952078 /* VoiceProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C50E45441EBA192B40683DA /* VoiceProcessor.swift */; };
 		4DF7D677A4FA1C751713994F /* TimeFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53BCC071714E938854D62AAD /* TimeFormatTests.swift */; };
@@ -70,6 +71,7 @@
 		A4789824D9B5C227D4E8A72F /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = C2F475AA6E80D687FF1EECB8 /* AppShortcuts.strings */; };
 		AD1AD7A7E086D7A3AE6B19AD /* SilenceSkipModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E28D934472DE8D69EFDD3B2 /* SilenceSkipModeTests.swift */; };
 		B00D35E2ABA3824B11FD24DD /* PlayerContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68718BAC3A61EAC1401A4167 /* PlayerContractTests.swift */; };
+		B4444BD1BCAE093968858FAC /* ViewInspectorSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8D9931106A684E8E61011 /* ViewInspectorSmokeTests.swift */; };
 		B4FF0DA292ECB0B535592BDA /* LooseEndsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ECB1F80CBB9F76C8410B364 /* LooseEndsTests.swift */; };
 		B7DE950F2EBD4AD3B7BB7EA0 /* ProgressValueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF3BD1DBDC11041016F983B5 /* ProgressValueTests.swift */; };
 		B82716964A7D2F214B743122 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = E1A0DB1529AD7730594BBDEB /* AppShortcuts.strings */; };
@@ -128,6 +130,7 @@
 
 /* Begin PBXFileReference section */
 		00A8872B97439C9F2FBC006B /* BookEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookEntity.swift; sourceTree = "<group>"; };
+		00A8D9931106A684E8E61011 /* ViewInspectorSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewInspectorSmokeTests.swift; sourceTree = "<group>"; };
 		02730A40DD230950E9D0887D /* Sonux.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sonux.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0483CD06588A02801003A738 /* WidgetBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridgeTests.swift; sourceTree = "<group>"; };
 		0B5F589D8A879FBF6881D2D5 /* TranscriptStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStoreTests.swift; sourceTree = "<group>"; };
@@ -230,6 +233,17 @@
 		FA2CFDAFC0DF18DF65A48BF8 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ko.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		A85A3EE6B620E42169E06646 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				441A98951A9411B8ECCC5FD2 /* ViewInspector in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
 		37E845AD4357CDE5FE237D4C /* Intents */ = {
 			isa = PBXGroup;
@@ -271,6 +285,7 @@
 				E279C52C4084D1D5B88ED32A /* TranscriptFileTests.swift */,
 				91DF1144228E0AB5B3C3507E /* TranscriptStoreInstanceTests.swift */,
 				0B5F589D8A879FBF6881D2D5 /* TranscriptStoreTests.swift */,
+				00A8D9931106A684E8E61011 /* ViewInspectorSmokeTests.swift */,
 				5EE22F6A6F5D9595B12C7CEF /* VoiceBookQueryTests.swift */,
 				2B9264DC039C51C5883ECD92 /* VoiceEnhancerTests.swift */,
 				0483CD06588A02801003A738 /* WidgetBridgeTests.swift */,
@@ -434,6 +449,7 @@
 			buildConfigurationList = C3A3FAEE93C3D791404D8AF4 /* Build configuration list for PBXNativeTarget "SonuxTests" */;
 			buildPhases = (
 				60C2DFD878D9B454354235FE /* Sources */,
+				A85A3EE6B620E42169E06646 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -442,6 +458,7 @@
 			);
 			name = SonuxTests;
 			packageProductDependencies = (
+				F084CFD24BE4BDB8E23BC359 /* ViewInspector */,
 			);
 			productName = SonuxTests;
 			productReference = 35400643DF7F2E80CA5C5F91 /* SonuxTests.xctest */;
@@ -537,6 +554,9 @@
 			);
 			mainGroup = F10AA2E207E99FB0C7F0571A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				120F396A246E1DFE27698FC1 /* XCRemoteSwiftPackageReference "ViewInspector" */,
+			);
 			preferredProjectObjectVersion = 54;
 			projectDirPath = "";
 			projectRoot = "";
@@ -631,6 +651,7 @@
 				BFC0F5FAC557F5BF022465CE /* TranscriptFileTests.swift in Sources */,
 				33269E7AD4331E53015276AE /* TranscriptStoreInstanceTests.swift in Sources */,
 				525F5EA2E4D2978C989A4D42 /* TranscriptStoreTests.swift in Sources */,
+				B4444BD1BCAE093968858FAC /* ViewInspectorSmokeTests.swift in Sources */,
 				46079DE477E4AA019EEA4A2F /* VoiceBookQueryTests.swift in Sources */,
 				6D090C0C2874439985252904 /* VoiceEnhancerTests.swift in Sources */,
 				82445BA4F8F0F28D861A99E8 /* WidgetBridgeTests.swift in Sources */,
@@ -978,6 +999,25 @@
 			defaultConfigurationName = debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		120F396A246E1DFE27698FC1 /* XCRemoteSwiftPackageReference "ViewInspector" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/nalexn/ViewInspector";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.9;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F084CFD24BE4BDB8E23BC359 /* ViewInspector */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 120F396A246E1DFE27698FC1 /* XCRemoteSwiftPackageReference "ViewInspector" */;
+			productName = ViewInspector;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2D5758F61683B2CD9E2722DB /* Project object */;
 }
