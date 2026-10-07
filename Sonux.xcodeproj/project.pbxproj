@@ -48,6 +48,7 @@
 		7A63E67957222AF6E86C2911 /* BookEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8872B97439C9F2FBC006B /* BookEntity.swift */; };
 		7E1B4361A3E1399947A3475A /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = B4CDF53E1CAED1DC5A258AEA /* AppShortcuts.strings */; };
 		7FE1977FA1E153B404DACDD2 /* SilenceGaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E1CF52668867562C62C33E5 /* SilenceGaps.swift */; };
+		82445BA4F8F0F28D861A99E8 /* WidgetBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0483CD06588A02801003A738 /* WidgetBridgeTests.swift */; };
 		827B04B0FB1A2E7CCB2EEBE6 /* BookEntityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB862080E55DAB493D1D6D3A /* BookEntityTests.swift */; };
 		82D81FC10493E133A49EF03A /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 28877EE71C85137F178A40D3 /* AppShortcuts.strings */; };
 		8BAEC93240BD823061798F11 /* MiniPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7738307DB245B85DFBDC9478 /* MiniPlayerView.swift */; };
@@ -117,6 +118,7 @@
 /* Begin PBXFileReference section */
 		00A8872B97439C9F2FBC006B /* BookEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookEntity.swift; sourceTree = "<group>"; };
 		02730A40DD230950E9D0887D /* Sonux.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sonux.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0483CD06588A02801003A738 /* WidgetBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridgeTests.swift; sourceTree = "<group>"; };
 		0B5F589D8A879FBF6881D2D5 /* TranscriptStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStoreTests.swift; sourceTree = "<group>"; };
 		0C36542D480482C37C17F044 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = hr.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		0C50E45441EBA192B40683DA /* VoiceProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProcessor.swift; sourceTree = "<group>"; };
@@ -238,6 +240,7 @@
 				53BCC071714E938854D62AAD /* TimeFormatTests.swift */,
 				E279C52C4084D1D5B88ED32A /* TranscriptFileTests.swift */,
 				0B5F589D8A879FBF6881D2D5 /* TranscriptStoreTests.swift */,
+				0483CD06588A02801003A738 /* WidgetBridgeTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -586,6 +589,7 @@
 				4DF7D677A4FA1C751713994F /* TimeFormatTests.swift in Sources */,
 				BFC0F5FAC557F5BF022465CE /* TranscriptFileTests.swift in Sources */,
 				525F5EA2E4D2978C989A4D42 /* TranscriptStoreTests.swift in Sources */,
+				82445BA4F8F0F28D861A99E8 /* WidgetBridgeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
