@@ -8,6 +8,9 @@ __pycache__/
 build/
 DerivedData/
 
+# XcodeGen 本地构建产物（ swift build 出来的 .build/，不是仓库要的）
+.build/
+
 # swiftc 单次编译在仓库根目录生成的临时可执行文件
 /main
 

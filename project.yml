@@ -5,6 +5,26 @@ options:
     iOS: "16.4"
   createIntermediateGroups: true
   developmentLanguage: en
+configs:
+  debug: debug
+  release: release
+schemes:
+  Sonux:
+    build:
+      targets:
+        Sonux: all
+        SonuxWidget: build
+        SonuxTests: [test]
+    run:
+      config: debug
+      environment:
+        XCTEnableTestActionDiagnostics: "YES"
+    test:
+      config: debug
+      targets:
+        - SonuxTests
+      gatherCoverageData: true
+      coverageFormat: xml
 settings:
   base:
     SWIFT_VERSION: "5.9"
@@ -86,3 +106,20 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.kiwenlau.sonux.widget
         INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
         SKIP_INSTALL: "YES"
+  SonuxTests:
+    # 单元测试：走宿主打针（TEST_HOST=Sonux.app），能直接 @testable import Sonux 访问内部类型
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+    dependencies:
+      - target: Sonux
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kiwenlau.sonux.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Sonux.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Sonux"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        SWIFT_VERSION: "5.9"
+        IPHONEOS_DEPLOYMENT_TARGET: "16.4"
+        TARGETED_DEVICE_FAMILY: "1"
