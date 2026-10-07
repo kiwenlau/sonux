@@ -4,15 +4,19 @@ import MediaPlayer
 import QuartzCore
 import Combine
 
-/// 定时关闭模式：分钟数可在滑动条范围内任意设置，也可在本章播完时关闭
+/// 定时关闭模式：分钟数可在滑动条范围内任意设置，也可在听完 N 章之后关闭
 enum SleepTimerMode: Equatable {
     case off
     case minutes(Int)
-    case endOfChapter
+    /// 听完 N 章后关闭，1 章就是「本章结束后关闭」。挂章睡的人不肯在章中途被拦停，
+    /// 所以它不计时长，只在每一章真播完的那一刻减一格
+    case chapters(Int)
 
     /// 滑动条可设置的分钟范围与步进：0–90，每格 1 分钟
     static let range: ClosedRange<Double> = 0...90
     static let step: Double = 1
+    /// 章数可设范围：1–10 章，再多就等于没定时
+    static let chapterRange: ClosedRange<Int> = 1...10
 }
 
 /// 播放服务：基于 AVPlayer，负责播放、进度回调、锁屏控制与定时关闭
@@ -106,6 +110,7 @@ final class PlayerService: NSObject, ObservableObject {
 
     private static let lastSleepModeKey = "sleepTimer.lastMode"
     private static let lastSleepMinutesKey = "sleepTimer.lastMinutes"
+    private static let lastSleepChaptersKey = "sleepTimer.lastChapters"
 
     /// 上次用户设置的定时关闭模式（定时自然到期不清除，供下次播放沿用）
     private var rememberedSleepMode: SleepTimerMode? {
@@ -114,10 +119,16 @@ final class PlayerService: NSObject, ObservableObject {
             let minutes = UserDefaults.standard.integer(forKey: Self.lastSleepMinutesKey)
             return minutes > 0 ? .minutes(minutes) : nil
         default:
-            // 「本章结束后关闭」不跨播放沿用：当初那一章早就听完了，
-            // 沿用会让之后每次播放都在一章结束时停，分钟定时形同失效
+            // 「听完 N 章」不跨播放沿用：当初那几章早就听完了，
+            // 沿用会让之后每次播放都在 N 章后停，分钟定时形同失效
             return nil
         }
+    }
+
+    /// 「听完 N 章」卡片下次给的章数：只当默认值，不自动生效（沿用规则见上）
+    var defaultSleepChapters: Int {
+        let stored = UserDefaults.standard.integer(forKey: Self.lastSleepChaptersKey)
+        return SleepTimerMode.chapterRange.contains(stored) ? stored : 1
     }
 
     /// 仅记录用户主动选择的模式（定时自然到期不清除记忆）
@@ -128,8 +139,9 @@ final class PlayerService: NSObject, ObservableObject {
         case .minutes(let minutes):
             UserDefaults.standard.set(1, forKey: Self.lastSleepModeKey)
             UserDefaults.standard.set(minutes, forKey: Self.lastSleepMinutesKey)
-        case .endOfChapter:
+        case .chapters(let count):
             UserDefaults.standard.set(2, forKey: Self.lastSleepModeKey)
+            UserDefaults.standard.set(count, forKey: Self.lastSleepChaptersKey)
         }
     }
 
@@ -554,9 +566,9 @@ final class PlayerService: NSObject, ObservableObject {
         switch mode {
         case .off:
             sleepRemaining = 0
-        case .endOfChapter:
-            // 由 didPlayToEnd / 章尾计时处理：本章结束后停止
-            sleepRemaining = max(duration - currentTime, 0)
+        case .chapters:
+            // 章数定时没有秒表：播完一章减一格，全在章界停（见 finishCurrentChapter）
+            sleepRemaining = 0
         case .minutes(let minutes):
             let seconds = TimeInterval(minutes * 60)
             sleepRemaining = seconds
@@ -588,15 +600,15 @@ final class PlayerService: NSObject, ObservableObject {
             sleepTimerDidExpire = true
             cancelSleepTimer()
         } else {
-            // 「本章结束后关闭」是一次性的：本章已播完就是兑现，
-            // 不能再留给下次播放，否则它会变成“每章结束都关闭”永远摘不掉
+            // 章数定时是一次性的：该听的章听完了就是兑现，
+            // 不能再留给下次播放，否则它会变成“每 N 章就关一次”永远摘不掉
             clearSleepTimer()
         }
         updateNowPlaying()
     }
 
     /// 暂停/停止时调用：保留未走完的分钟定时，恢复播放时从剩余时间接着走
-    /// 「本章结束后关闭」不保留：它只对应当时那一章，换个章节再沿用就成了“每章都关”
+    /// 章数定时不保留：它只对应设定时那之后要播完的几章，换个位置再沿用就成了“每 N 章都关”
     private func cancelSleepTimer() {
         guard sleepMode != .off else { return }
         if case .minutes = sleepMode, sleepRemaining > 0 {
@@ -776,9 +788,17 @@ final class PlayerService: NSObject, ObservableObject {
         reportPosition()
         onChapterFinished?(chapter, book)
 
-        if sleepMode == .endOfChapter {
-            toggleOffIfPlaying()
-            return
+        if case .chapters(let remaining) = sleepMode {
+            guard remaining > 1 else {
+                // 最后一章也听完了：定时兑现，就停在这一章的结尾，
+                // 别先进下一章，免得人醒来发现已经溜过去一章的开头
+                toggleOffIfPlaying()
+                return
+            }
+            // 只改剩余章数，不走 setSleepTimer：那是「用户设的章数」的记忆，
+            // 让倒数去写它，一夜之后默认值就被改成了 1 章
+            sleepMode = .chapters(remaining - 1)
+            NSLog("[sonux] sleepTimer: 播完一章，还剩 %d 章后关闭", remaining - 1)
         }
         advanceToNextChapter()
     }

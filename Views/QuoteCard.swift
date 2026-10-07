@@ -292,7 +292,7 @@ extension View {
             QuoteSheet(quote: quote)
                 .presentationDetents([.large])
                 // 暗底让卡片成为唯一主角，也和播放页那一屏深色一脉相承
-                .presentationBackground(Color(red: 0.06, green: 0.05, blue: 0.10))
+                .presentationBackground(Color.playerSheetBackground)
                 .presentationDragIndicator(.hidden)
         }
     }

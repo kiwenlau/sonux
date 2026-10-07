@@ -499,8 +499,7 @@ struct PlayerView: View {
                     Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")
                         .font(.system(size: 24))
                     if player.sleepMode != .off {
-                        // 本章结束后关闭没有倒计时，直接标「本章」，避免把静止的数字误当成定时剩余
-                        Text(player.sleepMode == .endOfChapter ? L("This Chapter") : TimeFormat.time(player.sleepRemaining))
+                        Text(sleepStatusText)
                             .font(.caption2.monospacedDigit())
                     }
                 }
@@ -512,6 +511,15 @@ struct PlayerView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.white)
         .padding(.horizontal, 8)
+    }
+
+    /// 定时按钮下面那行角标：分钟定时报倒计时，章数定时报还剩几章（只剩一章就标「本章」），
+    /// 免得那行不动的数字被当成分钟剩余
+    private var sleepStatusText: String {
+        if case .chapters(let remaining) = player.sleepMode {
+            return remaining > 1 ? LF("%d Chapters", remaining) : L("This Chapter")
+        }
+        return TimeFormat.time(player.sleepRemaining)
     }
 }
 
@@ -949,6 +957,12 @@ private struct GlassCircleBackground: ViewModifier {
     }
 }
 
+/// 播放页那系弹层（语速、定时关闭、摘录卡片）共用的深紫实心底。
+/// 别用系统材质：它的模糊半径太小，透色必先透形，底下那排白色控件会糊成一团团光晕
+extension Color {
+    static let playerSheetBackground = Color(red: 0.06, green: 0.05, blue: 0.10)
+}
+
 /// 语速面板：参考微信读书，拖动滑杆在 0.5x–3x 之间以 0.1 为步进连续调节
 struct SpeedSliderSheet: View {
     @EnvironmentObject private var player: PlayerService
@@ -983,6 +997,7 @@ struct SpeedSliderSheet: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 24)
+        .presentationBackground(Color.playerSheetBackground)
         .presentationDetents([.height(200)])
         .presentationDragIndicator(.visible)
     }
@@ -1030,7 +1045,8 @@ struct SpeedSliderSheet: View {
     }
 }
 
-/// 定时关闭面板：参考微信读书，拖动滑杆在 0–90 分钟之间以 1 分钟为步进设置，滑到最左端为关闭
+/// 定时关闭面板：参考微信读书，拖动滑杆在 0–90 分钟之间以 1 分钟为步进设置，滑到最左端为关闭；
+/// 卡片那排另给「听完 N 章」——挂章睡的人不肯在章中途停，所以它只在章界减一格
 struct SleepTimerSheet: View {
     @EnvironmentObject private var player: PlayerService
 
@@ -1040,6 +1056,12 @@ struct SleepTimerSheet: View {
     private var minutes: Double {
         if case .minutes(let value) = player.sleepMode { return Double(value) }
         return 0
+    }
+
+    /// 章数定时还剩几章；当前不是章数定时则为 nil
+    private var chapters: Int? {
+        if case .chapters(let count) = player.sleepMode { return count }
+        return nil
     }
 
     var body: some View {
@@ -1055,11 +1077,28 @@ struct SleepTimerSheet: View {
             ruler
 
             HStack(spacing: 12) {
-                modeButton(L("Off After This Chapter"), active: player.sleepMode == .endOfChapter) {
-                    player.setSleepTimer(player.sleepMode == .endOfChapter ? .off : .endOfChapter)
+                modeButton(chapterTitle, active: chapters != nil) {
+                    player.setSleepTimer(chapters == nil ? .chapters(player.defaultSleepChapters) : .off)
                 }
                 modeButton(L("No Timer"), active: false) {
                     player.setSleepTimer(.off)
+                }
+            }
+
+            // 章数调节只在挂着章数定时时出现：没挂时这张面板跟以前一样高
+            if let count = chapters {
+                HStack(spacing: 8) {
+                    Spacer()
+                    Text(LF("%d Chapters", count))
+                        .font(.subheadline.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.indigo)
+                    Stepper(value: chaptersBinding, in: SleepTimerMode.chapterRange) {
+                        EmptyView()
+                    }
+                    .fixedSize()
+                    .accessibilityLabel(chapterTitle)
+                    Spacer()
                 }
             }
 
@@ -1067,15 +1106,16 @@ struct SleepTimerSheet: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 24)
-        .presentationDetents([.height(220)])
+        .presentationBackground(Color.playerSheetBackground)
+        .presentationDetents([.height(chapters == nil ? 220 : 264)])
         .presentationDragIndicator(.visible)
     }
 
-    /// 标题直接说出当前生效的是哪一种定时，不让“本章结束后关闭”看起来像分钟定时
+    /// 标题直接说出当前生效的是哪一种定时，不让「听完 N 章」看起来像分钟定时
     private var sheetTitle: String {
         switch player.sleepMode {
-        case .endOfChapter:
-            return L("Off After This Chapter")
+        case .chapters(let count):
+            return chapterTitleFor(count)
         case .minutes(let value) where value > 0:
             return LF("Off After %d Minutes", value)
         case .off, .minutes:
@@ -1083,11 +1123,29 @@ struct SleepTimerSheet: View {
         }
     }
 
+    /// 章数卡片的文案：1 章仍是「本章结束后关闭」，多章说「听完 N 章后关闭」。
+    /// 没挂章数定时时写的是点下去会设成的章数（上次调几章就还写几章）
+    private var chapterTitle: String {
+        chapterTitleFor(chapters ?? player.defaultSleepChapters)
+    }
+
+    private func chapterTitleFor(_ count: Int) -> String {
+        count > 1 ? LF("Off After %d Chapters", count) : L("Off After This Chapter")
+    }
+
     /// 滑动即时生效：0 分钟即关闭定时
     private var minutesBinding: Binding<Double> {
         Binding(
             get: { minutes },
             set: { player.setSleepTimer($0 > 0 ? .minutes(Int($0)) : .off) }
+        )
+    }
+
+    /// 点步进也即时生效：调到几就还剩几章
+    private var chaptersBinding: Binding<Int> {
+        Binding(
+            get: { chapters ?? player.defaultSleepChapters },
+            set: { player.setSleepTimer(.chapters($0)) }
         )
     }
 

@@ -527,6 +527,19 @@ add("This Chapter", ar="هذا الفصل", ca="Aquest capítol", hr="Ovo poglav
     ru="Эта глава", sk="Táto kapitola", es="Este capítulo", sv="Det här kapitlet", th="บทนี้",
     tr="Bu bölüm", uk="Цей розділ", vi="Chương này", zhhs="本章", zhtt="本章")
 
+# 「听完 N 章」：挂章睡的人不肯在章中途停，只在每一章播完时减一格
+add("Off After %d Chapters", ar="الإيقاف بعد %d فصول", ca="S'apaga després de %d capítols",
+    hr="Gasit nakon %d poglavlja", cs="Vypne po %d kapitolách", da="Sluk efter %d kapitler",
+    nl="Uit na %d hoofdstukken", fr="Arrêt après %d chapitres", de="Nach %d Kapiteln beenden",
+    el="Σβήνει μετά από %d κεφάλαια", he="ייכבה אחרי %d פרקים", hi="%d अध्याय बाद बंद",
+    hu="Kikapcsol %d fejezet után", id="Mati setelah %d bab", it="Si spegne dopo %d capitoli",
+    ja="%d 章後にオフ", ko="%d장 후 끄기", ms="Mati selepas %d bab", nb="Av etter %d kapittler",
+    pl="Wyłączy po %d rozdziałach", ptbr="Desligar após %d capítulos", ptpt="Desliga após %d capítulos",
+    ro="Se oprește după %d capitole", ru="Выключить после %d глав", sk="Vypne po %d kapitolách",
+    es="Se apagará tras %d capítulos", sv="Stängs efter %d kapitel", th="ปิดหลังครบ %d บท",
+    tr="%d bölüm sonra kapat", uk="Вимкнути після %d глав", vi="Tắt sau %d chương",
+    zhhs="听完 %d 章后关闭", zhtt="聽完 %d 章後關閉")
+
 add("Playback Speed", ar="سرعة التشغيل", ca="Velocitat de reproducció", hr="Brzina reprodukcije",
     cs="Rychlost přehrávání", da="Afspilningshastighed", nl="Afspeelsnelheid", fr="Vitesse de lecture",
     de="Wiedergabegeschwindigkeit", el="Ταχύτητα αναπαραγωγής", he="מהירות נגינה", hi="प्लेबैक गति",
