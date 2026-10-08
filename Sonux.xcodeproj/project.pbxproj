@@ -25,6 +25,7 @@
 		24AED04D1602A09E28C0D454 /* SonuxApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C2B3BC646CADE9AC192BDF /* SonuxApp.swift */; };
 		26D67D86A641CD34AC7D7FB5 /* PlayerNoopAndLocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BFDC559E424B41220B178AE /* PlayerNoopAndLocalizationTests.swift */; };
 		27E6CAA39B6A9C0C7655751A /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = D9CA9FA478C3A5E5AE2B2E3B /* AppShortcuts.strings */; };
+		2B19B202B2FF3AC60A4E970F /* TranscriptBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9BE9D08F54D08C0646C971 /* TranscriptBoundaryTests.swift */; };
 		33269E7AD4331E53015276AE /* TranscriptStoreInstanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DF1144228E0AB5B3C3507E /* TranscriptStoreInstanceTests.swift */; };
 		335415C0D568D7524B586404 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDEBCF786530DEE9C4465D15 /* WidgetBridge.swift */; };
 		367495CA1A93250C3C9093B7 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0C36542D480482C37C17F044 /* AppShortcuts.strings */; };
@@ -189,6 +190,7 @@
 		4C7F9FB9571DDBD62136C49C /* LibraryTextSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryTextSearchTests.swift; sourceTree = "<group>"; };
 		4E1CF52668867562C62C33E5 /* SilenceGaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceGaps.swift; sourceTree = "<group>"; };
 		4EEDB08565C4891F8319594B /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = es.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		4F9BE9D08F54D08C0646C971 /* TranscriptBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptBoundaryTests.swift; sourceTree = "<group>"; };
 		505A823F7B7C2F69849272AD /* ProgressPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPolicyTests.swift; sourceTree = "<group>"; };
 		50C9BA0F570EEE129BFAE874 /* AppIntentsContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIntentsContractTests.swift; sourceTree = "<group>"; };
 		51B3D92AFC24B92D24F91144 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ja.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
@@ -321,6 +323,7 @@
 				2A8141F39485A40D2EC15061 /* SonuxRuntimeTests.swift */,
 				9D87E51C614CCDAE2AE41AD1 /* TabAndAuthorFilterTests.swift */,
 				53BCC071714E938854D62AAD /* TimeFormatTests.swift */,
+				4F9BE9D08F54D08C0646C971 /* TranscriptBoundaryTests.swift */,
 				E279C52C4084D1D5B88ED32A /* TranscriptFileTests.swift */,
 				91DF1144228E0AB5B3C3507E /* TranscriptStoreInstanceTests.swift */,
 				0B5F589D8A879FBF6881D2D5 /* TranscriptStoreTests.swift */,
@@ -705,6 +708,7 @@
 				CE139C7A1A8B1C8B55482957 /* SonuxRuntimeTests.swift in Sources */,
 				DC7C41C8EE074595F6E47DE3 /* TabAndAuthorFilterTests.swift in Sources */,
 				4DF7D677A4FA1C751713994F /* TimeFormatTests.swift in Sources */,
+				2B19B202B2FF3AC60A4E970F /* TranscriptBoundaryTests.swift in Sources */,
 				BFC0F5FAC557F5BF022465CE /* TranscriptFileTests.swift in Sources */,
 				33269E7AD4331E53015276AE /* TranscriptStoreInstanceTests.swift in Sources */,
 				525F5EA2E4D2978C989A4D42 /* TranscriptStoreTests.swift in Sources */,
