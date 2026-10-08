@@ -14,6 +14,7 @@
 		0C171E7E7C9588D2BD6CF0B7 /* WidgetSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = F165711BF2B2B5261AF2CA53 /* WidgetSync.swift */; };
 		0FDE3B8EFD8450E6218D9713 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = E7FC3DA0EA4EDC97B66253BC /* AppShortcuts.strings */; };
 		1121B714B4EA503AB6B2E106 /* LanguageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC386C80B1D44F08E725E61 /* LanguageView.swift */; };
+		1222088F71F8324F8E0A92F8 /* PlayerAdvanceAndSleepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE835EBECC2B9AB51EDEB230 /* PlayerAdvanceAndSleepTests.swift */; };
 		18DEEAE728DFE6D551EFD664 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 42A5B7689F234C41DC76B050 /* AppShortcuts.strings */; };
 		1B0CDC1B7DDAD1C5DA415F61 /* LibraryTextSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C7F9FB9571DDBD62136C49C /* LibraryTextSearchTests.swift */; };
 		2010DAE536ADF9FE262BCAD9 /* SheetViewsInspectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A56C0AF1A642A33ABA45482 /* SheetViewsInspectorTests.swift */; };
@@ -45,6 +46,7 @@
 		58835835E9C5D0CA52EFD701 /* PlayBookIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108C1C446B0076387AB34F32 /* PlayBookIntent.swift */; };
 		58D27436BE6EABAB2715A67A /* ListeningReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A2274D76D3094852A0A885 /* ListeningReportView.swift */; };
 		5948F4AA556EB2D6F13F6987 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 2201C9AE2A8C56221CA87085 /* AppShortcuts.strings */; };
+		5D9F21EAA8EA22EC6C126D42 /* AppIntentsContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C9BA0F570EEE129BFAE874 /* AppIntentsContractTests.swift */; };
 		5E7A216819936381A223DD9E /* AppLanguageSettingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7107401F6F7304D5037D4E84 /* AppLanguageSettingTests.swift */; };
 		61448746AD34ED43BB311A7C /* PlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 745D0D48144C7876E5F075BE /* PlayerService.swift */; };
 		64D60793D120D261C8FA6E7B /* Quote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D1DCD39E805C11DB79563C6 /* Quote.swift */; };
@@ -187,6 +189,7 @@
 		4E1CF52668867562C62C33E5 /* SilenceGaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceGaps.swift; sourceTree = "<group>"; };
 		4EEDB08565C4891F8319594B /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = es.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		505A823F7B7C2F69849272AD /* ProgressPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPolicyTests.swift; sourceTree = "<group>"; };
+		50C9BA0F570EEE129BFAE874 /* AppIntentsContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIntentsContractTests.swift; sourceTree = "<group>"; };
 		51B3D92AFC24B92D24F91144 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ja.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		53BCC071714E938854D62AAD /* TimeFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatTests.swift; sourceTree = "<group>"; };
 		54632F285FF5371F881E697D /* CoverStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverStore.swift; sourceTree = "<group>"; };
@@ -256,6 +259,7 @@
 		F8D4A338BB436714E230CBF0 /* TimeFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormat.swift; sourceTree = "<group>"; };
 		F95249A416B410514ED10DD9 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = cs.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		FA2CFDAFC0DF18DF65A48BF8 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ko.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		FE835EBECC2B9AB51EDEB230 /* PlayerAdvanceAndSleepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerAdvanceAndSleepTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -283,6 +287,7 @@
 		6A38DD321CDA9E9E46EE04D1 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				50C9BA0F570EEE129BFAE874 /* AppIntentsContractTests.swift */,
 				7107401F6F7304D5037D4E84 /* AppLanguageSettingTests.swift */,
 				DB862080E55DAB493D1D6D3A /* BookEntityTests.swift */,
 				6FF0BE5E1C06650A53695F58 /* BookTests.swift */,
@@ -300,6 +305,7 @@
 				17278914C1BB83725124191A /* ListeningSummaryTests.swift */,
 				6ECB1F80CBB9F76C8410B364 /* LooseEndsTests.swift */,
 				BF75CB21377379F410BF1E01 /* MoreViewsInspectorTests.swift */,
+				FE835EBECC2B9AB51EDEB230 /* PlayerAdvanceAndSleepTests.swift */,
 				68718BAC3A61EAC1401A4167 /* PlayerContractTests.swift */,
 				5BFDC559E424B41220B178AE /* PlayerNoopAndLocalizationTests.swift */,
 				1A1148F452A33B75AFE3D6B3 /* PlayerServicePreparedTests.swift */,
@@ -664,6 +670,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D9F21EAA8EA22EC6C126D42 /* AppIntentsContractTests.swift in Sources */,
 				5E7A216819936381A223DD9E /* AppLanguageSettingTests.swift in Sources */,
 				827B04B0FB1A2E7CCB2EEBE6 /* BookEntityTests.swift in Sources */,
 				B8352A02BC7ABFE00278F56E /* BookTests.swift in Sources */,
@@ -681,6 +688,7 @@
 				BE5B6540E1228A8EBC2588CB /* ListeningSummaryTests.swift in Sources */,
 				B4FF0DA292ECB0B535592BDA /* LooseEndsTests.swift in Sources */,
 				581766DD2F4955EA4A171763 /* MoreViewsInspectorTests.swift in Sources */,
+				1222088F71F8324F8E0A92F8 /* PlayerAdvanceAndSleepTests.swift in Sources */,
 				B00D35E2ABA3824B11FD24DD /* PlayerContractTests.swift in Sources */,
 				26D67D86A641CD34AC7D7FB5 /* PlayerNoopAndLocalizationTests.swift in Sources */,
 				3A122FA033F10E669227DAFC /* PlayerServicePreparedTests.swift in Sources */,
