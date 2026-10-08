@@ -16,6 +16,7 @@
 		1121B714B4EA503AB6B2E106 /* LanguageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC386C80B1D44F08E725E61 /* LanguageView.swift */; };
 		18DEEAE728DFE6D551EFD664 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 42A5B7689F234C41DC76B050 /* AppShortcuts.strings */; };
 		1B0CDC1B7DDAD1C5DA415F61 /* LibraryTextSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C7F9FB9571DDBD62136C49C /* LibraryTextSearchTests.swift */; };
+		2010DAE536ADF9FE262BCAD9 /* SheetViewsInspectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A56C0AF1A642A33ABA45482 /* SheetViewsInspectorTests.swift */; };
 		20F531BBF8486AB2A3B5471C /* ChapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EDF2ABEB3F64E7473040447 /* ChapterTests.swift */; };
 		2127E2D864C17EBD7F202704 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1B6E3FF8FEDC2D1984729B12 /* AppShortcuts.strings */; };
 		21B66A3187B24AB31168CB1C /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3A085325AB0E21CC76327D5E /* AppShortcuts.strings */; };
@@ -29,6 +30,7 @@
 		39C749576E7B1912F4720A5C /* LibrarySnapshotAndSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BEFED84E745C29E5A6015C /* LibrarySnapshotAndSettingsTests.swift */; };
 		3A122FA033F10E669227DAFC /* PlayerServicePreparedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1148F452A33B75AFE3D6B3 /* PlayerServicePreparedTests.swift */; };
 		42E7A32C373D5ED0CA43974D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 42C66AE5DE6CABC55C64C5D7 /* Localizable.xcstrings */; };
+		438E0D4C4CEDA29BA3F76B70 /* SonuxWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5A52BE0961A405AE7979F5D4 /* SonuxWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		441A98951A9411B8ECCC5FD2 /* ViewInspector in Frameworks */ = {isa = PBXBuildFile; productRef = F084CFD24BE4BDB8E23BC359 /* ViewInspector */; };
 		46079DE477E4AA019EEA4A2F /* VoiceBookQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE22F6A6F5D9595B12C7CEF /* VoiceBookQueryTests.swift */; };
 		47A42F28428D5F5957952078 /* VoiceProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C50E45441EBA192B40683DA /* VoiceProcessor.swift */; };
@@ -123,14 +125,28 @@
 			remoteGlobalIDString = B3266F86480CE191AF30CF45;
 			remoteInfo = Sonux;
 		};
-		7644F130D2DDAD49EDE2F21B /* PBXContainerItemProxy */ = {
+		8BFC440A6081500EEEC02E6F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 2D5758F61683B2CD9E2722DB /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = B3266F86480CE191AF30CF45;
-			remoteInfo = Sonux;
+			remoteGlobalIDString = 8C8FEAEE72C4E9FF51F869D3;
+			remoteInfo = SonuxWidget;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		88DC548F1AF215FA5D474D1D /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				438E0D4C4CEDA29BA3F76B70 /* SonuxWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		00491AEE9AA154B45C7E50BE /* ComplexViewsInspectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplexViewsInspectorTests.swift; sourceTree = "<group>"; };
@@ -196,6 +212,7 @@
 		745D0D48144C7876E5F075BE /* PlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerService.swift; sourceTree = "<group>"; };
 		7738307DB245B85DFBDC9478 /* MiniPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerView.swift; sourceTree = "<group>"; };
 		77F42B5DFEF78E6326ADC625 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = nl.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		7A56C0AF1A642A33ABA45482 /* SheetViewsInspectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetViewsInspectorTests.swift; sourceTree = "<group>"; };
 		7BA85ACBCF129048D0E1D4BE /* SonuxAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxAppShortcuts.swift; sourceTree = "<group>"; };
 		7EDF2ABEB3F64E7473040447 /* ChapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChapterTests.swift; sourceTree = "<group>"; };
 		86975BDC8249B75975D53C19 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = ms.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
@@ -289,6 +306,7 @@
 				505A823F7B7C2F69849272AD /* ProgressPolicyTests.swift */,
 				CF3BD1DBDC11041016F983B5 /* ProgressValueTests.swift */,
 				95CBAC356F0082EE0DC3228A /* QuoteTests.swift */,
+				7A56C0AF1A642A33ABA45482 /* SheetViewsInspectorTests.swift */,
 				DD0A17B93D81482D6355CD7A /* SilenceGapsTests.swift */,
 				2E28D934472DE8D69EFDD3B2 /* SilenceSkipModeTests.swift */,
 				24C9785E8545C82E2CF2FA23 /* SimpleViewsInspectorTests.swift */,
@@ -486,7 +504,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				6102DD9AAC09F70001032DA3 /* PBXTargetDependency */,
 			);
 			name = SonuxWidget;
 			packageProductDependencies = (
@@ -501,10 +518,12 @@
 			buildPhases = (
 				7059F477B891A3B5819992BA /* Sources */,
 				67FAB2B18356AA56BF112B78 /* Resources */,
+				88DC548F1AF215FA5D474D1D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E1A44D1E65E802976EE21D76 /* PBXTargetDependency */,
 			);
 			name = Sonux;
 			packageProductDependencies = (
@@ -522,6 +541,15 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					0B29C416544DC5D75A70D018 = {
+						DevelopmentTeam = 7YXZS92PLV;
+					};
+					8C8FEAEE72C4E9FF51F869D3 = {
+						DevelopmentTeam = 7YXZS92PLV;
+					};
+					B3266F86480CE191AF30CF45 = {
+						DevelopmentTeam = 7YXZS92PLV;
+					};
 				};
 			};
 			buildConfigurationList = 6642465990C093D7B4B80715 /* Build configuration list for PBXProject "Sonux" */;
@@ -659,6 +687,7 @@
 				ECDE5E90E89C825991B62C60 /* ProgressPolicyTests.swift in Sources */,
 				B7DE950F2EBD4AD3B7BB7EA0 /* ProgressValueTests.swift in Sources */,
 				F1860291BB477172FAE396EF /* QuoteTests.swift in Sources */,
+				2010DAE536ADF9FE262BCAD9 /* SheetViewsInspectorTests.swift in Sources */,
 				FD0F321D4BA8110E28583840 /* SilenceGapsTests.swift in Sources */,
 				AD1AD7A7E086D7A3AE6B19AD /* SilenceSkipModeTests.swift in Sources */,
 				4C5D5E0BF32F1AFFB81E37F0 /* SimpleViewsInspectorTests.swift in Sources */,
@@ -732,10 +761,10 @@
 			target = B3266F86480CE191AF30CF45 /* Sonux */;
 			targetProxy = 4C571A74D5A62E8B43E9B3B1 /* PBXContainerItemProxy */;
 		};
-		6102DD9AAC09F70001032DA3 /* PBXTargetDependency */ = {
+		E1A44D1E65E802976EE21D76 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = B3266F86480CE191AF30CF45 /* Sonux */;
-			targetProxy = 7644F130D2DDAD49EDE2F21B /* PBXContainerItemProxy */;
+			target = 8C8FEAEE72C4E9FF51F869D3 /* SonuxWidget */;
+			targetProxy = 8BFC440A6081500EEEC02E6F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -776,6 +805,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 7YXZS92PLV;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -916,6 +946,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 7YXZS92PLV;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
