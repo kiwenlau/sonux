@@ -31,6 +31,9 @@ settings:
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
+    # 真机签名团队：不写在这里的话，每次 xcodegen 重新生成工程都会变成 Team=None，
+    # 命令行构建直接报「requires a development team」，得靠 Xcode 界面手点才能恢复
+    DEVELOPMENT_TEAM: 7YXZS92PLV
 packages:
   ViewInspector:
     url: https://github.com/nalexn/ViewInspector
@@ -39,6 +42,11 @@ targets:
   Sonux:
     type: application
     platform: iOS
+    # 依赖方向必须是 App → 扩展：XcodeGen 只有这样才会生成
+    # 「Embed App Extensions」拷贝阶段（dstPath=PlugIns），少了它装到手机上的 App 里
+    # 根本没有 SonuxWidget.appex，桌面小组件不会出现。反过来写（扩展依赖 App）会丢阶段。
+    dependencies:
+      - target: SonuxWidget
     sources:
       - App
       - Intents
@@ -91,8 +99,6 @@ targets:
       - Shared/WidgetBridge.swift
       - App/Localization.swift
       - Support/Localizable.xcstrings
-    dependencies:
-      - target: Sonux
     entitlements:
       path: Support/Widget.entitlements
       properties:
