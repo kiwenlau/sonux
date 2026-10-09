@@ -74,13 +74,18 @@ final class LibraryService: ObservableObject {
     private var scanning = false
     private var rescanRequestedWhileScanning = false
 
-    init() {
-        documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        progressURL = appSupport.appendingPathComponent("progress.json")
-        metaCacheURL = appSupport.appendingPathComponent("audio-meta.json")
-        snapshotURL = appSupport.appendingPathComponent("library-snapshot.json")
-        linksURL = appSupport.appendingPathComponent("links.json")
+    /// - Parameters:
+    ///   - documentsDir: 本地书库根目录；默认取沙盒 Documents。
+    ///   - appSupportDir: 进度/快照/元数据缓存的落盘目录；默认取沙盒 Application Support。
+    /// 两个目录做成可注入只为让单元测试能把「落盘 + 冷启动回读」整套指向临时沙盒，
+    /// 不碰用户真机/模拟器里的真实进度；生产调用点 `LibraryService()` 走默认值，行为不变。
+    init(documentsDir: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0],
+         appSupportDir: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]) {
+        self.documentsDir = documentsDir
+        progressURL = appSupportDir.appendingPathComponent("progress.json")
+        metaCacheURL = appSupportDir.appendingPathComponent("audio-meta.json")
+        snapshotURL = appSupportDir.appendingPathComponent("library-snapshot.json")
+        linksURL = appSupportDir.appendingPathComponent("links.json")
         // 冷启动的第一帧就要有内容：进度和上次扫描出的书库在 init 里同步读盘，
         // 真正的文件扫描留给 bootstrap 异步做，结果没变就不重绘，避免闪空状态
         let t0 = CACurrentMediaTime()
