@@ -86,72 +86,92 @@ final class SonuxRuntimeTests: XCTestCase {
         player.showPlayer = savedShowPlayer
     }
 
-    private func withWasPlayingKey(_ value: Bool?, _ body: () -> Void) {
+    private func withShowPlayerOnLaunchKey(_ value: Bool?, _ body: () -> Void) {
         let defaults = UserDefaults.standard
-        let saved = defaults.object(forKey: SonuxRuntime.wasPlayingKey)
-        defaults.removeObject(forKey: SonuxRuntime.wasPlayingKey)
-        if let value { defaults.set(value, forKey: SonuxRuntime.wasPlayingKey) }
+        let saved = defaults.object(forKey: SonuxRuntime.showPlayerOnLaunchKey)
+        defaults.removeObject(forKey: SonuxRuntime.showPlayerOnLaunchKey)
+        if let value { defaults.set(value, forKey: SonuxRuntime.showPlayerOnLaunchKey) }
         body()
-        if let saved { defaults.set(saved, forKey: SonuxRuntime.wasPlayingKey) }
-        else { defaults.removeObject(forKey: SonuxRuntime.wasPlayingKey) }
+        if let saved { defaults.set(saved, forKey: SonuxRuntime.showPlayerOnLaunchKey) }
+        else { defaults.removeObject(forKey: SonuxRuntime.showPlayerOnLaunchKey) }
     }
 
-    func testRestoreNowPlayingPage_opensWhenLastSessionWasPlaying() {
-        withWasPlayingKey(true) {
+    func testRestorePlayerPage_opensEvenThoughNothingWasPlaying() {
+        // 上次退出时播放页是开着的、但已经按了暂停 → 重开仍要落回播放页
+        withShowPlayerOnLaunchKey(true) {
             withPreparedBook {
                 SonuxRuntime.shared.player.showPlayer = false
-                SonuxRuntime.shared.restoreNowPlayingPage()
-                XCTAssertTrue(SonuxRuntime.shared.player.showPlayer, "上次在播 → 重开落到播放页")
+                SonuxRuntime.shared.restorePlayerPageOnLaunch()
+                XCTAssertTrue(SonuxRuntime.shared.player.showPlayer, "标记为真 → 重开落到播放页")
             }
         }
     }
 
-    func testRestoreNowPlayingPage_staysClosedWhenLastSessionWasIdle() {
-        withWasPlayingKey(false) {
+    func testRestorePlayerPage_staysClosedWhenLastSessionLeftTheLibrary() {
+        withShowPlayerOnLaunchKey(false) {
             withPreparedBook {
                 SonuxRuntime.shared.player.showPlayer = false
-                SonuxRuntime.shared.restoreNowPlayingPage()
-                XCTAssertFalse(SonuxRuntime.shared.player.showPlayer, "上次没在播 → 照旧停在书库")
+                SonuxRuntime.shared.restorePlayerPageOnLaunch()
+                XCTAssertFalse(SonuxRuntime.shared.player.showPlayer, "上次停在书库 → 照旧停在书库")
             }
         }
     }
 
-    func testRestoreNowPlayingPage_needsABookToOpen() {
+    func testRestorePlayerPage_needsABookToOpen() {
         // 书还没扫进书库（currentBook 空）时不能把播放页开着空转，等书挂上那次才算数
         let player = SonuxRuntime.shared.player
-        withWasPlayingKey(true) {
+        withShowPlayerOnLaunchKey(true) {
             player.unloadPrepared()
             let savedShowPlayer = player.showPlayer
             player.showPlayer = false
-            SonuxRuntime.shared.restoreNowPlayingPage()
+            SonuxRuntime.shared.restorePlayerPageOnLaunch()
             XCTAssertFalse(player.showPlayer)
-            XCTAssertTrue(UserDefaults.standard.bool(forKey: SonuxRuntime.wasPlayingKey),
+            XCTAssertTrue(UserDefaults.standard.bool(forKey: SonuxRuntime.showPlayerOnLaunchKey),
                           "没开成页就不该吃掉标记")
             player.showPlayer = savedShowPlayer
         }
     }
 
-    func testRestoreNowPlayingPage_consumesFlagSoItOpensOnlyOnce() {
-        withWasPlayingKey(true) {
+    func testRestorePlayerPage_consumesFlagSoItOpensOnlyOnce() {
+        withShowPlayerOnLaunchKey(true) {
             withPreparedBook {
                 SonuxRuntime.shared.player.showPlayer = false
-                SonuxRuntime.shared.restoreNowPlayingPage()
+                SonuxRuntime.shared.restorePlayerPageOnLaunch()
                 XCTAssertTrue(SonuxRuntime.shared.player.showPlayer)
                 // 用户手动收起后，后续再挂书（比如扫完外部引用的书）不该把人弹回播放页
                 SonuxRuntime.shared.player.showPlayer = false
-                SonuxRuntime.shared.restoreNowPlayingPage()
+                SonuxRuntime.shared.restorePlayerPageOnLaunch()
                 XCTAssertFalse(SonuxRuntime.shared.player.showPlayer)
             }
         }
     }
 
-    func testRememberWasPlaying_storesCurrentPlayingState() {
+    // MARK: - 退到后台时怎么记这个标记
+
+    func testRememberPlayerPageOnLaunch_recordsOpenPageWhilePaused() {
         let defaults = UserDefaults.standard
-        withWasPlayingKey(true) {
+        withShowPlayerOnLaunchKey(false) {
             withPreparedBook {
-                // 挂着没出声 → 记 false，下次冷启动就该停在书库
-                SonuxRuntime.shared.rememberWasPlaying()
-                XCTAssertFalse(defaults.bool(forKey: SonuxRuntime.wasPlayingKey))
+                let player = SonuxRuntime.shared.player
+                player.showPlayer = true
+                XCTAssertFalse(player.isPlaying, "prepareToResume 只挂书不出声")
+                SonuxRuntime.shared.rememberPlayerPageOnLaunch()
+                XCTAssertTrue(defaults.bool(forKey: SonuxRuntime.showPlayerOnLaunchKey),
+                              "播放页开着就算，哪怕正暂停")
+            }
+        }
+    }
+
+    func testRememberPlayerPageOnLaunch_recordsDismissedAndPausedAsFalse() {
+        let defaults = UserDefaults.standard
+        withShowPlayerOnLaunchKey(true) {
+            withPreparedBook {
+                let player = SonuxRuntime.shared.player
+                player.showPlayer = false
+                XCTAssertFalse(player.isPlaying)
+                SonuxRuntime.shared.rememberPlayerPageOnLaunch()
+                XCTAssertFalse(defaults.bool(forKey: SonuxRuntime.showPlayerOnLaunchKey),
+                               "页收起了也没在播 → 下次冷启动该停在书库")
             }
         }
     }

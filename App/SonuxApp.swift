@@ -29,8 +29,8 @@ struct SonuxApp: App {
                 .onChange(of: scenePhase) { phase in
                     switch phase {
                     case .background:
-                        // 记一笔「退出去时在不在出声」，下次冷启动据此直接把播放页打开（见 SonuxRuntime）
-                        SonuxRuntime.shared.rememberWasPlaying()
+                        // 记一笔「退出去时播放页开着/在出声」，下次冷启动据此直接落到播放页（见 SonuxRuntime）
+                        SonuxRuntime.shared.rememberPlayerPageOnLaunch()
                         // 退到后台时立刻落盘当前进度（只挂着没听的状态不必写，否则会顶掉最后收听时间）
                         if player.hasPlayer, let position = player.currentPosition(), let book = player.currentBook {
                             library.recordPosition(position, bookId: book.id)
