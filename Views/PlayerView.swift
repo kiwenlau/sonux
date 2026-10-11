@@ -22,12 +22,6 @@ struct PlayerView: View {
     /// 竖版封面在没有真实封面时的占位比例
     private static let placeholderRatio: CGFloat = 0.8
 
-    /// 进度条两侧快退/快进的步长（秒），与锁屏的跳过区间一致
-    private static let skipSeconds: TimeInterval = 15
-    /// 快进快退按钮的点击框边长与到轨道的间距；时间行按同样宽度内缩，与轨道两端对齐
-    private static let skipButtonSide: CGFloat = 34
-    private static let skipToTrackGap: CGFloat = 8
-
     // 间距一律取自 8 的倍数刻度，全页节奏统一；
     // 松紧也表达分组关系：同一功能组内部间距小，组与组之间间距大；
     // 封面与播放组之间取 32：封面阴影向下扩散约 24pt，必须留出净距才不会压到章节名
@@ -191,12 +185,17 @@ struct PlayerView: View {
     /// 右上角分享入口：与返回按钮同尺寸同材质的玻璃圆底，把正在读的那句画成摘录卡片。
     /// 图标照微信读书那样用「方框 + 右上箭头」（arrow.up.forward.square），
     /// 不用系统分享那个「方框 + 向上箭头」—— 后者在本 App 里是卡片层那颗按钮的图标
+    ///
+    /// 摘哪一句在按下的那一刻才取：这一页不再每秒重算，渲染时算好的句子会停在旧位置
     @ViewBuilder
     private var shareButton: some View {
-        if let quote = shareQuote {
-            circleButton(glyph: "arrow.up.forward.square") { quoted = quote }
-                .accessibilityIdentifier("shareQuote")
-                .accessibilityLabel(L("Share"))
+        if let chapter = player.currentChapter, hasCaption,
+           !transcripts.lines(forChapter: chapter.id).isEmpty {
+            circleButton(glyph: "arrow.up.forward.square") {
+                if let quote = quote(at: player.currentTime, fallBackToFirst: true) { quoted = quote }
+            }
+            .accessibilityIdentifier("shareQuote")
+            .accessibilityLabel(L("Share"))
         }
     }
 
@@ -305,12 +304,6 @@ struct PlayerView: View {
 
     // MARK: - 字幕（正在朗读的那一句）
 
-    /// 当前该显示的字幕：拖动进度条时跟着预览位置走，与两侧时间数字保持一致
-    private var captionText: String? {
-        transcripts.text(forChapter: player.currentChapter?.id,
-                         at: scrubTime ?? player.currentTime)
-    }
-
     /// 当前这一章有没有字幕（没转写出来的书整块不占位，不留一行空白）
     private var hasCaption: Bool {
         transcripts.hasTranscript(for: player.currentChapter?.id)
@@ -329,62 +322,6 @@ struct PlayerView: View {
         return Quote(book: book, chapter: chapter, line: line)
     }
 
-    /// 长按字幕要摘的那句；还没读到第一句时摘不出来，那就不挂长按菜单
-    private var captionQuote: Quote? {
-        quote(at: scrubTime ?? player.currentTime)
-    }
-
-    /// 右上角分享要摘的那句；这一章压根没字幕（没转写过的书）时返回 nil，按钮整枚不出现
-    private var shareQuote: Quote? {
-        hasCaption ? quote(at: scrubTime ?? player.currentTime, fallBackToFirst: true) : nil
-    }
-
-    @ViewBuilder
-    private var caption: some View {
-        if hasCaption {
-            // 整块字幕都是入口：点它拉开全章文案页（QQ 音乐的同款交互）。
-            // 右端那枚文本图标属于同一个按钮，不是第二个控件 —— 一行里叠两个按钮只会
-            // 互抢热区；图标负责「看得见有东西可点」，整行负责「哪儿都点得中」
-            Button(action: openTranscript) {
-                HStack(alignment: .top, spacing: 8) {
-                    ZStack(alignment: .topLeading) {
-                        if let text = captionText {
-                            Text(text)
-                                .font(.footnote)
-                                .multilineTextAlignment(.leading)
-                                .foregroundStyle(.white.opacity(0.85))
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.85)
-                                // 只在换句时重建视图，配合 transition 做淡入淡出
-                                .id(text)
-                                .transition(.opacity)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                    Image(systemName: "text.page")
-                        // 15pt / 白 0.6 与上面章节行那枚图标配成同一列，规格见 chaptersButton
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(.white.opacity(0.6))
-                        // 与首行文字的光学中线对齐
-                        .offset(y: 1)
-                }
-                .frame(minHeight: Self.captionHeight, alignment: .topLeading)
-                .clipped()
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .animation(.easeInOut(duration: 0.28), value: captionText ?? "")
-            // 长按这句 → 摘录卡片（点开还是文案页，两件事不抢同一个手势）
-            .quoteMenu(captionQuote) { quoted = $0 }
-            // 上间距加在 if 分支内部：无字幕时整块不出现，不能在外面留下 8pt 空档
-            .padding(.top, Self.gapChapterToCaption)
-            .padding(.horizontal, 12)
-            .accessibilityIdentifier("caption")
-            .accessibilityLabel(L("Chapter Text"))
-        }
-    }
-
     // MARK: - 底部播放组
 
     /// 章节名、字幕、进度条、控制排是一个功能整体，用统一的组内间距成组贴底，
@@ -393,69 +330,14 @@ struct PlayerView: View {
         VStack(spacing: 0) {
             chapterText
 
-            caption
+            PlayerCaption(scrubTime: $scrubTime, onOpen: openTranscript, onQuote: { quoted = $0 })
 
-            progress
+            PlayerProgressRow(scrubTime: $scrubTime)
                 .padding(.top, hasCaption ? Self.gapCaptionToProgress : Self.gapChapterToProgress)
 
             controls
                 .padding(.top, Self.gapProgressToControls)
         }
-    }
-
-    // MARK: - 进度
-
-    /// 快退 15 秒、轨道、快进 15 秒排成一排（参考微信读书），时间行仍在其下方
-    private var progress: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: Self.skipToTrackGap) {
-                skipButton(glyph: "gobackward.15", label: L("Skip Backward 15 Seconds")) {
-                    player.skip(by: -Self.skipSeconds)
-                }
-
-                Slider(
-                    value: Binding(
-                        get: { scrubTime ?? player.currentTime },
-                        set: { scrubTime = $0 }
-                    ),
-                    in: 0...max(player.duration, 1),
-                    onEditingChanged: { editing in
-                        if !editing, let t = scrubTime {
-                            player.seek(to: t)
-                            scrubTime = nil
-                        }
-                    }
-                )
-                .tint(.white)
-
-                skipButton(glyph: "goforward.15", label: L("Skip Forward 15 Seconds")) {
-                    player.skip(by: Self.skipSeconds)
-                }
-            }
-
-            HStack {
-                Text(TimeFormat.time(scrubTime ?? player.currentTime))
-                Spacer()
-                Text("-" + TimeFormat.time(max(player.duration - (scrubTime ?? player.currentTime), 0)))
-            }
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(.white.opacity(0.7))
-            // 两端让位给快进快退按钮，时间数字正好落在轨道起止点下方
-            .padding(.horizontal, Self.skipButtonSide + Self.skipToTrackGap)
-        }
-    }
-
-    /// 快进/快退按钮：只用图标不加文字，符合播放页整体的极简排布
-    private func skipButton(glyph: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: glyph)
-                .font(.system(size: 21, weight: .regular))
-                .foregroundStyle(.white)
-                .frame(width: Self.skipButtonSide, height: Self.skipButtonSide)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 
     // MARK: - 主控制
@@ -500,8 +382,7 @@ struct PlayerView: View {
                         .font(.system(size: 24))
                     if player.sleepMode != .off {
                         // 两种定时都报还剩多少时间：章数定时换算成听完这些章还要多久，一路往下走
-                        Text(TimeFormat.time(player.sleepSecondsLeft))
-                            .font(.caption2.monospacedDigit())
+                        SleepCountdownText()
                     }
                 }
                 .foregroundStyle(.white.opacity(player.sleepMode == .off ? 0.7 : 1.0))
@@ -512,6 +393,158 @@ struct PlayerView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.white)
         .padding(.horizontal, 8)
+    }
+}
+
+/// 字幕那一行：正在读的句子每秒都可能换，所以它是播放页上少数观察时钟的小块之一。
+/// 观察下沉到这里，播放页本体（封面大图、主色渐变、PlayerLayout）就不必跟着秒重算 body
+private struct PlayerCaption: View {
+    /// 拖动进度条时的预览位置：非 nil 就显示那一句，与进度条、两侧时间数字同一口径
+    @Binding var scrubTime: TimeInterval?
+    let onOpen: () -> Void
+    let onQuote: (Quote) -> Void
+
+    @EnvironmentObject private var player: PlayerService
+    @ObservedObject private var clock = SonuxRuntime.shared.player.clock
+    @ObservedObject private var transcripts = TranscriptStore.shared
+
+    /// 当前该显示的字幕
+    private var text: String? {
+        transcripts.text(forChapter: player.currentChapter?.id, at: time)
+    }
+
+    private var time: TimeInterval { scrubTime ?? clock.currentTime }
+
+    /// 长按字幕要摘的那句；还没读到第一句时摘不出来，那就不挂长按菜单
+    private var quote: Quote? {
+        guard let book = player.currentBook, let chapter = player.currentChapter else { return nil }
+        guard let line = transcripts.line(forChapter: chapter.id, at: time) else { return nil }
+        return Quote(book: book, chapter: chapter, line: line)
+    }
+
+    var body: some View {
+        if transcripts.hasTranscript(for: player.currentChapter?.id) {
+            // 整块字幕都是入口：点它拉开全章文案页（QQ 音乐的同款交互）。
+            // 右端那枚文本图标属于同一个按钮，不是第二个控件 —— 一行里叠两个按钮只会
+            // 互抢热区；图标负责「看得见有东西可点」，整行负责「哪儿都点得中」
+            Button(action: onOpen) {
+                HStack(alignment: .top, spacing: 8) {
+                    ZStack(alignment: .topLeading) {
+                        if let text {
+                            Text(text)
+                                .font(.footnote)
+                                .multilineTextAlignment(.leading)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.85)
+                                // 只在换句时重建视图，配合 transition 做淡入淡出
+                                .id(text)
+                                .transition(.opacity)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                    Image(systemName: "text.page")
+                        // 15pt / 白 0.6 与上面章节行那枚图标配成同一列，规格见 chaptersButton
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.6))
+                        // 与首行文字的光学中线对齐
+                        .offset(y: 1)
+                }
+                .frame(minHeight: PlayerView.captionHeight, alignment: .topLeading)
+                .clipped()
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .animation(.easeInOut(duration: 0.28), value: text ?? "")
+            // 长按这句 → 摘录卡片（点开还是文案页，两件事不抢同一个手势）
+            .quoteMenu(quote) { onQuote($0) }
+            // 上间距加在 if 分支内部：无字幕时整块不出现，不能在外面留下 8pt 空档
+            .padding(.top, PlayerView.gapChapterToCaption)
+            .padding(.horizontal, 12)
+            .accessibilityIdentifier("caption")
+            .accessibilityLabel(L("Chapter Text"))
+        }
+    }
+}
+
+/// 进度条与两侧时间数字：跟着秒跳的那一行，观察下沉到这里
+private struct PlayerProgressRow: View {
+    /// 拖动中的预览位置：nil 表示没在拖，显示播放器此刻的位置；松手交给播放器定位
+    @Binding var scrubTime: TimeInterval?
+
+    @EnvironmentObject private var player: PlayerService
+    @ObservedObject private var clock = SonuxRuntime.shared.player.clock
+
+    /// 进度条两侧快退/快进的步长（秒），与锁屏的跳过区间一致
+    private static let skipSeconds: TimeInterval = 15
+    /// 快进快退按钮的点击框边长与到轨道的间距；时间行按同样宽度内缩，与轨道两端对齐
+    private static let skipButtonSide: CGFloat = 34
+    private static let skipToTrackGap: CGFloat = 8
+
+    private var time: TimeInterval { scrubTime ?? clock.currentTime }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: Self.skipToTrackGap) {
+                skipButton(glyph: "gobackward.15", label: L("Skip Backward 15 Seconds")) {
+                    player.skip(by: -Self.skipSeconds)
+                }
+
+                Slider(
+                    value: Binding(
+                        get: { time },
+                        set: { scrubTime = $0 }
+                    ),
+                    in: 0...max(player.duration, 1),
+                    onEditingChanged: { editing in
+                        if !editing, let t = scrubTime {
+                            player.seek(to: t)
+                            scrubTime = nil
+                        }
+                    }
+                )
+                .tint(.white)
+
+                skipButton(glyph: "goforward.15", label: L("Skip Forward 15 Seconds")) {
+                    player.skip(by: Self.skipSeconds)
+                }
+            }
+
+            HStack {
+                Text(TimeFormat.time(time))
+                Spacer()
+                Text("-" + TimeFormat.time(max(player.duration - time, 0)))
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.white.opacity(0.7))
+            // 两端让位给快进快退按钮，时间数字正好落在轨道起止点下方
+            .padding(.horizontal, Self.skipButtonSide + Self.skipToTrackGap)
+        }
+    }
+
+    /// 快进/快退按钮：只用图标不加文字，符合播放页整体的极简排布
+    private func skipButton(glyph: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: glyph)
+                .font(.system(size: 21, weight: .regular))
+                .foregroundStyle(.white)
+                .frame(width: Self.skipButtonSide, height: Self.skipButtonSide)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+/// 定时关闭还剩多久那一行读数：秒表与「听完 N 章」的换算都跟着秒走
+struct SleepCountdownText: View {
+    @EnvironmentObject private var player: PlayerService
+    @ObservedObject private var clock = SonuxRuntime.shared.player.clock
+
+    var body: some View {
+        Text(TimeFormat.time(player.sleepSecondsLeft))
+            .font(.caption2.monospacedDigit())
     }
 }
 
@@ -706,20 +739,8 @@ struct TranscriptView: View {
 
     @EnvironmentObject private var player: PlayerService
     @ObservedObject private var transcripts = TranscriptStore.shared
-    /// 自动跟随的暂停截止点：自己刚滑过就安静几秒，否则读到的位置会被播放进度一次次拽回去
-    @State private var followHoldUntil = Date.distantPast
-
-    /// 手动滑动之后暂停跟随的秒数：够读几句，又不至于一直不跟
-    private static let followPause: TimeInterval = 8
-    /// 焦点渐变：每远一句淡多少、淡到哪儿为止。文稿页首先得能读，
-    /// 不能像歌词那样把远处的句子抹到看不见，所以留 0.5 的地板
-    private static let fadeStep = 0.12
-    private static let fadeFloor = 0.5
 
     private var lines: [TranscriptLine] { transcripts.lines(forChapter: chapter.id) }
-
-    /// 此刻正在朗读的那一句（-1 表示还没开口）
-    private var activeIndex: Int { transcripts.lineIndex(forChapter: chapter.id, at: player.currentTime) }
 
     var body: some View {
         ZStack {
@@ -727,7 +748,7 @@ struct TranscriptView: View {
 
             VStack(spacing: 0) {
                 header
-                textList
+                TranscriptLines(chapter: chapter)
             }
         }
         // 整页都是这一层的命中区：糊化的底是装饰层（关了命中测试），不铺形状的话
@@ -785,7 +806,7 @@ struct TranscriptView: View {
                 // 同一个圆底、同一字重），只是这一页是 ScrollView + LazyVStack，
                 // 长按菜单在那个结构里弹不出来，所以入口做成看得见的按钮放在右上角
                 CircleGlyphButton(glyph: "arrow.up.forward.square") {
-                    if let quote = currentQuote { onQuote(quote) }
+                    if let quote = quoteAtCurrentLine() { onQuote(quote) }
                 }
                 .accessibilityLabel(L("Share"))
                 .accessibilityIdentifier("quoteCurrentLine")
@@ -810,11 +831,13 @@ struct TranscriptView: View {
         .padding(.bottom, 18)
     }
 
-    /// 按钮摘的是哪句：正在读的那句；还没读到第一句就摘第一句（这一页只在有字幕时存在）
-    private var currentQuote: Quote? {
-        let index = activeIndex >= 0 ? activeIndex : 0
-        guard lines.indices.contains(index) else { return nil }
-        return Quote(book: book, chapter: chapter, line: lines[index])
+    /// 按钮摘的是哪句：正在读的那句；还没读到第一句就摘第一句（这一页只在有字幕时存在）。
+    /// 按下的这一刻才取：整页不再每秒重算，渲染时算好的句子会停在旧位置
+    private func quoteAtCurrentLine() -> Quote? {
+        let index = transcripts.lineIndex(forChapter: chapter.id, at: player.currentTime)
+        let at = index >= 0 ? index : 0
+        guard lines.indices.contains(at) else { return nil }
+        return Quote(book: book, chapter: chapter, line: lines[at])
     }
 
     /// 第二行：作者 · 本章名（这本书没标作者就只剩章名，不留个孤零零的分隔点）
@@ -822,10 +845,32 @@ struct TranscriptView: View {
         let author = book.author.flatMap { $0.isEmpty ? nil : $0 }
         return [author, chapter.title].compactMap { $0 }.joined(separator: " · ")
     }
+}
 
-    // MARK: - 文案
+/// 文案正文那一整列：正在读的句子每秒都可能换，所以盯着时钟的是这一小块，而不是整页。
+/// 全屏糊化封面留在 TranscriptView 里，不跟着秒重画（见 PlaybackClock）
+struct TranscriptLines: View {
+    let chapter: Chapter
 
-    private var textList: some View {
+    @EnvironmentObject private var player: PlayerService
+    @ObservedObject private var clock = SonuxRuntime.shared.player.clock
+    @ObservedObject private var transcripts = TranscriptStore.shared
+    /// 自动跟随的暂停截止点：自己刚滑过就安静几秒，否则读到的位置会被播放进度一次次拽回去
+    @State private var followHoldUntil = Date.distantPast
+
+    /// 手动滑动之后暂停跟随的秒数：够读几句，又不至于一直不跟
+    private static let followPause: TimeInterval = 8
+    /// 焦点渐变：每远一句淡多少、淡到哪儿为止。文稿页首先得能读，
+    /// 不能像歌词那样把远处的句子抹到看不见，所以留 0.5 的地板
+    private static let fadeStep = 0.12
+    private static let fadeFloor = 0.5
+
+    private var lines: [TranscriptLine] { transcripts.lines(forChapter: chapter.id) }
+
+    /// 此刻正在朗读的那一句（-1 表示还没开口）
+    private var activeIndex: Int { transcripts.lineIndex(forChapter: chapter.id, at: clock.currentTime) }
+
+    var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 // LazyVStack 只渲染露出来的那十几行：一章最多近五百句，
@@ -1043,6 +1088,8 @@ struct SpeedSliderSheet: View {
 /// 拖的时候看刻度就知道自己在挑章数还是挑时间，还要多少分钟由上面那行标题说
 struct SleepTimerSheet: View {
     @EnvironmentObject private var player: PlayerService
+    /// 面板上的剩余时间与滑块位置都跟着秒表走：观察时钟，读数仍从 player 换算着取
+    @ObservedObject private var clock = SonuxRuntime.shared.player.clock
 
     /// 分钟刻度上标数字的档位
     private let minuteMajors: [Double] = [0, 30, 60, 90]

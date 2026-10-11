@@ -42,7 +42,7 @@ final class LibraryService: ObservableObject {
     @Published private(set) var lastPlayedDates: [String: Date] = [:]
     /// key: bookId，value: 该书进书库的时间（按「最近添加」排序用），第一次扫到时补记，之后不再改
     @Published private(set) var addedDates: [String: Date] = [:]
-    /// 收听时长统计（累计/按天/按书），由播放器每秒累加
+    /// 收听时长统计（累计/按天/按书），由播放器按结账节奏累加
     @Published private(set) var listening = ListeningStats()
     /// 首次扫描是否已出结果：未出结果前界面显示 loading，而不是「书库是空的」
     @Published private(set) var hasFinishedFirstScan = false
@@ -445,7 +445,7 @@ final class LibraryService: ObservableObject {
 
     /// 全书收听进度 0...1：每章取「听到过的位置」相加再除以全书总时长，供书库卡片进度环使用
     /// 章节位置都持久化在 chapterPositions 里，所以跳过某章、听了中间某章都能算进来；
-    /// 正在播的那章由播放器每秒上报 recordPosition，进度环会跟着实时增长
+    /// 正在播的那章由播放器结一次账就跟着涨一格（进度环本来也是全书进度，看不出这一格的间隔）
     func listeningProgress(for book: Book) -> Double {
         let total = book.totalDuration
         guard total > 0 else { return 0 }
@@ -471,8 +471,11 @@ final class LibraryService: ObservableObject {
 
     /// 播放历史：按最后播放时间从新到旧排序，只收录仍在书库里的书
     func historyEntries() -> [HistoryEntry] {
-        lastPlayedDates.compactMap { bookId, date -> HistoryEntry? in
-            guard let book = book(id: bookId) else { return nil }
+        // 先建一份 id→书 的索引再逐条取：逐条 book(id:) 是线性扫全部书，
+        // 这一页每次重算都要把整个历史表这么扫一遍（O(n²)），书多就是一卡
+        let byId = Dictionary(books.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return lastPlayedDates.compactMap { bookId, date -> HistoryEntry? in
+            guard let book = byId[bookId] else { return nil }
             let position = positions[bookId]
             let chapter = position.flatMap { pos in book.chapters.first { $0.id == pos.chapterId } }
             return HistoryEntry(book: book, chapter: chapter, position: position, lastPlayed: date)
@@ -488,7 +491,7 @@ final class LibraryService: ObservableObject {
 
     // MARK: - 收听时长统计
 
-    /// 播放器每秒上报的真实收听秒数：只累加到内存，落盘交给同一秒内的 recordPosition
+    /// 播放器攒下来的一段真实收听秒数：只累加到内存，落盘交给紧跟其后的 recordPosition
     func addListening(seconds: TimeInterval, bookId: String) {
         listening.add(seconds: seconds, bookId: bookId)
     }
@@ -549,6 +552,8 @@ final class LibraryService: ObservableObject {
         )
     }
 
+    /// 记一笔播放位置：按书、按章各一份，顺带刷新最后播放时间并落盘。
+    /// 调用节奏由播放器定：播放中每 30 秒一次，暂停、停止、切章、拖进度、退后台当场一次
     func recordPosition(_ position: PlayPosition, bookId: String, alsoForChapter: Bool = false) {
         positions[bookId] = position
         // 章节进度单独记一份，保证每章都有独立的历史位置
@@ -570,7 +575,7 @@ final class LibraryService: ObservableObject {
         }
     }
 
-    /// 跨过「整本听完」这条线时落一笔完成日期；听过的书都要每秒走到这里，
+    /// 跨过「整本听完」这条线时落一笔完成日期；每次结账都会走到这里，
     /// 所以先按有没有记过筛掉，已经听完的书不再翻章
     private func markFinishedIfNeeded(bookId: String) {
         guard listening.finished[bookId] == nil, let book = book(id: bookId), isBookFinished(book) else { return }

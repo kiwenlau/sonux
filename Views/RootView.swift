@@ -238,7 +238,7 @@ struct RootView: View {
                 }
             }
         }
-        .background(BottomPanelBackground(cover: bleedCover))
+        .background(BottomPanelBackground(cover: bleedCover).equatable())
     }
 
     var body: some View {
@@ -272,9 +272,16 @@ struct RootView: View {
 /// 底部面板的底：白底上把当前这本书的封面糊开再压一层纱——只要封面的颜色晕染，
 /// 不要形状。直接把面板做半透明行不通：系统材质模糊半径太小，纱一薄底下列表的
 /// 白卡条纹就整条透上来（看着像渲染出错），纱一厚颜色也没了
-struct BottomPanelBackground: View {
+///
+/// 这块 conform to Equatable 并配 `.equatable()` 使用：radius 60 的全屏糊化是它最贵的一笔开销，
+/// 父视图每次重算都比一次「封面还是那张吗」，相等就跳过 body，不重新光栅化
+struct BottomPanelBackground: View, Equatable {
     /// 出血用的封面图；nil 就是纯底
     let cover: UIImage?
+
+    static func == (lhs: BottomPanelBackground, rhs: BottomPanelBackground) -> Bool {
+        lhs.cover === rhs.cover
+    }
 
     var body: some View {
         ZStack {

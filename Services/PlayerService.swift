@@ -25,25 +25,51 @@ final class PlayerService: NSObject, ObservableObject {
     @Published private(set) var currentBook: Book?
     @Published private(set) var currentChapter: Chapter?
     @Published private(set) var isPlaying = false
-    @Published private(set) var currentTime: TimeInterval = 0
     @Published private(set) var duration: TimeInterval = 0
     @Published private(set) var speed: Float = 1.0
     /// 是否展示全屏播放界面（点列表播放时直接打开）
     @Published var showPlayer = false
     // 定时关闭
     @Published private(set) var sleepMode: SleepTimerMode = .off
-    @Published private(set) var sleepRemaining: TimeInterval = 0
+
+    /// 每秒走动的读数：单独一个观察对象，只让跟着秒跳的界面盯着它。
+    /// 挂在这个对象的 @Published 上会让每一页每秒重算一次 body，见 PlaybackClock
+    let clock = PlaybackClock()
+
+    /// 本章内已播秒。界面要跟着它跳，请观察 `clock`，读值走这里
+    var currentTime: TimeInterval { clock.currentTime }
+
+    /// 分钟定时的剩余秒表：存在时钟里，每秒一跳由它自己发布
+    private var sleepRemaining: TimeInterval {
+        get { clock.sleepRemaining }
+        set { clock.setSleepRemaining(newValue) }
+    }
 
     var onChapterFinished: ((Chapter, Book) -> Void)?
-    /// 周期性进度上报（播完一章时也会调用一次结尾位置）
+    /// 进度上报（播完一章、暂停、停止、拖过进度都当场报一次，播放中每 30 秒一次，见 accountProgress）
     var onPositionChange: ((PlayPosition) -> Void)?
     /// 查询某章节的历史播放位置（自动续播到下一章时使用）
     var chapterHistory: ((String) -> PlayPosition?)?
-    /// 收听时长上报：真实收听了多少墙钟秒（倍速不放大，暂停与挂起的空档不计入）
+    /// 收听时长上报：这一段真实收听了多少墙钟秒（倍速不放大，暂停与挂起的空档不计入）。
+    /// 播放器先攒着，跟着下一次进度上报一起报，不每秒惊动一次统计与落盘
     var onListening: ((TimeInterval, String) -> Void)?
 
     /// 上次计时的时间点：只在播放中累加，暂停/停止时清空
     private var listeningAnchor: Date?
+
+    // MARK: - 进度结账的节流（书库记账 + 落盘）
+
+    /// 结账间隔：播放中每这么久才向书库记一次位置与收听秒数，也就每这么久落一次盘。
+    /// 每秒一次全量 JSON 编码 + .atomic 写盘，在真机 1300+ 章上是每小时往闪存写 400 MB；
+    /// 而界面那格读数由 PlaybackClock 每秒发布，不依赖这一笔。
+    /// nonisolated：它是下面那条静态判据的默认量程
+    nonisolated static let progressAccountingInterval: TimeInterval = 30
+    /// 还没结进书库的收听秒数：攒到下一次结账一起报，免得每秒惊动一次统计与落盘
+    private var pendingListeningSeconds: TimeInterval = 0
+    /// 上一次结账的时刻：节流窗口从这一刻起算
+    private var lastAccountedAt: Date?
+    /// 上一次结进书库的位置：与手上的读数一样就说明没账可结
+    private var lastAccountedPosition: PlayPosition?
 
     /// 播放器实例常驻，换章节只换 item：AVPlayer 是边播边解，
     /// 十几小时一本的 m4b 不再像 AVAudioPlayer 那样把整本解码进内存
@@ -209,6 +235,11 @@ final class PlayerService: NSObject, ObservableObject {
     func play(chapter: Chapter, book: Book, fromTime: TimeInterval = 0) {
         activateAudioSession()
         let local = clampedLocalTime(fromTime, in: chapter)
+        // 换章/换书前先把上一段结清：位置与攒下的收听秒数当场落盘。
+        // 不结的话下一笔要等 30 秒的节流窗口，回头续播会把人退回最多 30 秒
+        if currentChapter != nil, currentChapter?.id != chapter.id || currentBook?.id != book.id {
+            accountProgress(force: true)
+        }
         // 换书时摘掉上一本的章数定时：那几章是上一本要听的量，这本书章节长短不同，
         // 接着数会在完全对不上的时长上停。分钟定时不摘，它数的是墙钟时间，听哪本都算
         if currentBook?.id != book.id, case .chapters = sleepMode { clearSleepTimer() }
@@ -217,7 +248,10 @@ final class PlayerService: NSObject, ObservableObject {
         // 倍速跟着书走：先换成这本书自己记着的速度，下面才按它出声
         speed = Self.rememberedSpeed(forBook: book.id)
         duration = chapter.duration
-        currentTime = local
+        clock.setCurrentTime(local)
+        // 新的一章重新起账：下一格计时就把「正在听这本」记进历史，不等节流窗口
+        lastAccountedPosition = nil
+        lastAccountedAt = nil
 
         // 同一文件内的章节切换：只跳个偏移就出声。换了文件才重装 item——
         // 一本十几小时的书若每次切章都重开文件，就要重新解析索引、重建解码器，又慢又吃内存
@@ -309,7 +343,7 @@ final class PlayerService: NSObject, ObservableObject {
         guard pausedFor >= Self.resumeRewindAfter, local > ProgressPolicy.resumeRewind else { return }
         let target = local - ProgressPolicy.resumeRewind
         seekPrecise(toFileTime: chapter.fileTime(target))
-        currentTime = target
+        clock.setCurrentTime(target)
         NSLog("[sonux] resume: 已停 %.0f s，续播回退到《%@》%.0f s", min(pausedFor, 86400), chapter.title, target)
     }
 
@@ -350,10 +384,10 @@ final class PlayerService: NSObject, ObservableObject {
         let chapter = currentChapter
         let span = chapter?.duration ?? duration
         let clamped = min(max(0, time), span)
-        currentTime = clamped
+        clock.setCurrentTime(clamped)
         // 手动拖过位置就说明人知道自己在听哪儿，这段停顿不再当作「接不上话」处理
         touchResumeClock()
-        reportPosition()
+        accountProgress(force: true)
         guard let player = player, player.currentItem != nil else {
             // 只挂了位置没装载音频：记下目标时间，按播放键就从这里出声
             return
@@ -418,7 +452,7 @@ final class PlayerService: NSObject, ObservableObject {
         // 挂着没出声也要把倍速摆成这本书的：播放页显示的就得是按下播放键后会用的速度
         speed = Self.rememberedSpeed(forBook: book.id)
         duration = chapter.duration
-        currentTime = min(max(0, time), max(chapter.duration, 0))
+        clock.setCurrentTime(min(max(0, time), max(chapter.duration, 0)))
         isPlaying = false
         // 冷启动时小组件也该知道在听哪本：这条状态不会走 updateNowPlaying（没出声），单独报一次
         syncWidget(book: book, chapter: chapter)
@@ -429,7 +463,7 @@ final class PlayerService: NSObject, ObservableObject {
         guard !hasPlayer else { return }
         currentBook = nil
         currentChapter = nil
-        currentTime = 0
+        clock.setCurrentTime(0)
         duration = 0
         WidgetSync.clear()
     }
@@ -443,7 +477,7 @@ final class PlayerService: NSObject, ObservableObject {
         silenceGaps = [:]
         silenceGapsBookId = nil
         flushListening()
-        reportPosition()
+        accountProgress(force: true)
         player?.pause()
         teardownPlayer()
         isPlaying = false
@@ -452,11 +486,13 @@ final class PlayerService: NSObject, ObservableObject {
         if let book = currentBook, let chapter = currentChapter { syncWidget(book: book, chapter: chapter) }
         currentBook = nil
         currentChapter = nil
-        currentTime = 0
+        clock.setCurrentTime(0)
         duration = 0
         displayLinkTimer?.invalidate()
         displayLinkTimer = nil
         cancelSleepTimer()
+        // 这本已经结清了，重新开播要当新的一笔记
+        lastAccountedPosition = nil
         // 锁屏与车载上那一行字得跟着撤：不清就留着一张「还在播这本」的假卡片，
         // 人在车里按播放键，手上却没书，什么也不会发生
         updateNowPlaying()
@@ -511,9 +547,9 @@ final class PlayerService: NSObject, ObservableObject {
               target - local > 0.05 else { return nil }
         let jumped = target - local
         silenceSkipped += jumped
-        currentTime = target
+        clock.setCurrentTime(target)
         seekPrecise(toFileTime: chapter.fileTime(target))
-        reportPosition()
+        accountProgress()
         NSLog("[sonux] silenceSkip: 《%@》跳过 %.1f s 静音落到 %.0f s（本次累计 %.0f s）",
               chapter.title, jumped, target, silenceSkipped)
         return jumped
@@ -768,12 +804,36 @@ final class PlayerService: NSObject, ObservableObject {
         return PlayPosition(chapterId: chapter.id, time: currentTime)
     }
 
-    private func reportPosition() {
-        guard let chapter = currentChapter, let book = currentBook else { return }
-        let position = PlayPosition(chapterId: chapter.id, time: currentTime)
+    /// 向书库结一次账：位置 + 攒下的收听秒数，书库端连着落盘。
+    /// 播放中每 `progressAccountingInterval` 秒一次；暂停、停止、切章、拖进度当场补一次。
+    /// 账没动（位置与上次记的一样、这一趟也没攒到新收听秒数）就直接返回，不碰磁盘
+    private func accountProgress(force: Bool = false) {
+        guard let book = currentBook else { return }
+        let now = Date()
+        let position = currentPosition()
+        let moved = position != nil && position != lastAccountedPosition
+        guard Self.shouldAccountProgress(now: now, last: lastAccountedAt,
+                                         pendingSeconds: pendingListeningSeconds,
+                                         positionChanged: moved, force: force) else { return }
+        lastAccountedAt = now
+        if pendingListeningSeconds > 0 {
+            onListening?(pendingListeningSeconds, book.id)
+            pendingListeningSeconds = 0
+        }
+        guard let position else { return }
+        lastAccountedPosition = position
         onPositionChange?(position)
-        // 章节末尾 3 秒内不再重复上报
-        _ = book
+    }
+
+    /// 这一趟该不该结账：纯判据，抽出来好把「30 秒窗口 + 当场结清 + 没账可结」三种情况钉死
+    nonisolated static func shouldAccountProgress(now: Date, last: Date?, pendingSeconds: TimeInterval,
+                                                  positionChanged: Bool, force: Bool,
+                                                  interval: TimeInterval = progressAccountingInterval) -> Bool {
+        // 没东西可记就别写盘：暂停期间进度计时器还在每秒走这一趟
+        guard pendingSeconds > 0 || positionChanged else { return false }
+        if force { return true }
+        guard let last else { return true }
+        return now.timeIntervalSince(last) >= interval
     }
 
     private func startProgressTimer() {
@@ -796,19 +856,21 @@ final class PlayerService: NSObject, ObservableObject {
                         self.finishCurrentChapter()
                     } else {
                         let local = chapter.map { $0.localTime(fileTime) } ?? fileTime
-                        self.currentTime = local
+                        self.clock.setCurrentTime(local)
                         // 跳过静音：落在字幕空档里就把位置挪到下一句开口前，跳过了就不再重复报进度
                         var jumped: TimeInterval?
                         if let chapter { jumped = self.skipSilenceIfNeeded(chapter: chapter, local: local) }
-                        if jumped == nil { self.reportPosition() }
+                        if jumped == nil { self.accountProgress() }
                     }
                     self.progressTicks += 1
                     if self.progressTicks % 10 == 0 { self.reportVoiceBoostHeartbeat() }
                     let ms = (CACurrentMediaTime() - t0) * 1000
                     if ms > 50 { NSLog("[sonux] progressTick: 耗时 %.1f ms", ms) }
                 } else {
-                    // 暂停中：把最后一段收听时长收尾，恢复播放后重新起算
+                    // 暂停中：把最后一段收听时长收尾，恢复播放后重新起算。
+                    // 顺手结一次账：账没动时 accountProgress 自己会跳过，不会每秒写盘
                     self.flushListening()
+                    self.accountProgress(force: true)
                 }
             }
         }
@@ -826,12 +888,20 @@ final class PlayerService: NSObject, ObservableObject {
         return next.fileURL == chapter.fileURL ? next : nil
     }
 
+    /// 退到后台那一刻把账结清：位置与攒下的收听秒数当场落盘，不等 30 秒的节流窗口。
+    /// 只挂着书没出声（没装载播放器）时不结，否则会拿启动挂上的位置顶掉真正的最后收听时间
+    func settleProgressForBackground() {
+        guard hasPlayer else { return }
+        flushListening()
+        accountProgress(force: true)
+    }
+
     /// 一章播完：把位置记到章尾、通知外部，再按定时关闭停下或续播下一章
     private func finishCurrentChapter() {
         guard let chapter = currentChapter, let book = currentBook else { return }
         NSLog("[sonux] finishChapter: 《%@》播完（记到 %.0f s）", chapter.title, chapter.duration)
-        currentTime = chapter.duration
-        reportPosition()
+        clock.setCurrentTime(chapter.duration)
+        accountProgress(force: true)
         onChapterFinished?(chapter, book)
 
         if case .chapters(let remaining) = sleepMode {
@@ -871,15 +941,15 @@ final class PlayerService: NSObject, ObservableObject {
 
     // MARK: - 收听时长统计
 
-    /// 把上次计时点到现在的一段真实收听秒数上报给统计
+    /// 把上次计时点到现在的一段真实收听秒数攒起来：等下一次结账一起报给统计
     private func accumulateListening() {
         let now = Date()
         defer { listeningAnchor = now }
-        guard let anchor = listeningAnchor, let bookId = currentBook?.id else { return }
+        guard let anchor = listeningAnchor, currentBook != nil else { return }
         let delta = now.timeIntervalSince(anchor)
         // 定时器抖动、后台挂起造成的长空档不计入收听时长
         guard delta > 0, delta < 10 else { return }
-        onListening?(delta, bookId)
+        pendingListeningSeconds += delta
     }
 
     /// 结束本次计时（暂停、停止、切书前都要调一次）

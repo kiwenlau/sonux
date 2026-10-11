@@ -40,6 +40,8 @@ struct NowPlayingBars: View {
 /// 在无障碍树里合并掉，只剩「打开播放页」一个操作
 struct MiniPlayerView: View {
     @EnvironmentObject private var player: PlayerService
+    /// 进度环每秒跟着走一格：只观察时钟，不跟着全体视图每秒重算（见 PlaybackClock）
+    @ObservedObject private var clock = SonuxRuntime.shared.player.clock
     let onTap: () -> Void
 
     var body: some View {
@@ -68,7 +70,7 @@ struct MiniPlayerView: View {
             .accessibilityIdentifier("mini-open-player")
 
             MiniPlayButton(
-                progress: player.duration > 0 ? player.currentTime / player.duration : 0,
+                progress: player.duration > 0 ? clock.currentTime / player.duration : 0,
                 isPlaying: player.isPlaying
             ) {
                 player.togglePlayPause()
