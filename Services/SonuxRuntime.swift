@@ -14,6 +14,8 @@ final class SonuxRuntime {
     let player = PlayerService()
     /// 装配只做一次的闸门
     private var didStart = false
+    /// 上次退到后台时是否在出声播放，冷启动回读它决定要不要直接落到播放页
+    static let wasPlayingKey = "player.wasPlaying"
 
     /// 冷启动装配：读上次扫描出的书库快照、接上进度与收听时长的记账、把最近收听的那本挂上。
     /// 重复调用直接返回；界面与语音入口都从这里进
@@ -34,10 +36,27 @@ final class SonuxRuntime {
         if !player.hasPlayer, let prepared = player.currentBook, prepared.id != latest?.book.id {
             player.unloadPrepared()
         }
-        guard !player.hasPlayer, player.currentBook == nil else { return }
-        guard let entry = latest,
-              let chapter = entry.chapter ?? entry.book.chapters.first else { return }
-        player.prepareToResume(book: entry.book, chapter: chapter, at: entry.position?.time ?? 0)
+        if player.currentBook == nil, let entry = latest,
+           let chapter = entry.chapter ?? entry.book.chapters.first {
+            player.prepareToResume(book: entry.book, chapter: chapter, at: entry.position?.time ?? 0)
+        }
+        // 挂上书才谈得上开播放页，所以放在这里而不是装配流程里：
+        // 外部引用的书要等后台扫描才回到书库，那一趟也是从这条函数补上的
+        restoreNowPlayingPage()
+    }
+
+    /// 退到后台时记一笔「当时有没有在出声」，供下次冷启动回读
+    func rememberWasPlaying() {
+        UserDefaults.standard.set(player.isPlaying, forKey: Self.wasPlayingKey)
+    }
+
+    /// 上次退出时正在播的那本，重开 App 就直接打开它的播放页。
+    /// 只开页面不出声——挂书走 prepareToResume，不激活音频会话，不抢别的 App 正在放的声音。
+    /// 开成一次就抹掉标记，免得用户手动收起播放页后又被扫书结果弹回来
+    func restoreNowPlayingPage() {
+        guard UserDefaults.standard.bool(forKey: Self.wasPlayingKey), player.currentBook != nil else { return }
+        UserDefaults.standard.removeObject(forKey: Self.wasPlayingKey)
+        player.showPlayer = true
     }
 
     /// 把播放器的进度回调接到书库持久化上
