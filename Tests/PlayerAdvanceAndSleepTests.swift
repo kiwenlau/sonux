@@ -137,8 +137,84 @@ final class PlayerAdvanceAndSleepTests: XCTestCase {
     // MARK: - defaultSleepChapters
 
     func testDefaultSleepChapters_isWithinChapterRange() {
-        // 没记过就是 1；记过越界值也夹回 chapterRange（1...5）
+        // 没书没记过就是 1；某本书记过越界值也夹回 chapterRange（1...5）
         XCTAssertTrue(SleepTimerMode.chapterRange.contains(PlayerService().defaultSleepChapters))
+    }
+
+    // MARK: - 每本书各记各的章数（章节长短每本不一样）
+
+    func testSleepChapters_twoBooksDoNotOverwriteEachOther() {
+        let p = PlayerService()
+        let novel = uniqueBook(1), business = uniqueBook(1)
+        p.prepareToResume(book: novel, chapter: novel.chapters[0], at: 0)
+        p.setSleepTimer(.chapters(3))
+        XCTAssertEqual(p.defaultSleepChapters, 3)
+        p.prepareToResume(book: business, chapter: business.chapters[0], at: 0)
+        XCTAssertEqual(p.defaultSleepChapters, 1, "换到没调过章数的书，不该带着上一本的 3 章")
+        p.setSleepTimer(.chapters(2))
+        p.prepareToResume(book: novel, chapter: novel.chapters[0], at: 0)
+        XCTAssertEqual(p.defaultSleepChapters, 3, "回到上一本应换回它自己记着的章数")
+    }
+
+    func testSleepChapters_surviveNewPlayerServiceAsOnColdLaunch() {
+        // 新建 PlayerService 等价于进程重开：UserDefaults 里的 [bookId: 章数] 要读得回来
+        let (p, book) = prepared(1, at: 0, time: 0)
+        p.setSleepTimer(.chapters(4))
+        let reopened = PlayerService()
+        reopened.prepareToResume(book: book, chapter: book.chapters[0], at: 0)
+        XCTAssertEqual(reopened.defaultSleepChapters, 4)
+    }
+
+    func testSleepChapters_stayAfterTurningTimerOff() {
+        // 关掉定时只关掉这一次：卡片下次还得是这本书上次调的章数
+        let (p, _) = prepared(1, at: 0, time: 0)
+        p.setSleepTimer(.chapters(2))
+        p.setSleepTimer(.off)
+        XCTAssertEqual(p.sleepMode, .off)
+        XCTAssertEqual(p.defaultSleepChapters, 2)
+    }
+
+    // MARK: - sleepTimerToApply（分钟定时全库一份，杀进程重开照样沿用）
+
+    func testSleepMinutes_armedForAnyBookOnColdLaunch() {
+        // setSleepTimer 把分钟数写进 UserDefaults；新建 PlayerService 等价于进程重开，
+        // 换一本从没听过的书，第一次出声仍该满额挂上这 20 分钟
+        let (p, _) = prepared(1, at: 0, time: 0)
+        p.setSleepTimer(.minutes(20))
+        let reopened = PlayerService()
+        let other = uniqueBook(1)
+        reopened.prepareToResume(book: other, chapter: other.chapters[0], at: 0)
+        XCTAssertEqual(reopened.sleepTimerToApply?.mode, SleepTimerMode.minutes(20))
+        XCTAssertEqual(reopened.sleepTimerToApply?.from ?? -1, 1200, accuracy: 1e-6)
+    }
+
+    func testSleepMinutes_turningOffClearsTheMemory() {
+        let (p, _) = prepared(1, at: 0, time: 0)
+        p.setSleepTimer(.minutes(20))
+        p.setSleepTimer(.off)
+        XCTAssertNil(PlayerService().sleepTimerToApply, "主动关掉后，下次播放什么都不开")
+    }
+
+    func testSleepChapters_neverArmedAutomatically() {
+        // 章数定时只把章数留给卡片，不自动挂：自动挂就成了「每 N 章关一次」摘不掉，
+        // 还会把记忆的分钟定时压住
+        let (p, book) = prepared(1, at: 0, time: 0)
+        p.setSleepTimer(.minutes(20))
+        p.setSleepTimer(.chapters(2))
+        let reopened = PlayerService()
+        reopened.prepareToResume(book: book, chapter: book.chapters[0], at: 0)
+        XCTAssertNil(reopened.sleepTimerToApply)
+        XCTAssertEqual(reopened.defaultSleepChapters, 2, "章数还记着，点卡片就按它挂")
+    }
+
+    func testSleepMinutes_unfinishedRemainingWinsOverMemory() {
+        let (p, _) = prepared(1, at: 0, time: 0)
+        p.setSleepTimer(.minutes(20))
+        p.stop()  // 20 分钟没走完就停了：剩下的留给下一次重播
+        let later = PlayerService()
+        later.setSleepTimer(.minutes(45))  // 之后在别处把记忆改成了 45 分钟
+        XCTAssertEqual(p.sleepTimerToApply?.mode, SleepTimerMode.minutes(20), "该接着自己没走完的剩余走，不是按 45 分钟满额重计")
+        XCTAssertEqual(PlayerService().sleepTimerToApply?.mode, SleepTimerMode.minutes(45), "手上没剩余时才用记忆的 45 分钟")
     }
 
     // MARK: - forgetSpeed 清掉唯一 bookId 的记忆

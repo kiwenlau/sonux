@@ -107,11 +107,14 @@ final class PlayerService: NSObject, ObservableObject {
 
     // MARK: - 定时关闭记忆（参考微信读书：下次播放自动沿用上次设置）
 
+    /// 分钟定时全库只记一份：它数的是墙钟时间，跟听的是哪本书无关
     private static let lastSleepModeKey = "sleepTimer.lastMode"
     private static let lastSleepMinutesKey = "sleepTimer.lastMinutes"
-    private static let lastSleepChaptersKey = "sleepTimer.lastChapters"
+    /// 章数定时一本书记一份：键是 bookId，值是章数。章节长短每本都不一样，
+    /// 「听完 2 章」在一本书是 20 分钟、在另一本是 50 分钟，共用一个数哪本都对不上
+    private static let sleepChaptersByBookKey = "sleepTimer.chaptersByBook"
 
-    /// 上次用户设置的定时关闭模式（定时自然到期不清除，供下次播放沿用）
+    /// 记住的分钟定时（定时自然到期不清除，用户主动关掉才清除）：下次出声时按它满额重计
     private var rememberedSleepMode: SleepTimerMode? {
         switch UserDefaults.standard.integer(forKey: Self.lastSleepModeKey) {
         case 1:
@@ -124,9 +127,11 @@ final class PlayerService: NSObject, ObservableObject {
         }
     }
 
-    /// 「听完 N 章」卡片下次给的章数：只当默认值，不自动生效（沿用规则见上）
+    /// 这本书「听完 N 章」卡片下次给的章数：只当默认值，不自动生效（沿用规则见上）
     var defaultSleepChapters: Int {
-        let stored = UserDefaults.standard.integer(forKey: Self.lastSleepChaptersKey)
+        guard let bookId = currentBook?.id else { return 1 }
+        let store = UserDefaults.standard.dictionary(forKey: Self.sleepChaptersByBookKey)
+        let stored = (store?[bookId] as? NSNumber)?.intValue ?? 1
         return SleepTimerMode.chapterRange.contains(stored) ? stored : 1
     }
 
@@ -139,17 +144,19 @@ final class PlayerService: NSObject, ObservableObject {
             UserDefaults.standard.set(1, forKey: Self.lastSleepModeKey)
             UserDefaults.standard.set(minutes, forKey: Self.lastSleepMinutesKey)
         case .chapters(let count):
+            // 记下「这次选的是章数」：否则下次播放会把上上次的分钟定时又自动开起来
             UserDefaults.standard.set(2, forKey: Self.lastSleepModeKey)
-            UserDefaults.standard.set(count, forKey: Self.lastSleepChaptersKey)
+            // 章数记在这本书名下。定时面板只在播放页打开，手上没书时没什么可记
+            guard let bookId = currentBook?.id else { return }
+            var store = UserDefaults.standard.dictionary(forKey: Self.sleepChaptersByBookKey) ?? [:]
+            store[bookId] = count
+            UserDefaults.standard.set(store, forKey: Self.sleepChaptersByBookKey)
         }
     }
 
-    /// 播放被中断时未走完的定时（暂停/停止时保留剩余时间，恢复播放时接着走）
+    /// 停下时未走完的定时（停止时保留剩余时间，恢复播放时接着走）
     private var pendingSleepMode: SleepTimerMode?
     private var pendingSleepRemaining: TimeInterval = 0
-    /// 上次定时是否已自然走完：只有此时，重新播放才用记忆的默认时长重新计时；
-    /// 否则只恢复剩余时间，避免暂停再播放就满额重计、永无止境
-    private var sleepTimerDidExpire = false
 
     // MARK: - 每本书的倍速记忆（小说和商书想要的速度不一样）
 
@@ -201,6 +208,9 @@ final class PlayerService: NSObject, ObservableObject {
     func play(chapter: Chapter, book: Book, fromTime: TimeInterval = 0) {
         activateAudioSession()
         let local = clampedLocalTime(fromTime, in: chapter)
+        // 换书时摘掉上一本的章数定时：那几章是上一本要听的量，这本书章节长短不同，
+        // 接着数会在完全对不上的时长上停。分钟定时不摘，它数的是墙钟时间，听哪本都算
+        if currentBook?.id != book.id, case .chapters = sleepMode { clearSleepTimer() }
         currentBook = book
         currentChapter = chapter
         // 倍速跟着书走：先换成这本书自己记着的速度，下面才按它出声
@@ -264,20 +274,27 @@ final class PlayerService: NSObject, ObservableObject {
         updateNowPlaying()
     }
 
-    /// 恢复播放时接续之前的定时：
-    /// - 定时未走完（如暂停后继续）→ 从剩余时间接着走，不重新满额计时
-    /// - 定时已完全走完后再重新播放（如半夜醒来）→ 沿用记忆的默认时长重新计时
+    /// 这次出声该挂上哪个定时、从多少秒起走：
+    /// - 定时还没走完就被停掉（停止后又重播）→ 接着剩下的时间走，不重新满额计时
+    /// - 手上没有待走完的剩余（定时已归零、或杀进程重开）→ 沿用记忆的分钟数满额重计
+    /// - 用户主动关过定时就没有记忆可沿用，返回 nil 什么都不开
+    /// 章数定时不在这里出现：它只在章界兑现，不跨播放沿用（见 rememberedSleepMode）
+    var sleepTimerToApply: (mode: SleepTimerMode, from: TimeInterval)? {
+        guard sleepMode == .off else { return nil }
+        if let mode = pendingSleepMode, pendingSleepRemaining > 0 { return (mode, pendingSleepRemaining) }
+        guard case .minutes(let minutes) = rememberedSleepMode else { return nil }
+        return (.minutes(minutes), TimeInterval(minutes * 60))
+    }
+
+    /// 出声时把该挂的定时挂上：规则见 sleepTimerToApply，这里只管起表
     private func applyRememberedSleepTimerIfNeeded() {
-        guard sleepMode == .off, isPlaying else { return }
-        if let mode = pendingSleepMode {
-            pendingSleepMode = nil
-            if pendingSleepRemaining > 0 {
-                resumeSleepTimer(mode: mode, remaining: pendingSleepRemaining)
-            }
-            pendingSleepRemaining = 0
-        } else if sleepTimerDidExpire, let mode = rememberedSleepMode {
-            setSleepTimer(mode)
+        guard isPlaying, let (mode, from) = sleepTimerToApply else { return }
+        pendingSleepMode = nil
+        pendingSleepRemaining = 0
+        if case .minutes(let minutes) = mode {
+            NSLog("[sonux] sleepTimer: 本次播放挂上 %d 分钟定时，从 %.0f s 起走", minutes, from)
         }
+        resumeSleepTimer(mode: mode, remaining: from)
     }
 
     /// 停了再续播时往回退几秒：中断恢复、锁屏播放、切回 App 后人接不上刚才的话
@@ -560,7 +577,6 @@ final class PlayerService: NSObject, ObservableObject {
         // 用户主动设置即视为新一轮定时，清除待恢复状态
         pendingSleepMode = nil
         pendingSleepRemaining = 0
-        sleepTimerDidExpire = false
 
         switch mode {
         case .off:
@@ -595,8 +611,8 @@ final class PlayerService: NSObject, ObservableObject {
         player?.pause()
         isPlaying = false
         if case .minutes = sleepMode {
-            // 倒计时真正走完：下次播放时记忆的默认时长才会生效
-            sleepTimerDidExpire = true
+            // 秒表已经走到零，剩下的不是「待走完的剩余」：cancelSleepTimer 只留得下正数，
+            // 于是下次出声按记忆的分钟数满额重计
             cancelSleepTimer()
         } else {
             // 章数定时是一次性的：该听的章听完了就是兑现，
