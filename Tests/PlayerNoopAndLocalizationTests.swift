@@ -1,4 +1,5 @@
 import XCTest
+import AVFoundation
 @testable import Sonux
 
 /// PlayerService 的读侧与小动作契约：currentPosition()、nextChapter/previousChapter
@@ -71,6 +72,29 @@ final class PlayerServiceNoPlayerTests: XCTestCase {
         // 走 else 分支：currentBook nil → 什么也不做，不 activateAudioSession
         let p = fresh()
         p.togglePlayPause()
+        XCTAssertFalse(p.isPlaying)
+    }
+
+    // MARK: - 路由变化无播放器时
+
+    func testHandleRouteChange_withoutPlayerKeepsThePreparedBook() {
+        // 冷启动后「继续收听」条挂着书但没出声：拔耳机不该把书卸掉，也不该去写锁屏信息
+        let p = fresh()
+        let c = Chapter(id: "c2", bookId: "b2", index: 0, title: "T",
+                        duration: 100, fileURL: URL(fileURLWithPath: "/tmp/a.mp3"))
+        let b = Book(id: "b2", title: "T", author: nil, chapters: [c], storagePath: "b2")
+        p.prepareToResume(book: b, chapter: c, at: 20)
+        p.handleRouteChange(reason: .oldDeviceUnavailable)
+        XCTAssertFalse(p.isPlaying)
+        XCTAssertEqual(p.currentBook?.id, "b2")
+        XCTAssertEqual(p.currentTime, 20, accuracy: 1e-6)
+    }
+
+    func testHandleRouteChange_otherReasonsTouchNothing() {
+        let p = fresh()
+        p.handleRouteChange(reason: .newDeviceAvailable)
+        p.handleRouteChange(reason: .categoryChange)
+        XCTAssertNil(p.currentBook)
         XCTAssertFalse(p.isPlaying)
     }
 }

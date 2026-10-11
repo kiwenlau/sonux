@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import AVFoundation
 @testable import Sonux
 
 /// 播放与运行时层的静态契约：这些常量一旦被改动会砸到 UI 与用户体验，
@@ -39,6 +40,40 @@ final class PlayerContractTests: XCTestCase {
         XCTAssertEqual(PlayerService.speedRange.lowerBound, 0.5)
         XCTAssertEqual(PlayerService.speedRange.upperBound, 3.0)
         XCTAssertEqual(PlayerService.speedStep, 0.1)
+    }
+
+    // MARK: - 路由变化：拔耳机 / 蓝牙断连该停，其余一律不该停
+
+    func testRouteChange_oldDeviceUnavailablePauses() {
+        // 这一条就是「拔了耳机还从喇叭外放」那个 Bug 的正解：旧输出设备消失必须停
+        XCTAssertTrue(PlayerService.shouldPauseOnRouteChange(.oldDeviceUnavailable))
+    }
+
+    func testRouteChange_otherReasonsNeverPause() {
+        // 这些 reason 都会在正常听音途中出现，误判成「设备没了」就是一次凭空静音
+        let others: [AVAudioSession.RouteChangeReason] = [
+            .newDeviceAvailable, .categoryChange, .override, .wakeFromSleep,
+            .noSuitableRouteForCategory, .routeConfigurationChange, .unknown,
+        ]
+        for reason in others {
+            XCTAssertFalse(PlayerService.shouldPauseOnRouteChange(reason), "\(reason) 不该停播")
+        }
+    }
+
+    func testRouteChange_reasonReadFromNotification() {
+        // 系统塞进 userInfo 的是 NSNumber；手写的 Int 字面量会被桥成 NSNumber，两种都要认
+        for value: Any in [NSNumber(value: 2), 2] {
+            let note = Notification(name: .init("route"), userInfo: [AVAudioSessionRouteChangeReasonKey: value])
+            XCTAssertEqual(PlayerService.routeChangeReason(from: note), .oldDeviceUnavailable)
+        }
+    }
+
+    func testRouteChange_missingOrUnparsableReasonIsIgnored() {
+        XCTAssertNil(PlayerService.routeChangeReason(from: Notification(name: .init("route"))))
+        XCTAssertNil(PlayerService.routeChangeReason(from: Notification(name: .init("route"),
+                                                                        userInfo: ["other": 1])))
+        XCTAssertNil(PlayerService.routeChangeReason(from: Notification(name: .init("route"),
+                                                                        userInfo: [AVAudioSessionRouteChangeReasonKey: "2"])))
     }
 
     // MARK: - CoverPalette 兜底

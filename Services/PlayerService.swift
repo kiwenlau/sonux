@@ -191,6 +191,7 @@ final class PlayerService: NSObject, ObservableObject {
         super.init()
         setupRemoteCommands()
         observeInterruptions()
+        observeRouteChanges()
         observePlaybackSettings()
     }
 
@@ -1188,5 +1189,44 @@ extension PlayerService {
             isPlaying = false
         }
         updateNowPlaying()
+    }
+
+    /// 监听输出设备变化：拔有线耳机、蓝牙断连、耳机摘下回盒，都走这一条
+    func observeRouteChanges() {
+        NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+            .compactMap { Self.routeChangeReason(from: $0) }
+            .sink { [weak self] reason in
+                Task { @MainActor in self?.handleRouteChange(reason: reason) }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// 取通知里那条 reason：系统给的是 NSNumber，缺键或不是数字就当与路由无关，不处理
+    nonisolated static func routeChangeReason(from notification: Notification) -> AVAudioSession.RouteChangeReason? {
+        guard let number = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? NSNumber else { return nil }
+        return AVAudioSession.RouteChangeReason(rawValue: number.uintValue)
+    }
+
+    /// 声音原先走的那台设备没了就停下：不停的话系统把同一股流甩给本机喇叭，
+    /// 人已经不在耳机前，越放越响只会吵到旁人
+    ///
+    /// 顺手抹掉「中断前在播」的标记：设备断连常和系统中断前后脚发生，留着它，
+    /// 中断一结束就会把已经没人听的那一本从喇叭里放回声音来
+    func handleRouteChange(reason: AVAudioSession.RouteChangeReason) {
+        guard Self.shouldPauseOnRouteChange(reason) else { return }
+        wasPlayingBeforeInterruption = false
+        guard isPlaying else { return }
+        NSLog("[sonux] route: 输出设备已断开（reason=%@），暂停播放", NSNumber(value: reason.rawValue))
+        pausePlayback()
+    }
+
+    /// 只有「旧设备消失」才停播（拔线、断连、耳机回盒），其余 reason 都可能出现在正常听音途中，
+    /// 多停一次就是一次「怎么突然没声了」：
+    /// - newDeviceAvailable：接上耳机或音箱，不该把正在放的掐掉
+    /// - categoryChange：别的 App 改会话、或我们自己 setCategory 时系统补发的
+    /// - override / routeConfigurationChange：输出被切到听筒或某端口的数据源变了，设备没少
+    /// - wakeFromSleep / noSuitableRouteForCategory / unknown：唤醒与路由探测，与「人走了」无关
+    nonisolated static func shouldPauseOnRouteChange(_ reason: AVAudioSession.RouteChangeReason) -> Bool {
+        reason == .oldDeviceUnavailable
     }
 }
