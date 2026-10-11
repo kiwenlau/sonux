@@ -57,3 +57,6 @@ tools/adcuts-llm.jsonl
 tools/adcheck-llm-report.csv
 tools/adcut-report-llm*.csv
 tools/adcheck-audit-llm*.csv
+
+# 图标渲染的中间产物（tools/icon/render_icon.swift 可重算；入库的是 Support/Assets.xcassets 里的两版）
+tools/icon/out/

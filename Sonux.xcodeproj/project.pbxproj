@@ -81,6 +81,7 @@
 		9D815E27522551EC3895AA7C /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 51B3D92AFC24B92D24F91144 /* AppShortcuts.strings */; };
 		A4789824D9B5C227D4E8A72F /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = C2F475AA6E80D687FF1EECB8 /* AppShortcuts.strings */; };
 		AD1AD7A7E086D7A3AE6B19AD /* SilenceSkipModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E28D934472DE8D69EFDD3B2 /* SilenceSkipModeTests.swift */; };
+		AD354264F91AAA5587116D5E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A774B6BE35B5650AAB224FED /* Assets.xcassets */; };
 		B00D35E2ABA3824B11FD24DD /* PlayerContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68718BAC3A61EAC1401A4167 /* PlayerContractTests.swift */; };
 		B4444BD1BCAE093968858FAC /* ViewInspectorSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8D9931106A684E8E61011 /* ViewInspectorSmokeTests.swift */; };
 		B4FF0DA292ECB0B535592BDA /* LooseEndsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ECB1F80CBB9F76C8410B364 /* LooseEndsTests.swift */; };
@@ -242,6 +243,7 @@
 		A4E740F463B5354E1F1E3D20 /* PlaybackSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSettings.swift; sourceTree = "<group>"; };
 		A56F4B34368D9CB964DAFB06 /* AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = AppShortcuts.strings; path = sk.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		A5A2274D76D3094852A0A885 /* ListeningReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningReportView.swift; sourceTree = "<group>"; };
+		A774B6BE35B5650AAB224FED /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AB74831F056F6392A77EE02A /* CoverPaletteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverPaletteTests.swift; sourceTree = "<group>"; };
 		AF920E64224E2106C697A1C5 /* SonuxRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SonuxRuntime.swift; sourceTree = "<group>"; };
 		AFC386C80B1D44F08E725E61 /* LanguageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageView.swift; sourceTree = "<group>"; };
@@ -422,6 +424,7 @@
 		A730D44AB4FEAD0F5D6CEF47 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				A774B6BE35B5650AAB224FED /* Assets.xcassets */,
 				42C66AE5DE6CABC55C64C5D7 /* Localizable.xcstrings */,
 				A6DAF8CE01DF2559EB7DE59B /* AppShortcuts */,
 			);
@@ -677,6 +680,7 @@
 				367495CA1A93250C3C9093B7 /* AppShortcuts.strings in Resources */,
 				B82716964A7D2F214B743122 /* AppShortcuts.strings in Resources */,
 				F4A56669485E0D7ED69B3646 /* AppShortcuts.strings in Resources */,
+				AD354264F91AAA5587116D5E /* Assets.xcassets in Resources */,
 				F0B918409517E73399676869 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
