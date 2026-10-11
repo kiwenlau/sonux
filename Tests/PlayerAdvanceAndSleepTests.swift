@@ -152,4 +152,26 @@ final class PlayerAdvanceAndSleepTests: XCTestCase {
         reopened.prepareToResume(book: book, chapter: book.chapters[0], at: 0)
         XCTAssertEqual(reopened.speed, 1.0)
     }
+
+    // MARK: - 每本书各用各的倍速，且重启后仍是自己那档
+
+    func testSpeed_twoBooksDoNotOverwriteEachOther() {
+        let p = PlayerService()
+        let novel = uniqueBook(1), business = uniqueBook(1)
+        p.prepareToResume(book: novel, chapter: novel.chapters[0], at: 0)
+        p.setSpeed(1.8)
+        p.prepareToResume(book: business, chapter: business.chapters[0], at: 0)
+        XCTAssertEqual(p.speed, 1.0, "换到没设置过的书不该带着上一本的速度")
+        p.setSpeed(1.2)
+        p.prepareToResume(book: novel, chapter: novel.chapters[0], at: 0)
+        XCTAssertEqual(p.speed, 1.8, "回到上一本应换回它自己记着的档")
+    }
+
+    func testSpeed_survivesNewPlayerServiceAsOnColdLaunch() {
+        // 新建 PlayerService 等价于进程重开：UserDefaults 里的 [bookId: 倍速] 要读得回来
+        let (p, book) = prepared(1, at: 0, time: 0, speed: 2.5)
+        let reopened = PlayerService()
+        reopened.prepareToResume(book: book, chapter: book.chapters[0], at: 0)
+        XCTAssertEqual(reopened.speed, 2.5)
+    }
 }
