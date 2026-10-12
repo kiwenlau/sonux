@@ -134,6 +134,16 @@ final class PlayerAdvanceAndSleepTests: XCTestCase {
         XCTAssertEqual(pos?.time ?? -1, 55, accuracy: 1e-6)
     }
 
+    // MARK: - 秒表只在出声时走（暂停中倒计时不能继续掉）
+
+    func testSleepCountdown_frozenWhileNotPlaying() {
+        let (p, _) = prepared(1, at: 0, time: 0)
+        defer { p.setSleepTimer(.off) }  // 顺带把这一秒一格的 Timer 摘掉
+        p.setSleepTimer(.minutes(20))
+        for _ in 0..<5 { p.tickSleepCountdown() }
+        XCTAssertEqual(p.sleepSecondsLeft, 1200, "没出声就不扣：暂停着还在倒，人回来接着听没多久就被掐掉")
+    }
+
     // MARK: - defaultSleepChapters
 
     func testDefaultSleepChapters_isWithinChapterRange() {

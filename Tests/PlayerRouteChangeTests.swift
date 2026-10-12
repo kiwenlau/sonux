@@ -58,4 +58,18 @@ final class PlayerRouteChangeTests: XCTestCase {
         await settle(0.5)
         XCTAssertTrue(player.isPlaying, "接上新设备不是「人走了」，不该把正在放的掐掉")
     }
+
+    /// 分钟定时的秒表只在出声时走。纯逻辑用例（PlayerAdvanceAndSleepTests）钉得住「不播就不扣」，
+    /// 却起不来 isPlaying，证不了「播着要扣」——那得有个真在播的 AVPlayer
+    func testSleepCountdownTicksOnlyWhilePlaying() async throws {
+        let player = try await playingService()
+        defer { player.setSleepTimer(.off); player.stop() }
+        player.setSleepTimer(.minutes(20))
+        await settle(2.5)
+        XCTAssertLessThan(player.sleepSecondsLeft, 1200, "正出声，秒表就该往下走")
+        player.togglePlayPause()
+        let frozen = player.sleepSecondsLeft
+        await settle(2.5)
+        XCTAssertEqual(player.sleepSecondsLeft, frozen, "暂停了倒计时还在走")
+    }
 }

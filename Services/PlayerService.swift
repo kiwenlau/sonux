@@ -622,20 +622,7 @@ final class PlayerService: NSObject, ObservableObject {
             // 章数定时没有秒表：播完一章减一格，全在章界停（见 finishCurrentChapter）
             sleepRemaining = 0
         case .minutes(let minutes):
-            let seconds = TimeInterval(minutes * 60)
-            sleepRemaining = seconds
-            let timer = Timer(timeInterval: 1, repeats: true) { [weak self] timer in
-                Task { @MainActor in
-                    guard let self = self else { timer.invalidate(); return }
-                    self.sleepRemaining -= 1
-                    if self.sleepRemaining <= 0 {
-                        self.sleepElapsed()
-                        timer.invalidate()
-                    }
-                }
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            sleepTimer = timer
+            startSleepCountdown(from: TimeInterval(minutes * 60))
         }
     }
 
@@ -659,7 +646,8 @@ final class PlayerService: NSObject, ObservableObject {
         updateNowPlaying()
     }
 
-    /// 暂停/停止时调用：保留未走完的分钟定时，恢复播放时从剩余时间接着走
+    /// 定时整个撤掉时调用（停止播放、定时归零）：把未走完的分钟留给下次出声，届时从剩余接着走
+    /// 暂停不在这里走：秒表本来就只在出声时扣（见 tickSleepCountdown），暂停中读数原地等着
     /// 章数定时不保留：它只对应设定时那之后要播完的几章，换个位置再沿用就成了“每 N 章都关”
     private func cancelSleepTimer() {
         guard sleepMode != .off else { return }
@@ -682,19 +670,27 @@ final class PlayerService: NSObject, ObservableObject {
     private func resumeSleepTimer(mode: SleepTimerMode, remaining: TimeInterval) {
         clearSleepTimer()
         sleepMode = mode
+        startSleepCountdown(from: remaining)
+    }
+
+    private func startSleepCountdown(from remaining: TimeInterval) {
         sleepRemaining = remaining
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] timer in
             Task { @MainActor in
                 guard let self = self else { timer.invalidate(); return }
-                self.sleepRemaining -= 1
-                if self.sleepRemaining <= 0 {
-                    self.sleepElapsed()
-                    timer.invalidate()
-                }
+                self.tickSleepCountdown()
             }
         }
         RunLoop.main.add(timer, forMode: .common)
         sleepTimer = timer
+    }
+
+    /// 秒表走一格：只在真出声时扣。暂停着还在倒，等于把没在听的那段时间也算进额度，
+    /// 人回来接着听没多久就被掐掉——它该数的是「听了多久」，不是「过了多久」
+    func tickSleepCountdown() {
+        guard isPlaying else { return }
+        sleepRemaining -= 1
+        if sleepRemaining <= 0 { sleepElapsed() }
     }
 
     // MARK: - 定时关闭的章数与时间换算
