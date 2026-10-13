@@ -27,6 +27,8 @@ final class PlayerService: NSObject, ObservableObject {
     @Published private(set) var isPlaying = false
     @Published private(set) var duration: TimeInterval = 0
     @Published private(set) var speed: Float = 1.0
+    /// App 侧音量档位（0–100，100 = 不衰减），见 volumePercent 的说明块
+    @Published private(set) var volumePercent: Double = 100
     /// 是否展示全屏播放界面（点列表播放时直接打开）
     @Published var showPlayer = false
     // 定时关闭
@@ -113,6 +115,44 @@ final class PlayerService: NSObject, ObservableObject {
         let clamped = min(max(value, Float(speedRange.lowerBound)), Float(speedRange.upperBound))
         return (clamped * 10).rounded() / 10
     }
+
+    // MARK: - App 侧音量（细调）
+
+    /// 音量档位与步进：0–100，一格 1。
+    ///
+    /// 系统音量只有 16 档，AirPods 捏一下茎就整档跳（约 6%，中低段一次差到 5 dB 以上），
+    /// 「这一档太轻、上一档太响」卡在中间没处落脚。这里补的是那截空隙：
+    /// 音量落在 AVPlayer.volume 上，与系统音量相乘，所以一格只有约 0.3 dB。
+    ///
+    /// 只能往下：100 就是完全不衰减、听系统音量本身的响度，App 无权把设备推得更响。
+    /// 要更响还得先按系统音量上去，再用这里往回收
+    nonisolated static let volumeRange: ClosedRange<Double> = 0...100
+    nonisolated static let volumeStep: Double = 1
+    /// 整根轴铺满 30 dB，一格约 0.3 dB。按等比而不是等差分，是为了让每一格
+    /// 「响了多少」听起来一样匀——线性增益下前二十格几乎没动静，最后几格却一下子没了声
+    nonisolated private static let volumeSpanDB: Double = 30
+    /// 音量全库一份：它跟着听的环境走（地铁、卧室），不跟着书走
+    nonisolated private static let volumePercentKey = "playback.volumePercent"
+
+    /// 限制在音量范围内并对齐到整格
+    nonisolated static func normalizedVolume(_ value: Double) -> Double {
+        min(max(value.rounded(), volumeRange.lowerBound), volumeRange.upperBound)
+    }
+
+    /// 档位到播放增益：0 静音，100 原样出声，中间按等比铺开
+    nonisolated static func gain(forVolumePercent percent: Double) -> Float {
+        let p = normalizedVolume(percent)
+        guard p > 0 else { return 0 }
+        return Float(pow(10, (p / 100 - 1) * volumeSpanDB / 20))
+    }
+
+    /// 存过的档位：没存过就是 100，不给用户本来听得好好的音量加一层看不见的衰减。
+    /// 不能用 double(forKey:)：没存过时它返 0，而 0 是「静音」这个合法档位
+    nonisolated private static func storedVolumePercent() -> Double {
+        guard let stored = UserDefaults.standard.object(forKey: volumePercentKey) as? NSNumber else { return 100 }
+        return normalizedVolume(stored.doubleValue)
+    }
+
     /// 秒与 CMTime 往返回采用的刻度：600 能整除常见音频时间基，换算不丢精度
     private static let timescale: Int32 = 600
 
@@ -215,6 +255,7 @@ final class PlayerService: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        volumePercent = Self.storedVolumePercent()
         setupRemoteCommands()
         observeInterruptions()
         observeRouteChanges()
@@ -281,6 +322,8 @@ final class PlayerService: NSObject, ObservableObject {
         let player = AVPlayer()
         // 播到文件结尾就停住（不循环、不自动往前），由 didPlayToEnd 决定续哪一章
         player.actionAtItemEnd = .pause
+        // 停止时整个实例都丢给了系统，重建得把音量档位带回来，否则上次调的细音量会悄悄复位
+        player.volume = Self.gain(forVolumePercent: volumePercent)
         self.player = player
         observeTimeControl(of: player)
         return player
@@ -439,9 +482,19 @@ final class PlayerService: NSObject, ObservableObject {
         updateNowPlaying()
     }
 
+    /// 细调音量当场生效：动的只有 AVPlayer.volume，既不碰系统音量，也不重接音频链路，
+    /// 所以正听着拖滑杆不会「卡一下」，也不会把别的 App 的音量一起改了
+    func setVolume(_ percent: Double) {
+        let rounded = Self.normalizedVolume(percent)
+        guard rounded != volumePercent else { return }
+        volumePercent = rounded
+        UserDefaults.standard.set(rounded, forKey: Self.volumePercentKey)
+        // 还没建播放器（只是挂着位置没出声）时没处可设：ensurePlayer() 起实例时会按档位带上
+        player?.volume = Self.gain(forVolumePercent: rounded)
+    }
+
     /// 是否已装载音频（真能出声）：false 时只是挂着收听位置
     var hasPlayer: Bool { player?.currentItem != nil }
-
     /// 把某本书的收听位置挂上但不播放：供常显的「继续收听」条使用。
     /// 不创建 AVPlayerItem、也不激活音频会话——按播放键才真正出声，
     /// 冷启动打开 App 因此不会抢走用户正在别的 App 里听的音乐

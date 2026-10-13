@@ -43,6 +43,38 @@ final class SheetViewsInspectorTests: XCTestCase {
         XCTAssertEqual(try step.actualView().step, PlayerService.speedStep)
     }
 
+    // MARK: - VolumeSliderSheet（音量面板）
+
+    func testVolumeSliderSheet_topLayerIsVStack() throws {
+        let view = VolumeSliderSheet()
+            .environmentObject(SonuxRuntime.shared.player)
+        _ = try view.inspect().vStack()
+    }
+
+    func testVolumeSliderSheet_containsStepSliderWithPlayerVolumeRange() throws {
+        let view = VolumeSliderSheet()
+            .environmentObject(SonuxRuntime.shared.player)
+        let step = try view.inspect().vStack().view(StepSlider.self, 1)
+        // 接的是播放器的音量范围与步进（0...100 / 1），不是写死的轴
+        XCTAssertEqual(try step.actualView().range, PlayerService.volumeRange)
+        XCTAssertEqual(try step.actualView().step, PlayerService.volumeStep)
+    }
+
+    func testVolumeSliderSheet_sliderReadsAndWritesPlayerVolume() throws {
+        let player = SonuxRuntime.shared.player
+        let original = player.volumePercent
+        defer { player.setVolume(original) }
+        let view = VolumeSliderSheet().environmentObject(player)
+        let step = try view.inspect().vStack().view(StepSlider.self, 1)
+        XCTAssertEqual(try step.actualView().value, original)
+        player.setVolume(64)
+        // 滑杆不留一份自己的状态：读数直接从播放器取，关掉面板才不会跳回去
+        XCTAssertEqual(try step.actualView().value, 64)
+        var slider = try step.actualView()
+        slider.value = 28
+        XCTAssertEqual(player.volumePercent, 28)
+    }
+
     // MARK: - QuoteCardRenderer.bleed（糊化封面）
 
     func testBleed_onSolidCoverReturnsImageOfSameSize() {

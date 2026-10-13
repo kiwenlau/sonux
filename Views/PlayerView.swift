@@ -12,6 +12,7 @@ struct PlayerView: View {
     private var router: AppRouter { routers.active }
     @State private var showingSleepSheet = false
     @State private var showingSpeedSheet = false
+    @State private var showingVolumeSheet = false
     @State private var showingChaptersSheet = false
     /// 整章文案页（点字幕拉开，盖在播放页上）
     @State private var showingTranscript = false
@@ -154,6 +155,9 @@ struct PlayerView: View {
         .sheet(isPresented: $showingSpeedSheet) {
             SpeedSliderSheet()
         }
+        .sheet(isPresented: $showingVolumeSheet) {
+            VolumeSliderSheet()
+        }
         .sheet(isPresented: $showingChaptersSheet) {
             if let book {
                 ChaptersSheet(book: book)
@@ -163,16 +167,32 @@ struct PlayerView: View {
 
     // MARK: - 顶部栏
 
-    /// 左侧返回，右侧分享（把此刻正在读的那句画成摘录卡片）
+    /// 左侧返回，右侧音量与分享（把此刻正在读的那句画成摘录卡片）
     private var header: some View {
-        HStack {
+        // 圆底按钮的热区比视觉宽 11.5pt（见 CircleGlyphButton），排距小于 23 就会互相压住，
+        // 点音量却弹出分享。留 24 让两块热区刚好不重叠
+        HStack(spacing: 24) {
             backButton
             Spacer()
+            volumeButton
             shareButton
         }
         // 详情页返回按钮圆底左边缘在屏幕算起 19.3pt 处，外层内容已带 24pt 横内边距，这里回退对齐
         .padding(.leading, -4.7)
         .padding(.trailing, 12)
+    }
+
+    /// 音量入口：点开面板细调，规格与语速滑杆一致（见 VolumeSliderSheet）
+    private var volumeButton: some View {
+        circleButton(glyph: volumeGlyph) { showingVolumeSheet = true }
+            .accessibilityIdentifier("player-volume")
+            .accessibilityLabel(L("Volume"))
+    }
+
+    /// 波数跟着档位走：没衰减时满波，减下去少一波，减到零只剩一个斜杠
+    private var volumeGlyph: String {
+        if player.volumePercent <= 0 { return "speaker.slash.fill" }
+        return player.volumePercent < 60 ? "speaker.wave.1.fill" : "speaker.wave.2.fill"
     }
 
     /// iOS 26 用系统玻璃圆底（与导航栏返回按钮同材质），更早系统用超细材质圆底近似
@@ -1080,6 +1100,93 @@ struct SpeedSliderSheet: View {
         let span = PlayerService.speedRange.upperBound - PlayerService.speedRange.lowerBound
         let travel = max(width - StepSlider.knobSize, 0)
         return StepSlider.knobInset + CGFloat((value - PlayerService.speedRange.lowerBound) / span) * travel
+    }
+}
+
+/// 音量面板：与语速面板同款的滑杆加刻度尺，0–100 一格 1。
+///
+/// 这里调的是 App 侧增益，不是系统音量：系统音量定上限，这根轴只管「上限以下」，
+/// 停在 100 就是完全跟着系统音量走。一格约 0.3 dB，所以卡在两档系统音量中间时
+/// （AirPods 捏一下整档跳，中低段一次差 5 dB 以上）能一格格挪到刚好的位置
+struct VolumeSliderSheet: View {
+    @EnvironmentObject private var player: PlayerService
+
+    /// 刻度尺上标数字的档位
+    private let majorValues: [Double] = [0, 50, 100]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(L("Volume"))
+                    .font(.headline)
+                Spacer()
+                Text("\(Int(player.volumePercent))%")
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.indigo)
+            }
+
+            StepSlider(
+                value: Binding(
+                    get: { player.volumePercent },
+                    set: { player.setVolume($0) }
+                ),
+                range: PlayerService.volumeRange,
+                step: PlayerService.volumeStep
+            )
+
+            ruler
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .presentationBackground(Color.playerSheetBackground)
+        .presentationDetents([.height(200)])
+        .presentationDragIndicator(.visible)
+    }
+
+    /// 5 一格的小刻度，整档标出百分数
+    private var ruler: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            ZStack(alignment: .topLeading) {
+                ForEach(tickValues, id: \.self) { value in
+                    let isMajor = majorValues.contains(value)
+                    Rectangle()
+                        .fill(Color.secondary.opacity(isMajor ? 0.6 : 0.25))
+                        .frame(width: 1, height: isMajor ? 9 : 5)
+                        .offset(x: xPosition(for: value, in: width))
+                }
+                ForEach(majorValues, id: \.self) { value in
+                    Text("\(Int(value))%")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44)
+                        .offset(
+                            x: min(max(xPosition(for: value, in: width) - 22, 0), max(width - 44, 0)),
+                            y: 11
+                        )
+                }
+            }
+        }
+        .frame(height: 32)
+    }
+
+    /// 小刻度 5 一格：按 1 画就是上百道，糊成一条灰带
+    private var tickValues: [Double] {
+        stride(from: PlayerService.volumeRange.lowerBound,
+               through: PlayerService.volumeRange.upperBound,
+               by: 5)
+            .map { $0.rounded() }
+    }
+
+    /// 与 StepSlider 同一套换算：滑块中心两端各内缩半个滑块宽度
+    private func xPosition(for value: Double, in width: CGFloat) -> CGFloat {
+        let span = PlayerService.volumeRange.upperBound - PlayerService.volumeRange.lowerBound
+        let travel = max(width - StepSlider.knobSize, 0)
+        return StepSlider.knobInset + CGFloat((value - PlayerService.volumeRange.lowerBound) / span) * travel
     }
 }
 

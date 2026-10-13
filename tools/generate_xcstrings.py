@@ -917,6 +917,14 @@ add("Voice Boost", ar="تعزيز الصوت", ca="Realç de veu", hr="Pojačanj
     sv="Röstförstärkning", th="เสริมเสียงพูด", tr="Ses güçlendirme", uk="Підсилення мовлення",
     vi="Tăng cường giọng nói", zhhs="语音增强", zhtt="語音增強")
 
+# 播放页顶栏的音量细调入口与面板标题
+add("Volume", ar="مستوى الصوت", ca="Volum", hr="Glasnoća", cs="Hlasitost", da="Lydstyrke",
+    nl="Volume", fr="Volume", de="Lautstärke", el="Ένταση ήχου", he="עוצמת קול", hi="वॉल्यूम",
+    hu="Hangerő", id="Volume", it="Volume", ja="音量", ko="볼륨", ms="Volum", nb="Volum",
+    pl="Głośność", ptbr="Volume", ptpt="Volume", ro="Volum", ru="Громкость", sk="Hlasitosť",
+    es="Volumen", sv="Volym", th="ระดับเสียง", tr="Ses düzeyi", uk="Гучність", vi="Âm lượng",
+    zhhs="音量", zhtt="音量")
+
 # 跳过静音的三档：分段控件里的短词，宁可对仗也不要长
 add("Light", ar="خفيف", ca="Lleuger", hr="Blago", cs="Mírně", da="Let", nl="Licht", fr="Léger",
     de="Leicht", el="Ελαφρύ", he="קל", hi="हल्का", hu="Enyhe", id="Ringan", it="Leggero",
