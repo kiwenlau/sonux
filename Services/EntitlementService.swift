@@ -70,8 +70,13 @@ final class EntitlementService: ObservableObject {
     /// 试用起点：第一次读到付费判定的那一刻定下，之后不再改
     private let trialStart: Date
 
+    /// 开发版默认全功能放行：不然作者自己手机上天天得给自己兑一次优惠码。
+    /// Release 编译时这条恒为假，付费规则一字不改地生效；
+    /// 带 `-SONUXDebugLocked 1` 启动可以把真规则找回来，用来在真机上验付费墙与每日 30 分钟
+    private let unlockedForDevelopment: Bool
+
     /// Pro：播放控制层（语速、定时关闭、音量细调、跳过静音与语音增强）与不限时长
-    var isPro: Bool { isPurchased || isSubscribed }
+    var isPro: Bool { isPurchased || isSubscribed || unlockedForDevelopment }
 
     /// 内容层（同步字幕、整章文稿、逐句搜索、摘录卡片、收听报告）：Pro 或试用期内
     var hasContentAccess: Bool {
@@ -100,6 +105,11 @@ final class EntitlementService: ObservableObject {
     }
 
     private init() {
+        #if DEBUG
+        unlockedForDevelopment = !UserDefaults.standard.bool(forKey: "SONUXDebugLocked")
+        #else
+        unlockedForDevelopment = false
+        #endif
         if let stored = UserDefaults.standard.object(forKey: EntitlementPolicy.trialStartKey) as? Double {
             trialStart = Date(timeIntervalSince1970: stored)
         } else {
@@ -111,10 +121,11 @@ final class EntitlementService: ObservableObject {
         isPurchased = defaults.bool(forKey: EntitlementPolicy.purchasedKey)
         isSubscribed = defaults.bool(forKey: EntitlementPolicy.subscribedKey)
         dailyCapReached = EntitlementPolicy.capReached(todaySeconds: todaySeconds)
-        NSLog("[sonux] paywall: 试用起点 %.0f（%d 天前），买断 %@，订阅 %@，Pro %@，今天已听 %.0f 秒",
+        NSLog("[sonux] paywall: 试用起点 %.0f（%d 天前），买断 %@，订阅 %@，开发版放行 %@，Pro %@，今天已听 %.0f 秒",
               trialStart.timeIntervalSince1970,
               Int(Date().timeIntervalSince(trialStart) / (24 * 60 * 60)),
               isPurchased ? "是" : "否", isSubscribed ? "是" : "否",
+              unlockedForDevelopment ? "是" : "否",
               isPro ? "是" : "否", todaySeconds)
         // 测试宿主里没有商店：取商品与回读交易都会卡在系统守护进程上，
         // 连带把主线程上走动的播放时钟一起拖住（真播放那几个用例会因此停住）。
@@ -132,11 +143,12 @@ final class EntitlementService: ObservableObject {
     }
 
     #if DEBUG
-    /// 测试用的裸实例：状态由入参定死，不读盘、不碰商店、不挂交易监听
+    /// 测试用的裸实例：状态由入参定死，不读盘、不碰商店、不挂交易监听，也不吃开发版放行
     private init(trialStart: Date, purchased: Bool, subscribed: Bool = false) {
         self.trialStart = trialStart
         isPurchased = purchased
         isSubscribed = subscribed
+        unlockedForDevelopment = false
         dailyCapReached = false
     }
 
