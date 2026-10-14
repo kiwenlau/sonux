@@ -7,6 +7,8 @@ struct PlayerView: View {
     @ObservedObject private var covers = CoverStore.shared
     // 字幕（正在朗读的那一句）按书读盘，也只留当前这本
     @ObservedObject private var transcripts = TranscriptStore.shared
+    // 语速、定时关闭、音量细调只有 Pro 才有；字幕那层试用期内给，过期收起
+    @ObservedObject private var entitlement = EntitlementService.shared
 
     /// 点作者名关播放页后压进当前 tab 的导航栈（历史 tab 打开的就回落到历史栈）
     private var router: AppRouter { routers.active }
@@ -184,7 +186,7 @@ struct PlayerView: View {
 
     /// 音量入口：点开面板细调，规格与语速滑杆一致（见 VolumeSliderSheet）
     private var volumeButton: some View {
-        circleButton(glyph: volumeGlyph) { showingVolumeSheet = true }
+        circleButton(glyph: volumeGlyph) { entitlement.gatePro { showingVolumeSheet = true } }
             .accessibilityIdentifier("player-volume")
             .accessibilityLabel(L("Volume"))
     }
@@ -324,9 +326,10 @@ struct PlayerView: View {
 
     // MARK: - 字幕（正在朗读的那一句）
 
-    /// 当前这一章有没有字幕（没转写出来的书整块不占位，不留一行空白）
+    /// 当前这一章有没有字幕（没转写出来的书整块不占位，不留一行空白）。
+    /// 试用期一过也整块收起：字幕连着文案页、摘录卡片与全文搜索，是一块 Pro 而不是一个装饰
     private var hasCaption: Bool {
-        transcripts.hasTranscript(for: player.currentChapter?.id)
+        entitlement.hasContentAccess && transcripts.hasTranscript(for: player.currentChapter?.id)
     }
 
     /// 摘某一时刻正在读的那句，时刻取这句的起点（与文案页点句同口径）。
@@ -350,7 +353,9 @@ struct PlayerView: View {
         VStack(spacing: 0) {
             chapterText
 
-            PlayerCaption(scrubTime: $scrubTime, onOpen: openTranscript, onQuote: { quoted = $0 })
+            if entitlement.hasContentAccess {
+                PlayerCaption(scrubTime: $scrubTime, onOpen: openTranscript, onQuote: { quoted = $0 })
+            }
 
             PlayerProgressRow(scrubTime: $scrubTime)
                 .padding(.top, hasCaption ? Self.gapCaptionToProgress : Self.gapChapterToProgress)
@@ -368,7 +373,7 @@ struct PlayerView: View {
             Spacer()
             // 点开语速面板，拖动滑杆连续调节
             Button {
-                showingSpeedSheet = true
+                entitlement.gatePro { showingSpeedSheet = true }
             } label: {
                 Text("\(TimeFormat.speed(player.speed))x")
                     .font(.subheadline.weight(.semibold))
@@ -395,7 +400,7 @@ struct PlayerView: View {
                     .font(.system(size: 24))
             }
             Spacer()
-            Button { showingSleepSheet = true } label: {
+            Button { entitlement.gatePro { showingSleepSheet = true } } label: {
                 VStack(spacing: 2) {
                     // 与同排快退/快进图标同字号，避免比左侧语速胶囊明显偏小
                     Image(systemName: player.sleepMode == .off ? "clock" : "clock.fill")

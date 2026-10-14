@@ -72,8 +72,14 @@ final class SonuxRuntime {
             library?.position(forChapter: chapterId)
         }
         // 收听时长累加：同一秒内紧跟着的 recordPosition 会把统计一起落盘
-        player.onListening = { [weak library] seconds, bookId in
+        player.onListening = { [weak library, weak player] seconds, bookId in
             library?.addListening(seconds: seconds, bookId: bookId)
+            // 没 Pro 的人（试用期内也算）每天只给 30 分钟：正好跨过上限就当场停下，
+            // 把这一天的剩余交给买断页去说
+            if EntitlementService.shared.recordListening(seconds) {
+                player?.pausePlayback()
+                EntitlementService.shared.isPaywallPresented = true
+            }
         }
     }
 

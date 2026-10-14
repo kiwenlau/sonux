@@ -21,6 +21,7 @@ struct SonuxApp: App {
                     SonuxRuntime.shared.start()
                     #if DEBUG
                     await SonuxRuntime.shared.runDebugIntentIfNeeded()
+                    EntitlementService.shared.showDebugPaywallIfNeeded()
                     #endif
                 }
                 // 播放器的书被清空（播完、停掉）或书库变动（删书、扫完）后重新挂一本，保证条不断档

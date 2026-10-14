@@ -130,6 +130,8 @@ struct RootView: View {
     @StateObject private var routers = TabRouters()
     /// 封面图：底部面板要晕上当前这本书封面的颜色
     @ObservedObject private var coverStore = CoverStore.shared
+    /// 试用期过后的功能入口都把手指向这里，由它把买断页拉起来
+    @ObservedObject private var entitlement = EntitlementService.shared
 
     /// 栈内每一页的内容：按路由值取当前数据，书被删掉时页面自然变空
     @ViewBuilder
@@ -259,6 +261,10 @@ struct RootView: View {
         .environmentObject(routers)
         .animation(.spring(response: 0.38, dampingFraction: 0.86), value: player.showPlayer)
         .tint(.indigo)
+        // 上锁的功能入口都指向这里；播放页盖在 ZStack 上也没关系，sheet 永远在最上层
+        .sheet(isPresented: $entitlement.isPaywallPresented) {
+            PaywallView()
+        }
         // 面板要晕封面色，但从列表直接进播放页时可能还没提取过封面，在这里补上
         .task(id: player.currentBook?.id) {
             guard let book = player.currentBook else { return }

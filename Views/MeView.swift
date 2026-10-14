@@ -39,12 +39,22 @@ struct MeView: View {
     }
 }
 
-/// 设置卡片：语言与播放两行，样式与累计时长卡片一致
+/// 设置卡片：Pro、语言与播放三行，样式与累计时长卡片一致
 private struct SettingsCard: View {
     @ObservedObject private var settings = PlaybackSettings.shared
+    @ObservedObject private var entitlement = EntitlementService.shared
+    /// 播放设置页的入栈开关：跳过静音与语音增强都是 Pro，所以入口先过 gate
+    @State private var showingPlaybackSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
+            Button { entitlement.isPaywallPresented = true } label: {
+                settingsRow(id: "me-pro-row",
+                            title: L("Sonux Pro"),
+                            value: proValue)
+            }
+            hairline
+
             NavigationLink {
                 LanguageView()
             } label: {
@@ -56,8 +66,8 @@ private struct SettingsCard: View {
             }
             hairline
 
-            NavigationLink {
-                PlaybackSettingsView()
+            Button {
+                entitlement.gatePro { showingPlaybackSettings = true }
             } label: {
                 // 尾巴上只报跳过静音的档位：它是会挪播放位置的那一项，最值得先看一眼
                 settingsRow(id: "me-playback-row",
@@ -65,10 +75,20 @@ private struct SettingsCard: View {
                             value: L(settings.silenceMode.labelKey))
             }
         }
-        // 两行都别长成系统蓝链接：卡片里的导航沿用整卡点击的原样式
+        // 三行都别长成系统蓝链接：卡片里的导航沿用整卡点击的原样式
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+        .navigationDestination(isPresented: $showingPlaybackSettings) {
+            PlaybackSettingsView()
+        }
+    }
+
+    /// 那一行的尾巴：Pro 在手就说已解锁，试用中报还剩几天，到期了才说去解锁
+    private var proValue: String {
+        if entitlement.isPro { return L("Unlocked") }
+        if let left = entitlement.trialDaysLeft { return LF("Trial ends in %d days", left) }
+        return L("Unlock")
     }
 
     private func settingsRow(id: String, title: String, value: String) -> some View {
@@ -147,13 +167,16 @@ private struct TotalCard: View {
 }
 
 /// 本月卡：本月的收听时长与听完的本数，点进去是今年的收听报告
-/// 样式跟累计卡一致（小标题 + 分栏指标），只占两栏
+/// 样式跟累计卡一致（小标题 + 分栏指标），只占两栏；报告页是 Pro，入口先过 gate
 private struct MonthCard: View {
     let summary: LibraryService.ListeningSummary
 
+    @ObservedObject private var entitlement = EntitlementService.shared
+    @State private var showingReport = false
+
     var body: some View {
-        NavigationLink {
-            ListeningReportView()
+        Button {
+            entitlement.gateContent { showingReport = true }
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 Text(L("This Month"))
@@ -171,6 +194,9 @@ private struct MonthCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("me-month-card")
+        .navigationDestination(isPresented: $showingReport) {
+            ListeningReportView()
+        }
     }
 }
 
