@@ -24,9 +24,12 @@ func c(_ hex: Int, _ a: CGFloat = 1) -> CGColor {
 
 // MARK: - canvas
 
-func newContext(_ w: Int, _ h: Int) -> CGContext {
+/// `.noneSkipLast` for an icon that must ship without an alpha channel: App Store
+/// validation flags a 1024 icon that reports non-opaque pixels.
+func newContext(_ w: Int, _ h: Int,
+                _ alpha: CGImageAlphaInfo = .premultipliedLast) -> CGContext {
   CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: sRGB,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            bitmapInfo: alpha.rawValue)!
 }
 
 func flipped(_ ctx: CGContext, _ size: CGFloat) {
@@ -47,14 +50,15 @@ func writeTo(_ ctx: CGContext, _ path: String) {
 // MARK: - fills & shapes
 
 func linearFill(_ ctx: CGContext, _ clip: CGPath, _ colors: [CGColor], _ from: CGPoint, _ to: CGPoint,
-                _ locs: [CGFloat]? = nil) {
+                _ locs: [CGFloat]? = nil,
+                _ options: CGGradientDrawingOptions = []) {
   let n = colors.count
   let locations = locs ?? (0..<n).map { CGFloat($0) / CGFloat(max(n - 1, 1)) }
   guard let g = CGGradient(colorsSpace: sRGB, colors: colors as CFArray, locations: locations) else { return }
   ctx.saveGState()
   ctx.addPath(clip)
   ctx.clip()
-  ctx.drawLinearGradient(g, start: from, end: to, options: [])
+  ctx.drawLinearGradient(g, start: from, end: to, options: options)
   ctx.restoreGState()
 }
 
@@ -116,8 +120,8 @@ let darkPalette = Palette(
   corner: (0x0C0722, 0.55, CGPoint(x: S * 0.82, y: S * 0.88)),
   disc: [0xFFFFFF, 0xDFCFFF], play: 0x3A2272)
 
-func sonuxIcon(_ ctx: CGContext, _ p: Palette) {
-  iconGround(ctx, p)
+func sonuxIcon(_ ctx: CGContext, _ p: Palette, sealed: Bool) {
+  iconGround(ctx, p, sealed: sealed)
 
   let cc = CGPoint(x: S / 2, y: S / 2)
   let disc = CGRect(x: cc.x - 318, y: cc.y - 318, width: 636, height: 636)
@@ -128,10 +132,16 @@ func sonuxIcon(_ ctx: CGContext, _ p: Palette) {
   drawPlay(ctx, CGPoint(x: cc.x + 28, y: cc.y), 336, c(p.play), round: 0.24)
 }
 
-func iconGround(_ ctx: CGContext, _ p: Palette) {
+/// The ground ramp runs between two points inside the square, so the corners past either
+/// stop fall outside the gradient's range and stay unpainted. With an alpha channel they
+/// read as transparent; on a canvas without one they bake to black, so a sealed ground has
+/// to extend the ramp instead.
+func iconGround(_ ctx: CGContext, _ p: Palette, sealed: Bool) {
+  let options: CGGradientDrawingOptions =
+    sealed ? [.drawsBeforeStartLocation, .drawsAfterEndLocation] : []
   let square = CGPath(rect: CGRect(x: 0, y: 0, width: S, height: S), transform: nil)
   linearFill(ctx, square, p.bg.map { c($0) }, CGPoint(x: S * 0.08, y: 0),
-             CGPoint(x: S * 0.92, y: S), [0, 0.5, 1])
+             CGPoint(x: S * 0.92, y: S), [0, 0.5, 1], options)
   radialGlow(ctx, p.bloom.2, 700, [c(p.bloom.0, p.bloom.1), c(p.bloom.0, 0)])
   radialGlow(ctx, p.corner.2, 620, [c(p.corner.0, p.corner.1), c(p.corner.0, 0)])
 }
@@ -159,12 +169,17 @@ let assetDir = "Support/Assets.xcassets/AppIcon.appiconset"
 try? FileManager.default.createDirectory(at: URL(fileURLWithPath: assetDir),
                                          withIntermediateDirectories: true)
 
-let shipped: [(String, Palette)] = [("AppIcon", masterPalette), ("AppIconDark", darkPalette)]
+// App Store validation requires the master icon to be opaque. The dark twin's transparent
+// ground is judged separately, so it ships exactly as it did before.
+let shipped: [(String, Palette, CGImageAlphaInfo)] = [
+  ("AppIcon", masterPalette, .noneSkipLast),
+  ("AppIconDark", darkPalette, .premultipliedLast),
+]
 var finalImages: [(String, CGImage)] = []
-for (file, palette) in shipped {
-  let ctx = newContext(Int(S), Int(S))
+for (file, palette, alpha) in shipped {
+  let ctx = newContext(Int(S), Int(S), alpha)
   flipped(ctx, CGFloat(S))
-  sonuxIcon(ctx, palette)
+  sonuxIcon(ctx, palette, sealed: alpha == .noneSkipLast)
   write(ctx, "sonux-\(file)")
   writeTo(ctx, "\(assetDir)/\(file).png")
   if let img = ctx.makeImage() { finalImages.append((file, img)) }
