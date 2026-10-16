@@ -10,22 +10,27 @@ struct CoverPalette {
     let lower: Color
     let bottom: Color
 
-    /// 没提取到封面时的兜底：紫色系，明暗结构与下面的主色色板一致，
-    /// 播放页背景与摘录卡片共用这一份，两边不会各写一套颜色
-    static let fallback = CoverPalette(
-        top: Color(red: 0.24, green: 0.16, blue: 0.44),
-        middle: Color(red: 0.30, green: 0.20, blue: 0.55),
-        lower: Color(red: 0.20, green: 0.12, blue: 0.38),
-        bottom: Color(red: 0.10, green: 0.05, blue: 0.24)
-    )
+    /// 四段对纯白的对比下限。定这几个数不是拍脑袋：先按「哪一行字压在渐变哪一段上」排一遍——
+    /// 上半屏只有书名（22pt 粗体）与作者（20pt），属 WCAG 大字号，3:1 就够，留给色彩本身；
+    /// 章节名 15pt、字幕 13pt、时间读数 12pt 这些正文级小字全在封面下方，必须各保 4.5:1，
+    /// 而它们用的是 60%–70% 白（不是纯白），换算下来那两段的纯白对比要 9.5:1 以上才够
+    private nonisolated static let whiteContrast = [5.2, 6.2, 9.5, 12.5]
+    /// 饱和度钳位：Apple Music 那种"莫兰迪"区间，太艳会跟白字抢画面
+    private nonisolated static let saturationFloor = 0.18
+    private nonisolated static let saturationCeil = 0.45
 
-    /// 铺满全屏的沉浸渐变（含状态栏后面），色相全程一致，只明暗过渡
+    /// 没提取到封面时的兜底：App Icon 那枚圆盘的品牌紫，明暗结构与封面色板同源
+    static let fallback = CoverPalette(hue: 256.0 / 360.0, saturation: 0.63)
+
+    /// 铺满全屏的沉浸渐变（含状态栏后面），色相全程一致，只明暗过渡。
+    /// lower 压在 0.55：章节名、字幕、时间读数这几行小字都从封面下方开始，
+    /// 渐变要在那之前就先沉下去，否则那几行 60%–70% 的白字读不清
     var gradient: LinearGradient {
         LinearGradient(
             stops: [
                 .init(color: top, location: 0),
                 .init(color: middle, location: 0.30),
-                .init(color: lower, location: 0.66),
+                .init(color: lower, location: 0.55),
                 .init(color: bottom, location: 1),
             ],
             startPoint: .top, endPoint: .bottom
@@ -34,19 +39,65 @@ struct CoverPalette {
 
     /// 从封面提取主色：先缩到 32×32 取样，按色相分 36 箱累加权重（饱和度越高权重越大，
     /// 接近纯黑纯白的像素权重压到很低，避免白底封面把背景洗成一片灰），取权重最高的箱求均值；
-    /// 再把饱和度压到 Apple Music 那种“莫兰迪”区间、亮度限定在中偏暗，保证白字可读
+    /// 只取色相与饱和度，明暗一律交给下面的对比目标
     nonisolated static func make(from image: UIImage) -> CoverPalette? {
         guard let sampled = SampledPixels(image: image) else { return nil }
-        guard let (hue, saturation, brightness) = sampled.dominantHSB() else { return nil }
+        guard let (hue, saturation, _) = sampled.dominantHSB() else { return nil }
 
-        let sat = min(max(saturation, 0.18), 0.45)
-        let bri = min(max(brightness, 0.30), 0.55)
-        return CoverPalette(
-            top: Color(hue: hue, saturation: sat * 0.9, brightness: min(bri * 1.15, 0.62)),
-            middle: Color(hue: hue, saturation: sat, brightness: bri),
-            lower: Color(hue: hue, saturation: sat * 1.05, brightness: bri * 0.70),
-            bottom: Color(hue: hue, saturation: sat * 1.15, brightness: bri * 0.38)
-        )
+        let sat = min(max(saturation, saturationFloor), saturationCeil)
+        return CoverPalette(hue: hue, saturation: sat)
+    }
+
+    /// 按色相铺四段：每段的明暗由「对白字要多少对比」反推，不跟封面的原始亮度走
+    private init(hue: Double, saturation: Double) {
+        top = Self.stop(hue: hue, saturation: saturation * 0.9, contrast: Self.whiteContrast[0])
+        middle = Self.stop(hue: hue, saturation: saturation, contrast: Self.whiteContrast[1])
+        lower = Self.stop(hue: hue, saturation: saturation * 1.05, contrast: Self.whiteContrast[2])
+        bottom = Self.stop(hue: hue, saturation: saturation * 1.15, contrast: Self.whiteContrast[3])
+    }
+
+    /// 解出「对白字刚好等于目标对比」的那档 HSB 亮度。
+    /// 不能像以前那样直接钳 B：HSB 的 B 不是感知亮度，同 B 同 S 下黄(60°)比蓝紫(240°)
+    /// 亮一倍，白字对比能从 7.6:1 掉到 3.5:1——暖色封面整片踩雷，紫调测试书库却看不出来
+    private nonisolated static func stop(hue: Double, saturation: Double, contrast: Double) -> Color {
+        // 白字对比 c 反推背景相对亮度：(1.0 + 0.05) / (L + 0.05) = c
+        let target = 1.05 / contrast - 0.05
+        var lo = 0.0, hi = 1.0
+        // 相对亮度随 B 单调上升，二分 24 次收敛到 1/2^24 档
+        for _ in 0..<24 {
+            let mid = (lo + hi) / 2
+            if luminance(rgb: rgb(hue: hue, saturation: saturation, brightness: mid)) > target {
+                hi = mid
+            } else {
+                lo = mid
+            }
+        }
+        let (r, g, b) = rgb(hue: hue, saturation: saturation, brightness: (lo + hi) / 2)
+        return Color(.sRGB, red: r, green: g, blue: b, opacity: 1)
+    }
+
+    /// HSB → sRGB 分量（h 为 0...1）；自己算，不绕 UIColor，免得色彩管理转换引进偏差
+    private nonisolated static func rgb(hue h: Double, saturation s: Double, brightness v: Double)
+        -> (Double, Double, Double) {
+        let sector = (h - h.rounded(.down)) * 6
+        let f = sector - sector.rounded(.down)
+        let p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f))
+        switch Int(sector) % 6 {
+        case 0: return (v, t, p)
+        case 1: return (q, v, p)
+        case 2: return (p, v, t)
+        case 3: return (p, q, v)
+        case 4: return (t, p, v)
+        default: return (v, p, q)
+        }
+    }
+
+    /// WCAG 2.x 相对亮度
+    private nonisolated static func luminance(rgb: (Double, Double, Double)) -> Double {
+        func linear(_ c: Double) -> Double {
+            c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(rgb.0) + 0.7152 * linear(rgb.1) + 0.0722 * linear(rgb.2)
     }
 }
 

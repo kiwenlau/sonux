@@ -56,10 +56,17 @@ struct MiniPlayerView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(player.currentBook?.title ?? "")
                             .font(.footnote.weight(.semibold))
+                            // 显式写 Color.primary：左边这块是个没套 .plain 的 Button，
+                            // RootView 上那道 .tint(.indigo) 会顺着自动按钮样式把书名染成靛蓝，
+                            // 而这条压在封面晕开的面板上（实测浅色模式字段 L≈0.46，靛蓝只有 2.45:1）。
+                            // 注意不能写成 .foregroundStyle(.primary)——那个 .primary 解析成
+                            // HierarchicalShapeStyle.primary，正好又去继承按钮的 tint，等于没改
+                            .foregroundStyle(Color.primary)
                             .lineLimit(1)
                         Text(player.currentChapter?.title ?? "")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            // 同上：写死 Color.secondary，别让自动按钮样式的 tint 把它染成浅靛蓝
+                            .foregroundStyle(Color.secondary)
                             .lineLimit(1)
                     }
 
@@ -83,9 +90,11 @@ struct MiniPlayerView: View {
 }
 
 /// 播放/暂停按钮：一整条轨道 + 一条随进度增长的实心弧 + 居中的播放符号
-/// 底部迷你播放器与书库卡片封面上的播放键共用这一个视图，形状、大小、线宽、配色完全一致
-/// （34pt / 2.5pt / 11pt / 灰轨道 + 品牌靛蓝）；封面那枚只多垫一层半透胶囊底 onCover，
-/// 因为封面底色千变万化，没有一块中性底，细线条压在深底上就看不见
+/// 底部迷你播放器与书库卡片封面上的播放键共用这一个视图，形状、大小、线宽完全一致
+/// （34pt / 2.5pt / 11pt）；封面那枚只多垫一层半透胶囊底 onCover。
+/// 弧与符号用 primary 而不是品牌靛蓝：这两处都压在封面派生的字段上（卡片直接压原始封面，
+/// 收起条压 RootView 那层模糊封面），封面色相千变万化，固定色相既会糊成一片
+/// （实测靛蓝压黄封面只有 1.57:1），又跟任意封面色抢色；primary 跟着外观走，浅色压深、深色压亮
 struct MiniPlayButton: View {
     /// 进度 0...1：迷你播放器传本章进度，卡片传全书收听进度
     let progress: Double
@@ -109,7 +118,7 @@ struct MiniPlayButton: View {
                 if onCover {
                     // 糊化封面色的胶囊底：透出一点封面色调，同时给线条一块中性依托
                     Circle().fill(.ultraThinMaterial)
-                    Circle().strokeBorder(Color.white.opacity(0.45), lineWidth: 1)
+                    Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
                 }
                 // 轨道常显（迷你播放器一直是这个样子），只有弧按进度出现
                 Circle()
@@ -118,14 +127,14 @@ struct MiniPlayButton: View {
                     Circle()
                         .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
                         .stroke(
-                            Color.indigo,
+                            Color.primary,
                             style: StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
                 }
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.indigo)
+                    .foregroundStyle(Color.primary)
                     // 三角形重心偏左，往右挪一点才真正居中
                     .offset(x: isPlaying ? 0 : 1)
             }

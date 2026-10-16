@@ -187,10 +187,10 @@ private struct PlayingBadge: View {
     var body: some View {
         ZStack {
             Circle().fill(.ultraThinMaterial)
-            Circle().strokeBorder(Color.white.opacity(0.5), lineWidth: Self.lineWidth)
+            Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: Self.lineWidth)
             Image(systemName: isPlaying ? "waveform" : "play.fill")
                 .font(.system(size: isPlaying ? 11 : 12, weight: .semibold))
-                .foregroundStyle(Color.indigo)
+                .foregroundStyle(Color.primary)
                 // 三角形重心偏左，往右挪一点才真正居中
                 .offset(x: isPlaying ? 0 : 1)
         }
