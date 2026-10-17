@@ -353,7 +353,8 @@ private struct TabBarView: View {
             }
         }
         .frame(height: Self.contentHeight)
-        .frame(maxWidth: .infinity)
+        // iPad 上三枚 tab 靠满宽会各分到 400 多 pt，图标之间空得像断开的三块；夹在一栏里居中
+        .readableColumn(ColumnWidth.controls)
         .padding(.top, Self.topPadding)
         // 主屏指示条那一条也归 tab 栏，底铺满才不会有割裂感
         .padding(.bottom, max(HomeIndicator.inset - Self.topPadding, 0))
@@ -375,5 +376,34 @@ private struct TabBarView: View {
             }
         }
         return 0
+    }
+}
+
+/// 宽屏一栏的宽度上限。iPad 上界面不靠「把 iPhone 的那套拉大」来适配，
+/// 而是把内容与阅读用的文字各自夹在一栏里，导航栏与页面底色仍然铺满整宽
+enum ColumnWidth {
+    /// 卡片、搜索条、控件行、tab 栏这类。760 让 iPad 竖屏正好放下四列封面，
+    /// 单列算下来约 176 pt，与 iPhone 上的卡片同宽——大屏是多几列，而不是把卡片拉大
+    static let controls: CGFloat = 760
+    /// 字幕正文那一栏：一行超过这么多字就读不回来了
+    static let prose: CGFloat = 620
+}
+
+extension View {
+    /// 夹在居中的一栏里。iPhone 的可用宽度本来就低于上限，那两层 frame 等于不存在，
+    /// 所以窄屏的排版与尺寸和改之前完全一致
+    func readableColumn(_ maxWidth: CGFloat) -> some View {
+        clampedWidth(maxWidth).fillRemainder()
+    }
+
+    /// 只收宽度、不外扩。自己还要铺底色或阴影的内容用它，再在末尾补一次 fillRemainder——
+    /// 直接用 readableColumn 的话底色会跟着外层铺满整宽
+    func clampedWidth(_ maxWidth: CGFloat) -> some View {
+        frame(maxWidth: maxWidth)
+    }
+
+    /// 吃掉剩余宽度并把内层摆正中（iPad 上左右那两条留白）
+    func fillRemainder() -> some View {
+        frame(maxWidth: .infinity)
     }
 }

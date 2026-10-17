@@ -133,6 +133,9 @@ struct PlayerView: View {
                 playbackGroup
             }
             .padding(.horizontal, 24)
+            // iPad：渐变照旧铺满整屏，三段式构图夹在一栏里。满宽的播放组会把上一首/下一首
+            // 甩到离播放键 400 pt 之外，进度条也拉成一条没有尽头的线
+            .readableColumn(ColumnWidth.controls)
         }
         // 换书时背景主色平滑过渡，而不是整页颜色突变
         .animation(.easeInOut(duration: 0.5), value: book?.id ?? "")
@@ -775,6 +778,8 @@ struct TranscriptView: View {
                 header
                 TranscriptLines(chapter: chapter)
             }
+            // 正文行宽按阅读的一栏夹：iPad 上一句台词铺满 1000 多 pt 就没法读了
+            .readableColumn(ColumnWidth.prose)
         }
         // 整页都是这一层的命中区：糊化的底是装饰层（关了命中测试），不铺形状的话
         // 文字之间的空隙会把点击和下滑整个漏给下面的播放页 —— 表现是「往下滑一下，

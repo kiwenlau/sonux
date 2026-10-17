@@ -40,6 +40,8 @@ struct HistoryView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
+                    // iPad：历史卡夹在一栏里，卡片才不会一张顶到屏幕两头
+                    .readableColumn(ColumnWidth.controls)
                 }
             }
         }

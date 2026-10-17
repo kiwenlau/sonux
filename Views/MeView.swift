@@ -29,6 +29,8 @@ struct MeView: View {
             }
         }
         .padding(14)
+        // iPad：统计卡与设置卡夹在一栏里，30 pt 的大数字才有依托
+        .clampedWidth(ColumnWidth.controls)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // 底色铺进状态栏与导航栏，与书库、历史页一致
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
@@ -269,23 +271,31 @@ struct ListeningBarChart: View {
 
     var body: some View {
         GeometryReader { proxy in
+            // 柱宽跟着格子走：iPhone 上算出来仍是 12pt（与写死时一致），
+            // iPad 那一栏宽了近一倍，柱子还钉在 12pt 就散成一排牙签
+            let barWidth = max(Self.barMinWidth,
+                               min(Self.barMaxWidth, proxy.size.width / CGFloat(max(values.count, 1)) * 0.22))
             HStack(spacing: 0) {
                 ForEach(values.indices, id: \.self) { index in
                     ZStack(alignment: .bottom) {
                         // 浅底柱表示这一格的满值，实心部分才是当天时长
                         Capsule()
                             .fill(Color.indigo.opacity(0.1))
-                            .frame(width: 12)
+                            .frame(width: barWidth)
 
                         Capsule()
                             .fill(index == highlightIndex ? Color.indigo : Color.indigo.opacity(0.4))
-                            .frame(width: 12, height: barHeight(values[index], in: proxy.size.height))
+                            .frame(width: barWidth, height: barHeight(values[index], in: proxy.size.height))
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
         }
     }
+
+    /// 柱宽下限即 iPhone 上原来的写死值，上限防止大屏把柱子画成色块
+    private static let barMinWidth: CGFloat = 12
+    private static let barMaxWidth: CGFloat = 28
 
     /// 没听的那格为 0，秒数直接按比例化成柱高
     private var peak: Double {

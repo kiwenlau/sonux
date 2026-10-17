@@ -25,6 +25,8 @@ struct BookDetailView: View {
             ChapterList(book: book)
         }
         .listStyle(.plain)
+        // iPad：详情整页夹在一栏里。满宽的头部会把 220 pt 的封面甩成一片空白里的一枚小邮票
+        .readableColumn(ColumnWidth.controls)
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
         .background(TransparentNavigationBar())

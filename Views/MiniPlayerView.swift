@@ -85,6 +85,8 @@ struct MiniPlayerView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 52)
+        // 与 tab 栏同一栏宽：书名在左、播控在右，两头拉开到屏幕边就没有「正在播这一本」的整体感
+        .readableColumn(ColumnWidth.controls)
         // 不自己铺底：与下方 tab 栏共用 RootView 那一整块底色，两条才不是一个颜色
     }
 }

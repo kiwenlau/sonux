@@ -115,6 +115,8 @@ struct LibraryView: View {
                 // List 默认会铺一层不透明白底，挡住上面的分组灰
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
+                // iPad：行卡夹在一栏里，否则一行标题在左、播放键在 1000 pt 之外
+                .readableColumn(ColumnWidth.controls)
             }
         }
     }
@@ -414,10 +416,9 @@ private struct BookGridView: View {
 
     private var router: AppRouter { routers.active }
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12),
-    ]
+    /// 列数按可用宽自适应：iPhone 390/320 都算出两列（与原来写死的双列一致），
+    /// iPad 竖屏 6 列、横屏 8 列，不用为大屏再写一套网格
+    private let columns = [GridItem(.adaptive(minimum: 140, maximum: 220), spacing: 12)]
 
     var body: some View {
         ScrollView {
@@ -443,6 +444,8 @@ private struct BookGridView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
+            // 与搜索条、列表行同一个栏宽，卡片左边缘才跟上面的搜索框对齐
+            .readableColumn(ColumnWidth.controls)
         }
         .scrollDismissesKeyboard(.interactively)
     }
@@ -501,7 +504,8 @@ private struct LibrarySearchBar: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 36)
-        .frame(maxWidth: .infinity)
+        // iPad 上一条上千 pt 宽的搜索框不能看：先夹住卡片本身，末尾再补外层填充把它居中
+        .clampedWidth(ColumnWidth.controls)
         // 灰底页面上搜索框用白色卡片色，跟微信听书一致
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(.secondarySystemGroupedBackground)))
         .contentShape(RoundedRectangle(cornerRadius: 10))
@@ -513,6 +517,7 @@ private struct LibrarySearchBar: View {
             guard !Task.isCancelled else { return }
             apply()
         }
+        .fillRemainder()
     }
 
     private func apply() {
@@ -547,12 +552,13 @@ private struct FullTextSearchRow: View {
             }
             .padding(.horizontal, 10)
             .frame(height: 36)
-            .frame(maxWidth: .infinity)
+            .clampedWidth(ColumnWidth.controls)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color(.secondarySystemGroupedBackground)))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("library-fulltext")
+        .fillRemainder()
     }
 }
 

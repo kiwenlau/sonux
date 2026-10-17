@@ -92,6 +92,8 @@ struct TextSearchView: View {
         .listStyle(.plain)
         // List 默认会铺一层不透明白底，挡住后面的分组灰
         .scrollContentBackground(.hidden)
+        // iPad：命中行夹在一栏里，正文摘录才不是一行铺到屏幕两头
+        .readableColumn(ColumnWidth.controls)
     }
 
     /// 逐本扫字幕：一本书一次后台运算，扫完一本就上屏（全库一趟 Release 0.3 秒、Debug 1 秒，先让结果出来比等齐更重要）
