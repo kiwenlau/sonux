@@ -30,7 +30,7 @@ settings:
     SWIFT_VERSION: "5.9"
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
-    TARGETED_DEVICE_FAMILY: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
     # 真机签名团队：不写在这里的话，每次 xcodegen 重新生成工程都会变成 Team=None，
     # 命令行构建直接报「requires a development team」，得靠 Xcode 界面手点才能恢复
     DEVELOPMENT_TEAM: 7YXZS92PLV
@@ -67,6 +67,10 @@ targets:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: Sonux
+        # 版本只由上面的 MARKETING_VERSION / CURRENT_PROJECT_VERSION 决定：plist 里写字面值
+        # 会出现「改了配置、上传的包还是老版本」
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleLocalizations: [en, zh-Hans, zh-Hant, ja, ko, fr, de, es, pt-BR, pt-PT, it, ru, ar, nl, sv, da, fi, nb, pl, tr, cs, sk, hu, el, he, hi, id, ms, ro, uk, th, vi, ca, hr]
         CFBundleURLTypes:
           - CFBundleTypeRole: Viewer
@@ -87,6 +91,12 @@ targets:
               - public.audio
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # iPhone 锁竖屏；iPad 四向全开（App Store 对 iPad 应用的方向要求，缺这个键构建会提示方向支持问题）
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kiwenlau.sonux
@@ -109,6 +119,8 @@ targets:
       path: Widget/Info.plist
       properties:
         CFBundleDisplayName: Sonux
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleLocalizations: [en, zh-Hans, zh-Hant, ja, ko, fr, de, es, pt-BR, pt-PT, it, ru, ar, nl, sv, da, fi, nb, pl, tr, cs, sk, hu, el, he, hi, id, ms, ro, uk, th, vi, ca, hr]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
@@ -136,4 +148,4 @@ targets:
         BUNDLE_LOADER: "$(TEST_HOST)"
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "16.4"
-        TARGETED_DEVICE_FAMILY: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"

@@ -884,7 +884,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = debug;
 		};
@@ -902,7 +902,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.kiwenlau.sonux.tests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sonux.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Sonux";
 			};
 			name = debug;
@@ -921,7 +921,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.kiwenlau.sonux.tests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sonux.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Sonux";
 			};
 			name = release;
@@ -1018,7 +1018,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = release;
 		};
