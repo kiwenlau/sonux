@@ -5,8 +5,6 @@ struct LibraryView: View {
     @EnvironmentObject private var library: LibraryService
     @EnvironmentObject private var player: PlayerService
     @EnvironmentObject private var routers: TabRouters
-    // 字幕搜索是 Pro：入口留着，点它的人才会被领去看买断页
-    @ObservedObject private var entitlement = EntitlementService.shared
     @AppStorage("libraryGridView") private var gridView = true
     /// 排序方式：默认按最近收听；@AppStorage 只存原始值，脏值（如已删掉的 duration、progress）也回落到这个默认
     @AppStorage("librarySort") private var sortRaw = LibrarySort.lastPlayed.rawValue
@@ -127,8 +125,9 @@ struct LibraryView: View {
             // 做不到「隐藏添加、保留视图切换」，所以搜索栏自己画
             if !sourceBooks.isEmpty {
                 LibrarySearchBar(query: $searchQuery, focused: $searchFocused) { committed in
-                    // 按键盘上的「搜索」= 直接进字幕搜索页：书名与章节名之外的第三种搜法
-                    entitlement.gateContent { router.openTextSearch(query: committed, author: author) }
+                    // 按键盘上的「搜索」= 直接进字幕搜索页：书名与章节名之外的第三种搜法。
+                    // 不上锁：字幕是附加能力，这本书没字幕时搜索页自己会说「还没有可搜索的字幕」
+                    router.openTextSearch(query: committed, author: author)
                 }
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
@@ -138,7 +137,7 @@ struct LibraryView: View {
             // 有声书的搜索重心在正文里，只按书名过滤会让人觉得「搜不到」
             if !sourceBooks.isEmpty, !searchQuery.isEmpty {
                 FullTextSearchRow(query: searchQuery) {
-                    entitlement.gateContent { router.openTextSearch(query: searchQuery, author: author) }
+                    router.openTextSearch(query: searchQuery, author: author)
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 8)

@@ -4,7 +4,10 @@ import QuartzCore
 /// 字幕仓库：把 Documents/transcripts/《书名》.json 读进内存，
 /// 供播放页查「此刻在朗读哪一句」，也供弹层的整章文本页铺出全章字幕
 ///
-/// 数据由 tools/transcribe.py 转写生成，用 ./sync-transcripts.sh 同步进沙盒。
+/// 数据只有开发流水线这一个来源：tools/transcribe.py 转写生成，用 ./sync-transcripts.sh
+/// 同步进沙盒。普通用户导入的书没有字幕包，于是字幕、整章文案页、逐句搜索与摘录卡片都不出现
+/// （播放页与搜索页各自按「这本书有没有字幕」收起）。App 里没有生成或导入字幕的入口，
+/// 所以这几项是附带能力，不写进付费权益也不上锁。
 /// 只保留当前这本书：一本几百 KB，全库留在内存里没必要，切书时整体换掉。
 @MainActor
 final class TranscriptStore: ObservableObject {

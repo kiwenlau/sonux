@@ -1042,27 +1042,7 @@ add("Nothing is playing in Sonux yet.", ar="لا يوجد شيء قيد التش
 # 「Sonux Pro」是产品名，34 种语言都按原样写，不进译文表（查不到词条就回退显示键本身）
 add("Sonux Pro")
 
-add("Synced Captions", ar="ترجمات متزامنة", ca="Subtítols sincronitzats", hr="Sinhronizirani titlovi",
-    cs="Synchronované titulky", da="Synkroniserede undertekster", nl="Gesynchroniseerde ondertitels",
-    fr="Sous-titres synchronisés", de="Synchronisierte Untertitel", el="Συγχρονισμένοι υπότιτλοι",
-    he="כתוביות מסונכרנות", hi="समकालीन उपशीर्षक", hu="Szinkronizált feliratok",
-    id="Teks tersinkron", it="Sottotitoli sincronizzati", ja="同期字幕", ko="동기 자막",
-    ms="Sarikata segerak", nb="Synkroniserte undertekster", pl="Napisy zsynchronizowane",
-    ptbr="Legendas sincronizadas", ptpt="Legendas sincronizadas", ro="Subtitrări sincronizate",
-    ru="Синхронные субтитры", sk="Synchronizované titulky", es="Subtítulos sincronizados",
-    sv="Synkroniserade textningar", th="คำบรรยายซิงค์", tr="Senkronize altyazılar",
-    uk="Синхронізовані субтитри", vi="Phụ đề đồng bộ", zhhs="同步字幕", zhtt="同步字幕")
 
-add("Search Every Sentence", ar="ابحث في كل جملة", ca="Cercar cada frase", hr="Pretraži svaku rečenicu",
-    cs="Hledat v každé větě", da="Søg i hver sætning", nl="Elke zin doorzoeken",
-    fr="Rechercher chaque phrase", de="Jeden Satz durchsuchen", el="Αναζήτηση κάθε πρότασης",
-    he="חפש כל משפט", hi="हर वाक्य खोजें", hu="Keress minden mondatban", id="Cari setiap kalimat",
-    it="Cerca in ogni frase", ja="全文検索", ko="전체 문장 검색", ms="Cari setiap ayat",
-    nb="Søk i hver setning", pl="Szukaj w każdym zdaniu", ptbr="Buscar em cada frase",
-    ptpt="Procurar em cada frase", ro="Caută în fiecare propoziție", ru="Поиск в каждом предложении",
-    sk="Hľadať v kažtej vete", es="Buscar cada frase", sv="Sök i varje mening",
-    th="ค้นหาทุกประโยค", tr="Her cümleyi ara", uk="Пошук у кожному реченні",
-    vi="Tìm mỗi câu", zhhs="全文逐句搜索", zhtt="全文逐句搜尋")
 
 add("Speed, Volume & Sleep Timer", ar="السرعة والصوت والمؤقت", ca="Velocitat, volum i temporitzador",
     hr="Brzina, glasnoća i brojač vremena", cs="Rychlost, hlasitost a časovač",
@@ -1080,21 +1060,6 @@ add("Speed, Volume & Sleep Timer", ar="السرعة والصوت والمؤقت"
     uk="Швидкість, гучність і таймер", vi="Tốc độ, âm lượng và hẹn giờ",
     zhhs="语速、音量与定时关闭", zhtt="語速、音量與定時關閉")
 
-add("Trim Silence & Voice Boost", ar="اقتطاع الصمت وتعزيز الصوت", ca="Retallar silencis i reforçar la veu",
-    hr="Skrati tišinu i pojačaj glas", cs="Zkrácení ticha a zesílení hlasu",
-    da="Fjern stilhed og forstærk stemme", nl="Stiltes korten en stem versterken",
-    fr="Couper les silences et booster la voix", de="Stille kürzen & Stimme verstärken",
-    el="Περικοπή σιωπής και ενίσχυση φωνής", he="קיצור שתיקות והגברת הקול",
-    hi="मौन घटाएँ और आवाज़ बढ़ाएँ", hu="Csend vágása és hangkiemelés",
-    id="Pangkas hening & perkuat suara", it="Taglia silenzi e rinforza voce",
-    ja="無音削除と音声強調", ko="무음 제거·음성 강조", ms="Potong senyap & kuatkan suara",
-    nb="Fjern stillhet og forsterk stemmen", pl="Przytnij ciszę i wzmocnij głos",
-    ptbr="Cortar silêncio e reforçar voz", ptpt="Cortar silêncio e reforçar voz",
-    ro="Taie liniștea și amplifică vocea", ru="Убирать паузы и усиливать голос",
-    sk="Skrátenie ticha a zesilnenie hlasu", es="Recortar silencios y realzar voz",
-    sv="Klipp tystnad och förstärk rösten", th="ตัดความเงียบและเสริมเสียง",
-    tr="Sessizliği kısalt ve sesi güçlendir", uk="Прибирати тишу й підсилювати голос",
-    vi="Cắt khoảng lặng và tăng giọng nói", zhhs="跳过静音与语音增强", zhtt="跳過靜音與語音增強")
 
 add("Listening Report", ar="تقرير الاستماع", ca="Informe d’escolta", hr="Izvješće o slušanju",
     cs="Přehled poslechu", da="Lytterapport", nl="Luisterrapport", fr="Rapport d’écoute",
@@ -1106,15 +1071,6 @@ add("Listening Report", ar="تقرير الاستماع", ca="Informe d’escolt
     es="Informe de escucha", sv="Lyssningsrapport", th="รายงานการฟัง", tr="Dinleme raporu",
     uk="Звіт про прослуховування", vi="Báo cáo nghe", zhhs="收听报告", zhtt="收聽報告")
 
-add("Quote Cards", ar="بطاقات الاقتباس", ca="Targetes de citació", hr="Kartice citata",
-    cs="Karty citací", da="Citatkort", nl="Citatenkaarten", fr="Cartes de citation",
-    de="Zitatkarten", el="Κάρτες αποσπασμάτων", he="כרטיסי ציטוט", hi="उद्धरण कार्ड",
-    hu="Idézetkártyák", id="Kartu kutipan", it="Carte di citazione", ja="引用カード",
-    ko="인용 카드", ms="Kad petikan", nb="Sitatkort", pl="Karty cytatów",
-    ptbr="Cartões de citação", ptpt="Cartões de citação", ro="Carduri de citate",
-    ru="Карточки цитат", sk="Karty citátov", es="Tarjetas de cita", sv="Citatkort",
-    th="บัตรคำคม", tr="Alıntı kartları", uk="Картки цитат", vi="Thẻ trích dẫn",
-    zhhs="摘录卡片", zhtt="擷取卡片")
 
 add("Unlock Everything — %@", ar="فتح كل المزايا — %@", ca="Desbloqueja-ho tot — %@",
     hr="Otključaj sve — %@", cs="Odemknout vše — %@", da="Lås op for alt — %@",

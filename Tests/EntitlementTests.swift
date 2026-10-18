@@ -1,7 +1,8 @@
 import XCTest
+import SwiftUI
 @testable import Sonux
 
-/// 付费判定：7 天试用只开内容层，播放控制层只有 Pro 才有，没 Pro 的人每天只给 30 分钟。
+/// 付费判定：7 天试用只开收听报告，播放控制层只有 Pro 才有，没 Pro 的人每天只给 30 分钟。
 /// 商店那条链在测试宿主里是空的（没配 StoreKit 文件），所以这里只摆日期、秒数与「买没买断」
 final class EntitlementPolicyTests: XCTestCase {
     private let day: TimeInterval = 24 * 60 * 60
@@ -12,12 +13,12 @@ final class EntitlementPolicyTests: XCTestCase {
         for offset in 0..<7 {
             XCTAssertTrue(EntitlementPolicy.inTrial(trialStart: start,
                                                     now: start.addingTimeInterval(Double(offset) * day)),
-                          "试用第 \(offset + 1) 天该开着内容层")
+                          "试用第 \(offset + 1) 天该开着报告")
         }
     }
 
     func testTrialEndsTheMomentItTurnsSevenDays() {
-        // 边界不留给「差不多」：满 7 天那一刻起内容层就锁
+        // 边界不留给「差不多」：满 7 天那一刻起报告就锁
         XCTAssertFalse(EntitlementPolicy.inTrial(trialStart: start,
                                                  now: start.addingTimeInterval(7 * day)))
         XCTAssertFalse(EntitlementPolicy.inTrial(trialStart: start,
@@ -79,19 +80,19 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertTrue(trialing.isPaywallPresented)
     }
 
-    func testContentFeaturesOpenDuringTrial() {
+    func testReportOpensDuringTrial() {
         let trialing = service(trialDaysAgo: 2)
         var ran = false
-        trialing.gateContent { ran = true }
+        trialing.gateReport { ran = true }
         XCTAssertTrue(ran)
         XCTAssertFalse(trialing.isPaywallPresented)
     }
 
-    func testContentFeaturesLockAfterTrial() {
+    func testReportLocksAfterTrial() {
         let expired = service(trialDaysAgo: 8)
         var ran = false
-        expired.gateContent { ran = true }
-        XCTAssertFalse(ran, "试用过了，内容层该上锁")
+        expired.gateReport { ran = true }
+        XCTAssertFalse(ran, "试用过了，收听报告该上锁")
         XCTAssertTrue(expired.isPaywallPresented)
     }
 
@@ -100,11 +101,23 @@ final class EntitlementGateTests: XCTestCase {
         let subscriber = service(trialDaysAgo: 400, subscribed: true)
         XCTAssertTrue(subscriber.isPro)
         var pro = false
-        var content = false
+        var report = false
         subscriber.gatePro { pro = true }
-        subscriber.gateContent { content = true }
+        subscriber.gateReport { report = true }
         XCTAssertTrue(pro)
-        XCTAssertTrue(content)
+        XCTAssertTrue(report)
+    }
+
+    // MARK: - 买断页上承诺了什么
+
+    func testPaywallPromisesOnlyDeliverableFeatures() {
+        // 这张表只摆「掏了钱就一定拿得到」的四项。字幕、整章文案页、逐句搜索与摘录卡片
+        // 都不在内：App 里没有让用户拿到字幕的办法，把它们写成权益就是拿开发环境里
+        // 跑得通的东西卖钱。跳过静音也不在——它的静音地图来自字幕（见 SilenceGaps）。
+        XCTAssertEqual(PaywallView().rows.map(\.feature),
+                       [L("Listening Time"), L("Speed, Volume & Sleep Timer"),
+                        L("Voice Boost"), L("Listening Report")],
+                       "买断页多了一行，得先回答：用户在自己导入的书上真拿得到这一行吗？")
     }
 
     func testTrialDaysLeftQuietAfterPro() {

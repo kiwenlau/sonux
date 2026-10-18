@@ -330,9 +330,9 @@ struct PlayerView: View {
     // MARK: - 字幕（正在朗读的那一句）
 
     /// 当前这一章有没有字幕（没转写出来的书整块不占位，不留一行空白）。
-    /// 试用期一过也整块收起：字幕连着文案页、摘录卡片与全文搜索，是一块 Pro 而不是一个装饰
+    /// 字幕不看付费状态：它是附加能力，有字幕就显示、没有就整块收起
     private var hasCaption: Bool {
-        entitlement.hasContentAccess && transcripts.hasTranscript(for: player.currentChapter?.id)
+        transcripts.hasTranscript(for: player.currentChapter?.id)
     }
 
     /// 摘某一时刻正在读的那句，时刻取这句的起点（与文案页点句同口径）。
@@ -356,9 +356,7 @@ struct PlayerView: View {
         VStack(spacing: 0) {
             chapterText
 
-            if entitlement.hasContentAccess {
-                PlayerCaption(scrubTime: $scrubTime, onOpen: openTranscript, onQuote: { quoted = $0 })
-            }
+            PlayerCaption(scrubTime: $scrubTime, onOpen: openTranscript, onQuote: { quoted = $0 })
 
             PlayerProgressRow(scrubTime: $scrubTime)
                 .padding(.top, hasCaption ? Self.gapCaptionToProgress : Self.gapChapterToProgress)

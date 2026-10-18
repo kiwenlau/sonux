@@ -169,7 +169,7 @@ private struct TotalCard: View {
 }
 
 /// 本月卡：本月的收听时长与听完的本数，点进去是今年的收听报告
-/// 样式跟累计卡一致（小标题 + 分栏指标），只占两栏；报告页是 Pro，入口先过 gate
+/// 样式跟累计卡一致（小标题 + 分栏指标），只占两栏；报告页要 Pro 或试用期内，入口先过 gate
 private struct MonthCard: View {
     let summary: LibraryService.ListeningSummary
 
@@ -178,7 +178,7 @@ private struct MonthCard: View {
 
     var body: some View {
         Button {
-            entitlement.gateContent { showingReport = true }
+            entitlement.gateReport { showingReport = true }
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 Text(L("This Month"))

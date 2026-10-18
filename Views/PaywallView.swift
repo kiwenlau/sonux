@@ -2,6 +2,10 @@ import SwiftUI
 
 /// 买断页：免费与 Pro 两列对照 + 月订阅做价格锚，主按钮留给永久买断。
 /// 价格一律取自商店的 `Product.displayPrice`，界面不写死金额——换区、调价、含税都跟着走
+///
+/// 表里只摆「买了就一定拿得到」的：时长、播放控制、语音增强、收听报告。字幕那一类
+/// 不写——它要求该书有字幕文件，而首版不给用户提供拿到字幕的办法，
+/// 写在付费表里就是拿开发环境里跑得通的东西去卖一个买不到的能力。
 struct PaywallView: View {
     @ObservedObject private var entitlement = EntitlementService.shared
     @Environment(\.dismiss) private var dismiss
@@ -56,8 +60,9 @@ struct PaywallView: View {
 
     // MARK: - 对照表
 
-    /// 一行一项权益：免费那列给「30 分钟 / 试用 7 天 / 没有」，Pro 那列给「不限 / 有」
-    private var rows: [ComparisonRow] {
+    /// 一行一项权益：免费那列给「30 分钟 / 试用 7 天 / 没有」，Pro 那列给「不限 / 有」。
+    /// 不私有是因为测试要照着它验「表里不许摆用户买不到的能力」（见 EntitlementGateTests）
+    var rows: [ComparisonRow] {
         let trial = LF("%d-Day Trial", Int(EntitlementPolicy.trialDuration / (24 * 60 * 60)))
         return [
             ComparisonRow(feature: L("Listening Time"),
@@ -65,10 +70,7 @@ struct PaywallView: View {
                                          Int(EntitlementPolicy.dailyFreeSeconds / 60))),
                           pro: .text(L("Unlimited"))),
             ComparisonRow(feature: L("Speed, Volume & Sleep Timer"), free: .none, pro: .yes),
-            ComparisonRow(feature: L("Trim Silence & Voice Boost"), free: .none, pro: .yes),
-            ComparisonRow(feature: L("Synced Captions"), free: .text(trial), pro: .yes),
-            ComparisonRow(feature: L("Search Every Sentence"), free: .text(trial), pro: .yes),
-            ComparisonRow(feature: L("Quote Cards"), free: .text(trial), pro: .yes),
+            ComparisonRow(feature: L("Voice Boost"), free: .none, pro: .yes),
             ComparisonRow(feature: L("Listening Report"), free: .text(trial), pro: .yes),
         ]
     }

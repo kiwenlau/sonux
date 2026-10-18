@@ -1,8 +1,9 @@
 import Foundation
 import StoreKit
 
-/// 付费判定的纯逻辑：7 天试用只开内容层，播放控制层只有 Pro 才有，
+/// 付费判定的纯逻辑：7 天试用只开收听报告，播放控制层只有 Pro 才有，
 /// 没 Pro 的人（含试用期内）每天只给 30 分钟收听。
+/// 字幕、逐句搜索与摘录不在这里：它们只看该书有没有字幕文件，不看付费状态。
 /// 不碰商店也不碰界面，测试直接摆日期与秒数就能验
 enum EntitlementPolicy {
     /// App Store Connect 里的两件商品：永久买断与月度订阅
@@ -19,7 +20,7 @@ enum EntitlementPolicy {
     static let usageDayKey = "usage.day"
     static let usageSecondsKey = "usage.seconds"
 
-    /// 试用期是否还在走：只管内容层（字幕、逐句搜索、报告、摘录）
+    /// 试用期是否还在走：只管收听报告
     static func inTrial(trialStart: Date, now: Date,
                         trialDuration: TimeInterval = EntitlementPolicy.trialDuration) -> Bool {
         now.timeIntervalSince(trialStart) < trialDuration
@@ -78,8 +79,9 @@ final class EntitlementService: ObservableObject {
     /// Pro：播放控制层（语速、定时关闭、音量细调、跳过静音与语音增强）与不限时长
     var isPro: Bool { isPurchased || isSubscribed || unlockedForDevelopment }
 
-    /// 内容层（同步字幕、整章文稿、逐句搜索、摘录卡片、收听报告）：Pro 或试用期内
-    var hasContentAccess: Bool {
+    /// 收听报告：Pro 或试用期内。字幕那一类不在这里——它们不上锁，
+    /// 只在该书有字幕文件时才出现（见 TranscriptStore）
+    var hasReportAccess: Bool {
         isPro || EntitlementPolicy.inTrial(trialStart: trialStart, now: Date())
     }
 
@@ -172,9 +174,9 @@ final class EntitlementService: ObservableObject {
         if isPro { action() } else { isPaywallPresented = true }
     }
 
-    /// 试用期内也放行、到期上锁的入口：字幕与文案页、逐句搜索、摘录卡片、收听报告
-    func gateContent(_ action: @escaping () -> Void) {
-        if hasContentAccess { action() } else { isPaywallPresented = true }
+    /// 试用期内也放行、到期上锁的入口：只有收听报告
+    func gateReport(_ action: @escaping () -> Void) {
+        if hasReportAccess { action() } else { isPaywallPresented = true }
     }
 
     // MARK: - 每日收听额度
