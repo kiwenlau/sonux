@@ -264,6 +264,24 @@ final class PlayerService: NSObject, ObservableObject {
 
     // MARK: - 播放控制
 
+    /// 出声的统一闸门：每天 30 分钟用完，任何入口想让声音出来都在这里拦下——
+    /// 列表与详情页的播放、播放页的播放键、锁屏与车载那枚播放、语音开播、自动续下一章、
+    /// 中断结束后 AVPlayer 自己把 rate 放回来，全都过这一道。
+    /// 额度是现读的（见 EntitlementService.dailyCapReached），所以跨了午夜这里自然又放行，
+    /// 不必重启、也不靠计时回调里那一次提示
+    @discardableResult
+    private func allowsPlayback() -> Bool {
+        let entitlement = EntitlementService.shared
+        guard !entitlement.dailyCapReached else {
+            NSLog("[sonux] cap: 今日 30 分钟已用完，开播拦下")
+            // 已经在出声的那一段也按停：锁屏卡片上的速率得归零，别留一张「还在播」的假卡片
+            pausePlayback()
+            entitlement.isPaywallPresented = true
+            return false
+        }
+        return true
+    }
+
     /// 从指定位置开始播放一本书
     func play(book: Book, at position: PlayPosition?) {
         guard let chapter = chapter(in: book, for: position) ?? book.chapters.first else { return }
@@ -274,6 +292,8 @@ final class PlayerService: NSObject, ObservableObject {
     /// 播放某一章节。fromTime 与对外发布的 currentTime 都是「本章内」的秒；
     /// 内嵌章节的 m4b 里本章只是文件的一段，落到播放器上要换算成文件内的秒
     func play(chapter: Chapter, book: Book, fromTime: TimeInterval = 0) {
+        // 出声的总入口：没额度就连书都不挂，免得挂着一本放不出声的书占住「继续收听」条
+        guard allowsPlayback() else { return }
         activateAudioSession()
         let local = clampedLocalTime(fromTime, in: chapter)
         // 换章/换书前先把上一段结清：位置与攒下的收听秒数当场落盘。
@@ -409,6 +429,8 @@ final class PlayerService: NSObject, ObservableObject {
             isPlaying = false
             NSLog("[sonux] togglePlayPause: paused %.1f ms", (CACurrentMediaTime() - t0) * 1000)
         } else {
+            // 播放键（界面、锁屏的 toggle、CarPlay）续播这一声也要先问额度
+            guard allowsPlayback() else { return }
             activateAudioSession()
             rewindAfterPauseIfNeeded()
             player.rate = speed // 暂停期间调整的倍速需重新应用；不能用 play()，它会把 rate 钉回 1.0
@@ -1147,6 +1169,7 @@ final class PlayerService: NSObject, ObservableObject {
     /// 锁屏“播放”：暂停中的音频直接续播，没装载或已播到结尾就重新开播当前书
     @MainActor func resumePlayback() {
         if let player, player.currentItem != nil, player.timeControlStatus == .paused, !isAtItemEnd {
+            guard allowsPlayback() else { return }
             activateAudioSession()
             rewindAfterPauseIfNeeded()
             player.rate = speedValue() // 不能用 play()：它会把倍速抹回 1.0
@@ -1211,6 +1234,9 @@ extension PlayerService {
         switch status {
         case .playing:
             guard !isPlaying else { return }
+            // AVPlayer 自己把声音放回来了（缓冲落地就按 rate 走、系统在中断结束后恢复会话）：
+            // 这条不经过任何播放入口，额度照样在这里拦下
+            guard allowsPlayback() else { return }
             isPlaying = true
             listeningAnchor = Date()
             startProgressTimer()
@@ -1296,7 +1322,8 @@ extension PlayerService {
 
     func handleInterruption(shouldResume: Bool) {
         guard let player = player, player.currentItem != nil else { return }
-        if shouldResume {
+        // 电话打断了正在听的书，挂断后续播也算一次开播：额度用完了就不放回来
+        if shouldResume, allowsPlayback() {
             activateAudioSession()
             rewindAfterPauseIfNeeded()
             player.rate = speedValue()

@@ -74,8 +74,9 @@ final class SonuxRuntime {
         // 收听时长累加：同一秒内紧跟着的 recordPosition 会把统计一起落盘
         player.onListening = { [weak library, weak player] seconds, bookId in
             library?.addListening(seconds: seconds, bookId: bookId)
-            // 没 Pro 的人（试用期内也算）每天只给 30 分钟：正好跨过上限就当场停下，
-            // 把这一天的剩余交给买断页去说
+            // 没 Pro 的人（试用期内也算）每天只给 30 分钟：这一条管「听到一半到点」，
+            // 当场停下并把剩余交给买断页去说。停着没播时再想开播是播放器里那道闸门
+            // （PlayerService.allowsPlayback），每个入口都过，不只在这里弹一次
             if EntitlementService.shared.recordListening(seconds) {
                 player?.pausePlayback()
                 EntitlementService.shared.isPaywallPresented = true
@@ -85,11 +86,23 @@ final class SonuxRuntime {
 
     // MARK: - 语音入口（App Intents 走这里，调试钩子也走这里）
 
+    /// 语音入口的额度闸门：播放器那道闸门是哑的（只会把声音按停），语音这条得说得出原因——
+    /// 只回一句「好的」然后没声音，人只会以为 Siri 没听懂。拦住时顺手把买断页拉起来，
+    /// App 在后台执行意图时 sheet 先记着，界面一起来就显示
+    private func requireDailyQuota() throws {
+        let entitlement = EntitlementService.shared
+        guard entitlement.dailyCapReached else { return }
+        NSLog("[sonux] voice: 今日 30 分钟已用完，不开播")
+        entitlement.isPaywallPresented = true
+        throw SonuxVoiceError.dailyCapReached
+    }
+
     /// 播一本书：报得出书名就播那本，没报就接着上次听的那本。
     /// 手上正是这本且已装载好音频时只续播——「播放我的书」不该把人正在听的那句从头再来
     @discardableResult
     func playForVoice(bookId: String?) throws -> Book {
         start()
+        try requireDailyQuota()
         let book: Book
         if let bookId {
             guard let found = library.book(id: bookId) else {
@@ -120,6 +133,8 @@ final class SonuxRuntime {
     @discardableResult
     func advanceChapterForVoice(by offset: Int) throws -> Chapter {
         start()
+        // 切章会把暂停着的书放出声（走 play(chapter:)），所以也算一次开播
+        try requireDailyQuota()
         guard let chapter = player.currentChapter, offset != 0 else {
             NSLog("[sonux] voice: 手上没有正在听的书，切章就此打住")
             throw SonuxVoiceError.nothingPlaying
@@ -162,12 +177,16 @@ enum SonuxVoiceError: LocalizedError {
     case emptyLibrary
     case missingBook
     case nothingPlaying
+    /// 今天的免费收听额度用完了。文案复用买断页脚注那句（32 种语言已有译文），
+    /// Siri 念得出同一句话，人回到 App 里看到的也是对得上的一句
+    case dailyCapReached
 
     var errorDescription: String? {
         switch self {
         case .emptyLibrary: return L("Your library is empty.")
         case .missingBook: return L("I couldn’t find that book in Sonux.")
         case .nothingPlaying: return L("Nothing is playing in Sonux yet.")
+        case .dailyCapReached: return L("Today’s Free Listening Time Is Used Up")
         }
     }
 }

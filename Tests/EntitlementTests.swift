@@ -161,6 +161,36 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertNil(entitlement.timeLeftToday, "Pro 没有「还剩多少」这回事")
     }
 
+    // MARK: - 开播闸门与跨午夜恢复
+
+    func testDailyCapIsReadLiveSoMidnightReopensPlayback() {
+        // 额度用完时闸门是关的；记账那天的键一换（过了午夜）就当场重新放行——
+        // 不靠重启，也不能等「再听一笔」去把标志翻回来，那一笔本来就播不出来了
+        let entitlement = service(trialDaysAgo: 1)
+        seedUsage(day: EntitlementPolicy.dayKey(Date()), seconds: 1_800)
+        XCTAssertTrue(entitlement.dailyCapReached)
+        seedUsage(day: EntitlementPolicy.dayKey(Date().addingTimeInterval(-day)), seconds: 9_000)
+        XCTAssertFalse(entitlement.dailyCapReached, "昨天听超了不欠到今天")
+    }
+
+    func testDailyCapNeverClosesForPro() {
+        let pro = service(trialDaysAgo: 1, purchased: true)
+        seedUsage(day: EntitlementPolicy.dayKey(Date()), seconds: 9_000)
+        XCTAssertFalse(pro.dailyCapReached, "买断的人没有每天 30 分钟这回事")
+    }
+
+    func testCapAnnouncementReArmsOnANewDay() {
+        // 「到点报一次」是当天一次，不是装到过期就再不报：新的一天到点还得停下领人去买断页
+        let entitlement = service(trialDaysAgo: 1)
+        seedUsage(day: EntitlementPolicy.dayKey(Date()), seconds: 2_000)
+        XCTAssertTrue(entitlement.recordListening(30), "跨过上限那一刻该报")
+        XCTAssertFalse(entitlement.recordListening(30), "同一天报一次就够")
+        seedUsage(day: EntitlementPolicy.dayKey(Date().addingTimeInterval(-day)), seconds: 2_000)
+        XCTAssertFalse(entitlement.recordListening(30), "新的一天从 0 计")
+        XCTAssertFalse(entitlement.recordListening(1_769), "1799 秒还没到")
+        XCTAssertTrue(entitlement.recordListening(1), "新的一天到点照样要报")
+    }
+
     private func seedUsage(day: String, seconds: TimeInterval) {
         UserDefaults.standard.set(day, forKey: EntitlementPolicy.usageDayKey)
         UserDefaults.standard.set(seconds, forKey: EntitlementPolicy.usageSecondsKey)

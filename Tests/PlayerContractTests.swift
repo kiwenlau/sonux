@@ -89,8 +89,8 @@ final class PlayerContractTests: XCTestCase {
     // MARK: - SonuxVoiceError
 
     func testVoiceError_allCasesHaveDescriptions() {
-        // 三条错误都会被 Siri 念出来，任何一条 errorDescription 为空都算事故
-        for err in [SonuxVoiceError.emptyLibrary, .missingBook, .nothingPlaying] {
+        // 这几条错误都会被 Siri 念出来，任何一条 errorDescription 为空都算事故
+        for err in [SonuxVoiceError.emptyLibrary, .missingBook, .nothingPlaying, .dailyCapReached] {
             XCTAssertNotNil(err.errorDescription)
             XCTAssertFalse(err.errorDescription!.isEmpty, "\(err) 要有能念出来的话")
         }

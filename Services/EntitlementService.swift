@@ -65,8 +65,6 @@ final class EntitlementService: ObservableObject {
     @Published private(set) var monthly: Product?
     /// 购买或恢复失败时在 Paywall 上说一句
     @Published var purchaseFailed = false
-    /// 今天的 30 分钟用完了：只翻转一次，界面据此提示
-    @Published private(set) var dailyCapReached = true
 
     /// 试用起点：第一次读到付费判定的那一刻定下，之后不再改
     private let trialStart: Date
@@ -122,7 +120,6 @@ final class EntitlementService: ObservableObject {
         let defaults = UserDefaults.standard
         isPurchased = defaults.bool(forKey: EntitlementPolicy.purchasedKey)
         isSubscribed = defaults.bool(forKey: EntitlementPolicy.subscribedKey)
-        dailyCapReached = EntitlementPolicy.capReached(todaySeconds: todaySeconds)
         NSLog("[sonux] paywall: 试用起点 %.0f（%d 天前），买断 %@，订阅 %@，开发版放行 %@，Pro %@，今天已听 %.0f 秒",
               trialStart.timeIntervalSince1970,
               Int(Date().timeIntervalSince(trialStart) / (24 * 60 * 60)),
@@ -151,7 +148,6 @@ final class EntitlementService: ObservableObject {
         isPurchased = purchased
         isSubscribed = subscribed
         unlockedForDevelopment = false
-        dailyCapReached = false
     }
 
     static func forTests(trialStart: Date, purchased: Bool = false,
@@ -181,8 +177,18 @@ final class EntitlementService: ObservableObject {
 
     // MARK: - 每日收听额度
 
+    /// 今天的 30 分钟用完没：每次现读记账，不做缓存。
+    /// 缓存过一次就修不回来——额度按本地日历天恢复，App 里跨了午夜而标志位还留着「用完了」，
+    /// 唯一能把它翻回假的那件事又是「记一笔收听」，可播放早被这道闸门拦住了，永远记不上
+    var dailyCapReached: Bool { isMetered && EntitlementPolicy.capReached(todaySeconds: todaySeconds) }
+
+    /// 今天已经为「到点」提示过没有：只在跨过上限的那一刻停一次、弹一次买断页，
+    /// 之后每笔结账不再重复。换天重新计数，它也跟着重新允许报一次
+    private var capAnnounced = false
+
     /// 记一笔真实收听秒数（播放器攒着随进度一起报，30 秒一笔）。
-    /// 正好跨过上限时返回 true，调用方据此停下并把用户领去买断页
+    /// 正好跨过上限时返回 true，调用方据此停下并把用户领去买断页。
+    /// 这只管「听到一半到点」；停着没出声时想开播由 `dailyCapReached` 那道闸门拦，见 PlayerService
     @discardableResult
     func recordListening(_ seconds: TimeInterval) -> Bool {
         guard isMetered, seconds > 0 else { return false }
@@ -195,9 +201,13 @@ final class EntitlementService: ObservableObject {
         defaults.set(day, forKey: EntitlementPolicy.usageDayKey)
         accumulated += seconds
         defaults.set(accumulated, forKey: EntitlementPolicy.usageSecondsKey)
-        let reached = EntitlementPolicy.capReached(todaySeconds: accumulated)
-        defer { dailyCapReached = reached }
-        return reached && !dailyCapReached
+        guard EntitlementPolicy.capReached(todaySeconds: accumulated) else {
+            capAnnounced = false   // 还没到点（新的一天第一笔走这里），到点时要再报一次
+            return false
+        }
+        guard !capAnnounced else { return false }   // 今天已经报过，别每笔都弹一次买断页
+        capAnnounced = true
+        return true
     }
 
     // MARK: - 商店
